@@ -1,4 +1,5 @@
 import discord
+import os
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -17,4 +18,4 @@ async def on_message(message):
     if message.content.startswith('$ping'):
         await message.channel.send('pong!')
 
-client.run('OTE5MDUyNjQ3NjA3MTkzNjIw.G9sXxl.BOlXaIe3UJ_-62hmREqQxCCPTOXQOY2JIZaAkU')
+client.run(os.environ['TOKEN'])
