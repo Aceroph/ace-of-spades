@@ -1,9 +1,36 @@
 from discord.ext import commands
 import discord
-import os
-from dotenv import load_dotenv
+from discord import app_commands
 
-load_dotenv('.env')
+import json
+from datetime import datetime
+import pytz
+from typing import Optional, Literal
+
+initial_extensions = [
+    "cogs.image",
+    "cogs.economy",
+    "cogs.moderation"
+]
+
+def getCogs():
+    cogs = {}
+    for cog in initial_extensions:
+        if cog in bot.config["DISABLED_COGS"]:
+            cogs[cog] = "disabled"
+        
+        elif cog in bot.config["WIP_COGS"]:
+            cogs[cog] = "wip"
+        
+        elif bot.get_cog(cog.split('.')[1].capitalize()):
+            cogs[cog] = "loaded"
+        
+        else:
+            cogs[cog] = "failed"
+    return cogs
+
+def prettyCog(cog: str):
+    return cog.split('.')[1].capitalize()
 
 def prefix(bot: commands.Bot, msg):
     client_id = bot.user.id
@@ -24,13 +51,106 @@ class AceHelp(commands.HelpCommand):
 
 
 class AceBot(commands.Bot):
-
     def __init__(self):
         super().__init__(command_prefix=prefix, intents=discord.Intents.all(), help_command=AceHelp())
+        with open("config.json", "r") as cfg:
+            self.config = json.load(cfg)
+
+    async def setup_hook(self):
+        await self.add_cog(Debug(self))
+
+        for extension in initial_extensions:
+            if extension not in bot.config["DISABLED_COGS"] or extension not in bot.config["WIP_COGS"]:
+                try:
+                    await self.load_extension(extension)
+                    print(f"{extension} loaded !")
+        
+                except Exception as e:
+                    print(f"{extension} failed to load ! : {e}")
+            else:
+                print(f"{extension} disabled !")
 
     async def on_ready(self):
         print(f'Connected as {self.user} (ID: {self.user.id})')
 
-
 bot = AceBot()
-bot.run(os.environ.get('TOKEN'))
+
+class Debug(commands.Cog):
+    def __init__(self, bot):
+        self.bot = bot
+
+    @commands.command()
+    @commands.guild_only()
+    @commands.is_owner()
+    async def sync(self, ctx: commands.Context, guilds: commands.Greedy[discord.Object], spec: Optional[Literal["~", "*", "^"]] = None) -> None:
+        if not guilds:
+            if spec == "~":
+                synced = await ctx.bot.tree.sync(guild=ctx.guild)
+            elif spec == "*":
+                ctx.bot.tree.copy_global_to(guild=ctx.guild)
+                synced = await ctx.bot.tree.sync(guild=ctx.guild)
+            elif spec == "^":
+                ctx.bot.tree.clear_commands(guild=ctx.guild)
+                await ctx.bot.tree.sync(guild=ctx.guild)
+                synced = []
+            else:
+                synced = await ctx.bot.tree.sync()
+
+            await ctx.send(
+                f"Synced {len(synced)} commands {'globally' if spec is None else 'to the current guild.'}"
+            )
+            return
+
+        ret = 0
+        for guild in guilds:
+            try:
+                await ctx.bot.tree.sync(guild=guild)
+            except discord.HTTPException:
+                pass
+            else:
+                ret += 1
+
+        await ctx.send(f"Synced the tree to {ret}/{len(guilds)}.")
+
+    @commands.hybrid_group(invoke_without_command=True, with_app_command=True)
+    @commands.is_owner()
+    async def cogs(self, ctx: commands.Context):
+        e = discord.Embed(
+            color=discord.Color.blurple(),
+            title="Extensions"
+        )
+        e.set_footer(text=datetime.strftime(datetime.now(tz=pytz.timezone('US/Eastern')), "Today at %I:%M%P"))
+        
+        list = ""
+        for cog in getCogs():
+            status = getCogs()[cog]
+
+            if status == "loaded":
+                status = ":white_check_mark:"
+
+            elif status == "disabled":
+                status = ":octagonal_sign:"
+
+            elif status == "wip":
+                status = ":construction:"
+            
+            else:
+                status = ":arrows_counterclockwise:"
+            
+            list += f"{status} {prettyCog(cog)}\n"
+
+        e.description = list
+        await ctx.send(embed=e)
+
+    @cogs.command()
+    @app_commands.choices(cog=[app_commands.Choice(name=prettyCog(cog), value=cog) for cog in getCogs()])
+    async def reload(self, ctx: commands.Context, cog: str):
+        try:
+            await bot.reload_extension(cog)
+            await ctx.reply(f":arrows_counterclockwise: Reloaded cog {cog}")
+        except Exception as e:
+            await ctx.reply(f":octagonal_sign: Couldn't reload __{cog}__ : `{e}`")
+    
+
+if __name__ == "__main__":
+    bot.run(bot.config["TOKEN"])
