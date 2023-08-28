@@ -3,9 +3,10 @@ import discord
 from discord import app_commands
 
 import json
-from datetime import datetime
 import pytz
+from datetime import datetime
 from typing import Optional, Literal
+import sqlite3
 
 initial_extensions = [
     "cogs.image",
@@ -13,28 +14,31 @@ initial_extensions = [
     "cogs.moderation"
 ]
 
+
 def getCogs():
     cogs = {}
     for cog in initial_extensions:
         if cog in bot.config["DISABLED_COGS"]:
             cogs[cog] = "disabled"
-        
+
         elif cog in bot.config["WIP_COGS"]:
             cogs[cog] = "wip"
-        
+
         elif bot.get_cog(cog.split('.')[1].capitalize()):
             cogs[cog] = "loaded"
-        
+
         else:
             cogs[cog] = "failed"
     return cogs
 
+
 def prettyCog(cog: str):
     return cog.split('.')[1].capitalize()
 
-def prefix(bot: commands.Bot, msg):
+
+def prefix(bot, msg):
     client_id = bot.user.id
-    return ['a.', f'<@!{client_id}>', f'<@{client_id}>']
+    return ['a.', f'<@!{client_id}> ', f'<@{client_id}> ']
 
 
 class AceHelp(commands.HelpCommand):
@@ -55,6 +59,7 @@ class AceBot(commands.Bot):
         super().__init__(command_prefix=prefix, intents=discord.Intents.all(), help_command=AceHelp())
         with open("config.json", "r") as cfg:
             self.config = json.load(cfg)
+            self.db = sqlite3.connect(self.config["DATABASE"])
 
     async def setup_hook(self):
         await self.add_cog(Debug(self))
@@ -64,7 +69,7 @@ class AceBot(commands.Bot):
                 try:
                     await self.load_extension(extension)
                     print(f"{extension} loaded !")
-        
+
                 except Exception as e:
                     print(f"{extension} failed to load ! : {e}")
             else:
@@ -73,7 +78,9 @@ class AceBot(commands.Bot):
     async def on_ready(self):
         print(f'Connected as {self.user} (ID: {self.user.id})')
 
+
 bot = AceBot()
+
 
 class Debug(commands.Cog):
     def __init__(self, bot):
@@ -82,7 +89,8 @@ class Debug(commands.Cog):
     @commands.command()
     @commands.guild_only()
     @commands.is_owner()
-    async def sync(self, ctx: commands.Context, guilds: commands.Greedy[discord.Object], spec: Optional[Literal["~", "*", "^"]] = None) -> None:
+    async def sync(self, ctx: commands.Context, guilds: commands.Greedy[discord.Object],
+                   spec: Optional[Literal["~", "*", "^"]] = None) -> None:
         if not guilds:
             if spec == "~":
                 synced = await ctx.bot.tree.sync(guild=ctx.guild)
@@ -112,7 +120,7 @@ class Debug(commands.Cog):
 
         await ctx.send(f"Synced the tree to {ret}/{len(guilds)}.")
 
-    @commands.hybrid_group(invoke_without_command=True, with_app_command=True)
+    @commands.hybrid_group()
     @commands.is_owner()
     async def cogs(self, ctx: commands.Context):
         e = discord.Embed(
@@ -120,8 +128,8 @@ class Debug(commands.Cog):
             title="Extensions"
         )
         e.set_footer(text=datetime.strftime(datetime.now(tz=pytz.timezone('US/Eastern')), "Today at %I:%M%P"))
-        
-        list = ""
+
+        e.description = ""
         for cog in getCogs():
             status = getCogs()[cog]
 
@@ -133,13 +141,12 @@ class Debug(commands.Cog):
 
             elif status == "wip":
                 status = ":construction:"
-            
+
             else:
                 status = ":arrows_counterclockwise:"
-            
-            list += f"{status} {prettyCog(cog)}\n"
 
-        e.description = list
+            e.description += f"{status} {prettyCog(cog)}\n"
+
         await ctx.send(embed=e)
 
     @cogs.command()
@@ -150,7 +157,23 @@ class Debug(commands.Cog):
             await ctx.reply(f":arrows_counterclockwise: Reloaded cog {cog}")
         except Exception as e:
             await ctx.reply(f":octagonal_sign: Couldn't reload __{cog}__ : `{e}`")
-    
+
+    @commands.hybrid_group()
+    @commands.is_owner()
+    async def debug(self, ctx: commands.Context):
+        await ctx.send("WIP")
+
+    @debug.command()
+    async def sql(self, ctx: commands.Context, command: str):
+        try:
+            r = bot.db.cursor().execute(command).fetchall()
+            bot.db.commit()
+
+            await ctx.send("Done !" if r is None else r)
+
+        except Exception as e:
+            await ctx.send(e)
+
 
 if __name__ == "__main__":
     bot.run(bot.config["TOKEN"])
