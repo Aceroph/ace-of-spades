@@ -9,7 +9,6 @@ from typing import Optional, Literal
 import sqlite3
 
 initial_extensions = [
-    "cogs.image",
     "cogs.economy",
     "cogs.moderation"
 ]
