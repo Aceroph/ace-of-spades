@@ -2,16 +2,18 @@ from discord.ext import commands
 import discord
 from discord import app_commands
 
-import json
-import asyncio
 import pytz
+import dotenv
 from datetime import datetime
 from typing import Optional, Literal
 import sqlite3
+import traceback
+import sys
 
 initial_extensions = [
     "cogs.moderation",
-    "cogs.utility"
+    "cogs.utility",
+    "cogs.economy"
 ]
 
 
@@ -23,9 +25,10 @@ def prefix(bot, msg):
     client_id = bot.user.id
     return ['a.', f'<@!{client_id}> ', f'<@{client_id}> ']
 
-def loadConfig(file):
-    with open(file, 'r') as cfg:
-        return json.load(cfg)
+def loadDatabase():
+    connection = sqlite3.connect("database.db")
+    return connection.cursor()
+
 
 class AceHelp(commands.HelpCommand):
 
@@ -43,23 +46,18 @@ class AceHelp(commands.HelpCommand):
 class AceBot(commands.Bot):
     def __init__(self):
         super().__init__(command_prefix=prefix, intents=discord.Intents.all(), help_command=AceHelp())
-        self.config = loadConfig("config.json")
-        self.token = self.config["TOKEN"]
-    
-    async def getConfig(self, key, interaction: discord.Interaction=None):
-        try:
-            return self.config[key]
-        except Exception as e:
-            if interaction:
-                await interaction.response.send_message(e)
-            else:
-                print(e)
+        self.cursor = loadDatabase()
+        self.token = dotenv.dotenv_values(".env")["TOKEN"]
+
+    def getGuildConfig(self, cursor: sqlite3.Cursor, id: int, key: str):
+        output = cursor.execute(f"SELECT value FROM guildConfig WHERE id = {id} AND key = {key}")
+        return output.fetchall()
 
     @staticmethod
-    def getCogs():
+    def getCogs(self, cursor: sqlite3.Cursor, guild: int):
         cogs = {}
         for cog in initial_extensions:
-            if cog in asyncio.run(bot.getConfig("DISABLED_COGS")):
+            if cog in self.getGuildConfig(cursor, guild, "DISABLED_COGS"):
                 cogs[cog] = "disabled"
 
             elif bot.get_cog(cog.split('.')[1].capitalize()):
@@ -73,24 +71,22 @@ class AceBot(commands.Bot):
         await self.add_cog(Debug(self))
 
         for extension in initial_extensions:
-            if extension not in await self.getConfig("DISABLED_COGS"):
-                try:
-                    await self.load_extension(extension)
-                    print(f"{extension} loaded !")
+            try:
+                await self.load_extension(extension)
+                print(f"{extension} loaded !")
 
-                except Exception as e:
-                    print(f"{extension} failed to load ! : {e}")
-            else:
-                print(f"{extension} disabled !")
+            except Exception as e:
+                print(f"{extension} failed to load ! : {e}")
 
     async def on_ready(self):
         print(f'Connected as {self.user} (ID: {self.user.id})')
 
-    async def on_command_error(self, ctx, error):
+    async def on_command_error(self, ctx, error: commands.CommandError):
         if isinstance(error, commands.MissingPermissions):
             await ctx.reply("https://tenor.com/view/nuh-uh-beocord-no-lol-gif-24435520")
         else:
-            await ctx.reply(error)
+            print('Ignoring exception in command {}:'.format(ctx.command), file=sys.stderr)
+            traceback.print_exception(type(error), error, error.__traceback__, file=sys.stderr)
 
 
 bot = AceBot()
@@ -141,11 +137,11 @@ class Debug(commands.Cog):
             color=discord.Color.blurple(),
             title="Extensions"
         )
-        e.set_footer(text=datetime.strftime(datetime.now(tz=pytz.timezone('US/Eastern')), "Today at %I:%M%P"))
+        e.set_footer(text=datetime.strftime(datetime.now(tz=pytz.timezone('US/Eastern')), "Today at %H:%M"))
 
         e.description = ""
-        for cog in self.getCogs():
-            status = self.getCogs()[cog]
+        for cog in self.bot.getCogs(self.bot.cursor, ctx.guild.id):
+            status = self.bot.getCogs(self.bot.cursor, ctx.guild.id)[cog]
 
             if status == "loaded":
                 status = ":white_check_mark:"
@@ -161,13 +157,16 @@ class Debug(commands.Cog):
         await ctx.send(embed=e)
 
     @cogs.command()
-    @app_commands.choices(cog=[app_commands.Choice(name=prettyCog(cog), value=cog) for cog in bot.getCogs()])
     async def reload(self, ctx: commands.Context, cog: str):
         try:
             await bot.reload_extension(cog)
             await ctx.reply(f":arrows_counterclockwise: Reloaded cog {cog}")
         except Exception as e:
-            await ctx.reply(f":octagonal_sign: Couldn't reload __{cog}__ : `{e}`")
+            await ctx.reply(f":octagonal_sign: Couldn't reload `{cog}` : `{e}`")
+
+    @reload.autocomplete("cog")
+    async def autocomplete_reload(self, interaction: discord.Interaction, current: str):
+        return [app_commands.Choice(name=prettyCog(cog), value=cog) for cog in bot.getCogs(bot.cursor, interaction.guild_id)]
 
     @commands.hybrid_group()
     @commands.is_owner()
@@ -177,8 +176,8 @@ class Debug(commands.Cog):
     @debug.command()
     async def sql(self, ctx: commands.Context, command: str):
         try:
-            r = bot.db.cursor().execute(command).fetchall()
-            bot.db.commit()
+            r = bot.cursor.execute(command).fetchall()
+            bot.cursor.connection.commit()
 
             await ctx.send("Done !" if r is None else r)
 

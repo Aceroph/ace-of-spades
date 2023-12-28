@@ -8,7 +8,7 @@ class Utility(commands.Cog):
 
     @commands.Cog.listener("on_voice_state_update")
     async def private_vc(self, member: discord.Member, before: discord.VoiceState, after: discord.VoiceState):
-        private_vc_id = await self.bot.getConfig("PRVT_VC_ID")
+        private_vc_id = await self.bot.getGuildConfig(self.bot.cursor, member.guild.id, "private_vc")
         if private_vc_id:
             name = '🔊' + member.name + "'s vc"
             if after.channel and after.channel.id == private_vc_id:
