@@ -1,60 +1,95 @@
+import asyncio
 from discord.ext import commands
 import discord
-from typing import Union
-
-class PermissionSelect(discord.ui.Select):
-    def __init__(self, categories, obj):
-        self.categories = categories
-        self.obj = obj
-        self.emojis = {
-            "All permissions": "*️⃣",
-            "General": "🏠",
-            "Membership": "🧍",
-            "Elevated": "🚨",
-            "Text": "💬",
-            "Voice": "🗣️"
-        }
-        options = [discord.SelectOption(label=category, emoji=self.emojis[category]) for category in categories.keys()]
-        super().__init__(max_values=1, min_values=1, options=options)
-    
-    async def page(self, page):
-        items = self.categories[page]
-        e = discord.Embed(color=discord.Color.blurple(), title=f"{self.obj}'s rights")
-        e.add_field(name=f"{self.emojis[page]} {page} ({len(items)})", value="-> " + "\n-> ".join(items).replace("_", " ") if items != [] else "No rights in sight sergeant !")
-        return e
-
-    async def callback(self, interaction: discord.Interaction):
-        await interaction.response.edit_message(embed=await self.page(self.values[0]))
+from typing import Optional, Union
+from main import AceBot
+from tabulate import tabulate
 
 
 class Moderation(commands.Cog):
     def __init__(self, bot):
-        self.bot = bot
+        self.bot: AceBot = bot
+        self.emoji = ":scales:"
+
+
+    @commands.hybrid_command(aliases=['perms', 'rights'])
+    async def permissions(self, ctx: commands.Context, object: Union[discord.Member, discord.Role] = None, channel: Optional[discord.TextChannel] = None):
+        channel = channel if channel else ctx.channel
+        object = object if object else ctx.author
+        icon = object.avatar.url if type(object) is discord.Member else self.bot.user.avatar.url
+        permissions = channel.permissions_for(object)
+        color = discord.Color.blurple() if isinstance(object, discord.Member) or object.color.value == 0 else object.color
+
+        embed = discord.Embed(title="Chart of rights", description=f"{'Permissions' if isinstance(object, discord.Member) else 'Role permissions'} for {channel.mention}", color=color, url=f"https://discordapi.com/permissions.html#{permissions.value}")
+        embed.set_author(name=object, icon_url=icon)
+        embed.set_footer(text="Click on Chart of rights to view all permissions (Was too lazy to print them here)")
+
+        await ctx.reply(embed=embed)
+
+    @commands.hybrid_command(name="permissions-edit", aliases=["perms-edit"])
+    @commands.is_owner()
+    async def permissions_edit(self, ctx: commands.Context, role: discord.Role, channel: Optional[discord.TextChannel] = None, *, permissions: str):
+        channels = [channel] if channel else ctx.guild.text_channels
+        changelog = ""
+        
+        async with ctx.channel.typing():
+            for channel in channels:
+                new_perms = dict(channel.permissions_for(role))
+
+                for permission in permissions.split():
+                    # split action (+/-) and permission
+                    action = permission[0]
+                    permission = permission[1:]
+
+                    # edit permissions
+                    match action:
+                        case "+":
+                            match permission:
+                                case "*":
+                                    new_perms = dict(discord.Permissions.all())
+                                    changelog += "[+] All permissions\n"
+                                case other:
+                                    new_perms[other] = True
+                                    changelog += f"[+] {other.replace('_', ' ').capitalize()}\n"
+
+                        case "-":
+                            match permission:
+                                case "*":
+                                    new_perms = {}
+                                    changelog += "[-] All permissions\n"
+                                case other:
+                                    new_perms[other] = False
+                                    changelog += f"[-] {other.replace('_', ' ').capitalize()}\n"
+
+                        case "=":
+                            new_perms[permission] = None
+                            changelog += f"[=] {permission.replace('_', ' ').capitalize()}\n"
+
+                overwrite = discord.PermissionOverwrite(**new_perms)
+                await channel.set_permissions(role, overwrite=overwrite)
+                await asyncio.sleep(0.5)
+        
+        # embed
+        color = discord.Color.blurple() if not isinstance(role, discord.Role) or role.color.value == 0 else role.color
+        embed = discord.Embed(color=color, title="Permission manager", description=f"Updated roles for {role.name} {'in ' + channel.mention if len(channels) < 2 else 'globally'}\n```\n{changelog}```")
+        embed.set_author(name=role.name, icon_url=self.bot.user.avatar.url)
+
+        await ctx.reply(embed=embed)
 
 
     @commands.hybrid_command()
-    async def perms(self, ctx: commands.Context, object: Union[discord.Member, discord.Role]=None):
-        perms = ctx.channel.permissions_for(object) if object else ctx.channel.permissions_for(ctx.author)
-        categories = {
-            "General": [x if y else None for x, y in iter(discord.permissions.Permissions.general())],
-            "Membership": [x if y else None for x, y in iter(discord.permissions.Permissions.membership())],
-            "Elevated": [x if y else None for x, y in iter(discord.permissions.Permissions.elevated())],
-            "Text": [x if y else None for x, y in iter(discord.permissions.Permissions.text())],
-            "Voice": [x if y else None for x, y in iter(discord.permissions.Permissions.voice())]
-            }
-        output = {"All permissions": []}
-        for category in categories:
-            output[category] = []
-            for perm, value in iter(perms):
-                if perm in categories[category] and value:
-                    output[category].append(perm)
-                    output["All permissions"].append(perm)
+    @commands.is_owner()
+    async def config(self, ctx: commands.Context):
+        config = self.bot.get_guild_config(ctx.guild.id)
+        config = [[x[1], x[2]] for x in config]
 
-        view = discord.ui.View()
-        select = PermissionSelect(output, object.name if object else ctx.author.name)
-        view.add_item(select)
+        embed = discord.Embed(title=f"{ctx.guild.name}'s configuration", colour=discord.Color.blurple())
+        embed.set_author(name="Guild Config", icon_url=self.bot.user.avatar.url)
+        embed.description = f'```\n{tabulate(config, headers=["Key", "Value"], tablefmt="outline")}```'
 
-        await ctx.reply(embed=await select.page("General"), view=view)
+        await ctx.send(embed=embed)
+
+    
 
 
 async def setup(bot):

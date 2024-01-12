@@ -1,25 +1,31 @@
 from discord.ext import commands
 import discord
 import sqlite3
+from main import AceBot
+from typing import Optional
 
 class Economy(commands.Cog):
     def __init__(self, bot):
-        self.bot: commands.Bot = bot
-        self.cursor: sqlite3.Cursor = self.bot.cursor
+        self.bot: AceBot = bot
+        self.emoji = ":coin:"
+        self.connection = sqlite3.connect("database.db")
     
-    def getBalance(self, id):
-        return self.cursor.execute(f"SELECT money FROM users WHERE id = {id}").fetchall()[0][0]
+    def get_balance(self, id):
+        return self.connection.cursor().execute(f"SELECT money FROM users WHERE id = {id}").fetchall()[0][0]
 
     @commands.hybrid_command()
-    async def balance(self, ctx: discord.Interaction):
-        await ctx.send(f"You have currently {self.getBalance(ctx.message.author.id)} $")
-
-    @commands.hybrid_command()
-    async def addmoney(self, ctx: discord.Interaction, amount: int):
-        balance = self.getBalance(ctx.message.author.id)
-        self.cursor.execute(f"UPDATE users SET money = {balance + amount} WHERE id = {ctx.message.author.id}")
-        self.cursor.connection.commit()
-        await ctx.send(f"{amount} $ was added to your balance")
+    async def balance(self, ctx: discord.Interaction, member: Optional[discord.Member] = None, amount: Optional[int] = None):
+        """Checks your current balance or another member's. `Amount` is owner-only"""
+        current_balance = self.get_balance(member.id if member else ctx.message.author.id)
+        if amount:
+            if await self.bot.is_owner(ctx.message.author):
+                self.connection.cursor().execute(f"UPDATE users SET money = {current_balance + amount} WHERE {member.id if member else ctx.message.author.id};")
+                self.connection.commit()
+                await ctx.send(f"{abs(amount)}$ was {'added to' if amount >= 0 else 'removed from'} your balance ({current_balance}$ -> {current_balance + amount}$)")
+            else:
+                raise commands.NotOwner()
+        else:
+            await ctx.send(f"You have currently {current_balance}$")
 
 async def setup(bot):
     await bot.add_cog(Economy(bot))

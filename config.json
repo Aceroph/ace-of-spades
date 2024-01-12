@@ -1,0 +1,7 @@
+{
+    "initial_modules": [
+        "moderation",
+        "utility",
+        "economy"
+    ]
+}
