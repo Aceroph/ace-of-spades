@@ -20,10 +20,6 @@ import pathlib
 # FILE MANAGEMENT
 directory = pathlib.Path(__file__).parent
 
-def prefix(bot, msg):
-    client_id = bot.user.id
-    return ['a.', f'<@!{client_id}> ', f'<@{client_id}> ']
-
 def insert_returns(body):
         # insert return stmt if the last expression is a expression statement
         if isinstance(body[-1], ast.Expr):
@@ -43,7 +39,7 @@ class AceHelp(commands.HelpCommand):
     async def send_bot_help(self, mapping):
         embed = discord.Embed(color=discord.Color.blurple())
         embed.set_author(name="Thy help center", icon_url=self.context.bot.user.avatar.url)
-        embed.set_footer(text="For more, do a.help `command`")
+        embed.set_footer(text=f"For more, do {self.context.prefix}help `command`")
         for cog in (self.context.bot.cogs).values():
             if cog.get_commands().__len__() > 0:
                 filtered = await self.filter_commands(cog.get_commands(), sort=True)
@@ -62,10 +58,10 @@ class AceHelp(commands.HelpCommand):
         
         # usage
         clean_signature = self.get_command_signature(command).split()
-        clean_signature[0] = f"a.{command.name}"
+        clean_signature[0] = f"{self.context.prefix}{command.name}"
         embed.add_field(name="Usage", value=f"```\n{' '.join(clean_signature)}```\nWhere `< Required >`, `[ Optional ]` & `| Either |`", inline=False)
 
-        embed.set_footer(text="For a global view of the commands, refer to a.help")
+        embed.set_footer(text=f"For a global view of the commands, refer to {self.context.prefix}help")
         await self.get_destination().send(embed=embed)
     
     async def send_group_help(self, group: Group):
@@ -73,7 +69,7 @@ class AceHelp(commands.HelpCommand):
         embed.set_author(name="Thy help center", icon_url=self.context.bot.user.avatar.url)
         embed.add_field(name=f"{group.cog.emoji} {group.qualified_name.capitalize()}", value=group.short_doc if group.short_doc else "No description *yet*", inline=False)
         embed.add_field(name="Commands", value=" ".join([f"`{command.name}`" for command in group.commands]), inline=False)
-        embed.set_footer(text="For more, do a.help `command`")
+        embed.set_footer(text=f"For more, do {self.context.prefix}help `command`")
         await self.get_destination().send(embed=embed)
 
     async def send_error_message(self, error):
@@ -82,7 +78,7 @@ class AceHelp(commands.HelpCommand):
 
 class AceBot(commands.Bot):
     def __init__(self):
-        super().__init__(command_prefix=prefix, intents=discord.Intents.all(), help_command=AceHelp())
+        super().__init__(command_prefix=dotenv.dotenv_values('.env')["PREFIX"], intents=discord.Intents.all(), help_command=AceHelp())
         self.connection = sqlite3.connect(directory / 'database.db')
         self.token = dotenv.dotenv_values('.env')["TOKEN"]
         self.config: dict = json.load(open(directory / 'config.json', 'r'))
@@ -197,7 +193,7 @@ class Debug(commands.Cog):
     async def sudo(self, ctx: commands.Context, member: discord.Member, *, command: str):
         alt_msg: discord.Message = copy.copy(ctx.message)
         alt_msg.author = member
-        alt_msg.content = f"a.{command}"
+        alt_msg.content = f"{ctx.prefix}{command}"
         alt_ctx = await bot.get_context(alt_msg, cls=type(ctx))
         await ctx.reply(f"Command executed successfully as {member.name}", ephemeral=True)
         await self.bot.invoke(alt_ctx)

@@ -55,15 +55,20 @@ class Moderation(commands.Cog):
                         case "-":
                             match permission:
                                 case "*":
-                                    new_perms = {}
+                                    new_perms = dict(discord.Permissions.none())
                                     changelog += "[-] All permissions\n"
                                 case other:
                                     new_perms[other] = False
                                     changelog += f"[-] {other.replace('_', ' ').capitalize()}\n"
 
                         case "=":
-                            new_perms[permission] = None
-                            changelog += f"[=] {permission.replace('_', ' ').capitalize()}\n"
+                            match permission:
+                                case "*":
+                                    new_perms = {perm[0]: None for perm in discord.Permissions.all()}
+                                    changelog += "[=] All permissions\n"
+                                case other:
+                                    new_perms[other] = None
+                                    changelog += f"[=] {permission.replace('_', ' ').capitalize()}\n"
 
                 overwrite = discord.PermissionOverwrite(**new_perms)
                 await channel.set_permissions(role, overwrite=overwrite)
