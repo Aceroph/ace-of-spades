@@ -4,6 +4,7 @@ from discord.ext import commands
 import discord
 from discord import app_commands
 from discord.ext.commands.core import Command, Group
+from cogs import EXTENSIONS
 
 import pytz
 import dotenv
@@ -14,7 +15,10 @@ import traceback
 import sys
 import copy
 import asyncio
+import pathlib
 
+# FILE MANAGEMENT
+directory = pathlib.Path(__file__).parent
 
 def prefix(bot, msg):
     client_id = bot.user.id
@@ -79,9 +83,9 @@ class AceHelp(commands.HelpCommand):
 class AceBot(commands.Bot):
     def __init__(self):
         super().__init__(command_prefix=prefix, intents=discord.Intents.all(), help_command=AceHelp())
-        self.connection = sqlite3.connect("database.db")
-        self.token = dotenv.dotenv_values(".env")["TOKEN"]
-        self.config: dict = json.load(open("config.json"))
+        self.connection = sqlite3.connect(directory / 'database.db')
+        self.token = dotenv.dotenv_values('.env')["TOKEN"]
+        self.config: dict = json.load(open(directory / 'config.json', 'r'))
 
     def get_guild_config(self, id: int, key: Optional[str]=None):
         if key is not None:
@@ -97,10 +101,10 @@ class AceBot(commands.Bot):
     async def setup_hook(self):
         await self.add_cog(Debug(self))
 
-        for extension in self.config["initial_modules"]:
+        for extension in EXTENSIONS:
             if extension != "debug":
                 try:
-                    await self.load_extension("cogs." + extension)
+                    await self.load_extension(extension)
                     print(f"{datetime.now().__format__('%Y-%m-%d %H:%M:%S')} INFO     {extension.capitalize()} loaded !")
 
                 except Exception as e:
@@ -178,7 +182,7 @@ class Debug(commands.Cog):
 
     @commands.command()
     @commands.is_owner()
-    async def sql(self, ctx: commands.Context, command: str):
+    async def sql(self, ctx: commands.Context, *, command: str):
         try:
             r = self.bot.connection.cursor().execute(command).fetchall()
             self.bot.connection.commit()
@@ -222,7 +226,8 @@ class Debug(commands.Cog):
             'discord': discord,
             'commands': commands,
             'ctx': ctx,
-            '__import__': __import__
+            '__import__': __import__,
+            '__file__': __file__
         }
         exec(compile(parsed, filename="<ast>", mode="exec"), env)
 

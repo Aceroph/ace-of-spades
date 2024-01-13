@@ -16,10 +16,12 @@ class Economy(commands.Cog):
     @commands.hybrid_command()
     async def balance(self, ctx: discord.Interaction, member: Optional[discord.Member] = None, amount: Optional[int] = None):
         """Checks your current balance or another member's. `Amount` is owner-only"""
-        current_balance = self.get_balance(member.id if member else ctx.message.author.id)
+        id = member.id if member else ctx.message.author.id
+        
+        current_balance = self.get_balance(id)
         if amount:
             if await self.bot.is_owner(ctx.message.author):
-                self.connection.cursor().execute(f"UPDATE users SET money = {current_balance + amount} WHERE {member.id if member else ctx.message.author.id};")
+                self.connection.cursor().execute(f"UPDATE users SET money = ? WHERE id = ?;", (current_balance + amount, id))
                 self.connection.commit()
                 await ctx.send(f"{abs(amount)}$ was {'added to' if amount >= 0 else 'removed from'} your balance ({current_balance}$ -> {current_balance + amount}$)")
             else:
