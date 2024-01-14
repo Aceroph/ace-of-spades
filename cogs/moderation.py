@@ -14,6 +14,7 @@ class Moderation(commands.Cog):
 
     @commands.hybrid_command(aliases=['perms', 'rights'])
     async def permissions(self, ctx: commands.Context, object: Union[discord.Member, discord.Role] = None, channel: Optional[discord.TextChannel] = None):
+        """Outputs the permissions of any role or person in a webpage"""
         channel = channel if channel else ctx.channel
         object = object if object else ctx.author
         icon = object.avatar.url if type(object) is discord.Member else self.bot.user.avatar.url
@@ -29,6 +30,7 @@ class Moderation(commands.Cog):
     @commands.hybrid_command(name="permissions-edit", aliases=["perms-edit"])
     @commands.is_owner()
     async def permissions_edit(self, ctx: commands.Context, role: discord.Role, channel: Optional[discord.TextChannel] = None, *, permissions: str):
+        """Modify a role's permission for one or many channels"""
         channels = [channel] if channel else ctx.guild.text_channels
         changelog = ""
         
@@ -85,6 +87,7 @@ class Moderation(commands.Cog):
     @commands.hybrid_command()
     @commands.is_owner()
     async def config(self, ctx: commands.Context):
+        """Shows current guild's config"""
         config = self.bot.get_guild_config(ctx.guild.id)
         config = [[x[1], x[2]] for x in config]
 

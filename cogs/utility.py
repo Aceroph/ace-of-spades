@@ -24,13 +24,18 @@ class Utility(commands.Cog):
     
     @commands.hybrid_command()
     async def party(self, ctx: commands.Context):
+        """An all-in-one menu to configure your own voice channel"""
         await ctx.send("*Insert a complete dashboard of your party here* (im lazy)")
     
     @commands.hybrid_command(name="party-config", aliases=["vc-config"])
     @commands.is_owner()
-    async def party_config(self, ctx: commands.Context, channel: discord.VoiceChannel):
-        self.bot.set_guild_config(ctx.guild.id, "party_id", channel.id)
-        await ctx.send(f"Party lobby is now {channel.mention}")
+    async def party_config(self, ctx: commands.Context, channel: discord.VoiceChannel = None):
+        """Sets the party lobby"""
+        self.bot.set_guild_config(ctx.guild.id, "party_id", channel.id if channel else 0)
+        if channel:
+            await ctx.send(f"Party lobby is now {channel.mention}")
+        else:
+            await ctx.send("Disabled party lobby")
 
 async def setup(bot):
     await bot.add_cog(Utility(bot))

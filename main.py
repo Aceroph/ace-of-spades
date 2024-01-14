@@ -53,8 +53,9 @@ class AceHelp(commands.HelpCommand):
         embed.set_author(name="Thy help center", icon_url=self.context.bot.user.avatar.url)
         embed.add_field(name=f" {':crown:' if any(func.__qualname__ == commands.is_owner().predicate.__qualname__ for func in command.checks) else ''} {command.cog.emoji} {command.qualified_name.capitalize()}", value=command.short_doc if command.short_doc else "No description *yet*", inline=False)
 
+        # aliases
         if len(command.aliases) > 0:
-            embed.add_field(name="Aliases", value=f"`{'` `'.join(x.capitalize() for x in command.aliases)}`")
+            embed.add_field(name="Aliases", value=f"`{'` `'.join(x for x in command.aliases)}`")
         
         # usage
         clean_signature = self.get_command_signature(command).split()
@@ -67,9 +68,21 @@ class AceHelp(commands.HelpCommand):
     async def send_group_help(self, group: Group):
         embed = discord.Embed(color=discord.Color.blurple())
         embed.set_author(name="Thy help center", icon_url=self.context.bot.user.avatar.url)
-        embed.add_field(name=f"{group.cog.emoji} {group.qualified_name.capitalize()}", value=group.short_doc if group.short_doc else "No description *yet*", inline=False)
+        embed.add_field(name=f" {':crown:' if any(func.__qualname__ == commands.is_owner().predicate.__qualname__ for func in group.checks) else ''} {group.cog.emoji} {group.qualified_name.capitalize()}", value=group.short_doc if group.short_doc else "No description *yet*", inline=False)
+
+        # aliases
+        if len(group.aliases) > 0:
+            embed.add_field(name="Aliases", value=f"`{'` `'.join(x for x in group.aliases)}`")
+
+        # sub commands
         embed.add_field(name="Commands", value=" ".join([f"`{command.name}`" for command in group.commands]), inline=False)
-        embed.set_footer(text=f"For more, do {self.context.prefix}help `command`")
+
+        # usage
+        clean_signature = self.get_command_signature(group).split()
+        clean_signature[0] = f"{self.context.prefix}{group.name}"
+        embed.add_field(name="Usage", value=f"```\n{' '.join(clean_signature)}```\nWhere `< Required >`, `[ Optional ]` & `| Either |`", inline=False)
+
+        embed.set_footer(text=f"For more, do {self.context.prefix}help command")
         await self.get_destination().send(embed=embed)
 
     async def send_error_message(self, error):
@@ -129,6 +142,7 @@ class Debug(commands.Cog):
     @commands.guild_only()
     @commands.is_owner()
     async def sync(self, ctx: commands.Context, option: Optional[Literal["local", "copy", "clear"]] = None):
+        """Syncs all application commands to the specified guild"""
         async with ctx.channel.typing():
             match option:
                 case "local":
@@ -149,8 +163,8 @@ class Debug(commands.Cog):
         return
 
     @commands.hybrid_group(fallback="list")
-    @commands.is_owner()
     async def modules(self, ctx: commands.Context):
+        """Lists all modules with their current status"""
         embed = discord.Embed(color=discord.Color.blurple(), title="Extensions")
         embed.set_footer(text=datetime.strftime(datetime.now(tz=pytz.timezone('US/Eastern')), "Today at %H:%M"))
 
@@ -164,8 +178,10 @@ class Debug(commands.Cog):
 
         await ctx.send(embed=embed)
 
-    @modules.command(name="reload")
+    @commands.hybrid_command(name="module-reload")
+    @commands.is_owner()
     async def module_reload(self, ctx: commands.Context, module: str):
+        """Reloads a module"""
         try:
             await self.bot.reload_extension(module)
             await ctx.reply(f":arrows_counterclockwise: Reloaded module {module}")
@@ -179,6 +195,7 @@ class Debug(commands.Cog):
     @commands.command()
     @commands.is_owner()
     async def sql(self, ctx: commands.Context, *, command: str):
+        """Executes SQL commands to the database"""
         try:
             r = self.bot.connection.cursor().execute(command).fetchall()
             self.bot.connection.commit()
@@ -191,6 +208,7 @@ class Debug(commands.Cog):
     @commands.hybrid_command()
     @commands.is_owner()
     async def sudo(self, ctx: commands.Context, member: discord.Member, *, command: str):
+        """Runs a command as someone else"""
         alt_msg: discord.Message = copy.copy(ctx.message)
         alt_msg.author = member
         alt_msg.content = f"{ctx.prefix}{command}"
@@ -202,6 +220,7 @@ class Debug(commands.Cog):
     @commands.hybrid_command()
     @commands.is_owner()
     async def eval(self, ctx, flags: Optional[Literal["no-output"]] = None, *, code):
+        """Evaluates code and outputs the result if any"""
         fn_name = "_eval_expr"
 
         cmd = code.strip("` ")

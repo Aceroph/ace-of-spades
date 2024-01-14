@@ -15,7 +15,7 @@ class Economy(commands.Cog):
 
     @commands.hybrid_command()
     async def balance(self, ctx: discord.Interaction, member: Optional[discord.Member] = None, amount: Optional[int] = None):
-        """Checks your current balance or another member's. `Amount` is owner-only"""
+        """Checks your current balance or another member's"""
         id = member.id if member else ctx.message.author.id
         
         current_balance = self.get_balance(id)
