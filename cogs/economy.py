@@ -13,8 +13,8 @@ class Economy(commands.Cog):
     def get_balance(self, id):
         return self.connection.cursor().execute(f"SELECT money FROM users WHERE id = {id}").fetchall()[0][0]
 
-    @commands.hybrid_command()
-    async def balance(self, ctx: discord.Interaction, member: Optional[discord.Member] = None, amount: Optional[int] = None):
+    @commands.command()
+    async def balance(self, ctx: commands.Context, member: Optional[discord.Member] = None, amount: Optional[int] = None):
         """Checks your current balance or another member's"""
         id = member.id if member else ctx.message.author.id
         
@@ -29,5 +29,5 @@ class Economy(commands.Cog):
         else:
             await ctx.send(f"You have currently {current_balance}$")
 
-async def setup(bot):
+async def setup(bot: AceBot):
     await bot.add_cog(Economy(bot))

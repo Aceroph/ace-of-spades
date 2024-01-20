@@ -12,7 +12,7 @@ class Moderation(commands.Cog):
         self.emoji = ":scales:"
 
 
-    @commands.hybrid_command(aliases=['perms', 'rights'])
+    @commands.group(aliases=['perms', 'rights'])
     async def permissions(self, ctx: commands.Context, object: Union[discord.Member, discord.Role] = None, channel: Optional[discord.TextChannel] = None):
         """Outputs the permissions of any role or person in a webpage"""
         channel = channel if channel else ctx.channel
@@ -27,7 +27,7 @@ class Moderation(commands.Cog):
 
         await ctx.reply(embed=embed)
 
-    @commands.hybrid_command(name="permissions-edit", aliases=["perms-edit"])
+    @permissions.command(name="edit")
     @commands.is_owner()
     async def permissions_edit(self, ctx: commands.Context, role: discord.Role, channel: Optional[discord.TextChannel] = None, *, permissions: str):
         """Modify a role's permission for one or many channels"""
@@ -84,7 +84,7 @@ class Moderation(commands.Cog):
         await ctx.reply(embed=embed)
 
 
-    @commands.hybrid_command()
+    @commands.command()
     @commands.is_owner()
     async def config(self, ctx: commands.Context):
         """Shows current guild's config"""
@@ -100,5 +100,5 @@ class Moderation(commands.Cog):
     
 
 
-async def setup(bot):
+async def setup(bot: AceBot):
     await bot.add_cog(Moderation(bot))

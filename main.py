@@ -1,89 +1,66 @@
 import ast
-import json
 from discord.ext import commands
 import discord
-from discord import app_commands
 from discord.ext.commands.core import Command, Group
 from cogs import EXTENSIONS
-
 import pytz
 import dotenv
 from datetime import datetime
-from typing import Optional, Literal
+from typing import Optional, Union
 import sqlite3
 import traceback
-import sys
-import copy
-import asyncio
 import pathlib
 
 # FILE MANAGEMENT
 directory = pathlib.Path(__file__).parent
 
-def insert_returns(body):
-        # insert return stmt if the last expression is a expression statement
-        if isinstance(body[-1], ast.Expr):
-            body[-1] = ast.Return(body[-1].value)
-            ast.fix_missing_locations(body[-1])
-
-        # for if statements, we insert returns into the body and the orelse
-        if isinstance(body[-1], ast.If):
-            insert_returns(body[-1].body)
-            insert_returns(body[-1].orelse)
-
-        # for with blocks, again we insert returns into the body
-        if isinstance(body[-1], ast.With):
-            insert_returns(body[-1].body)
 
 class AceHelp(commands.HelpCommand):
-    async def send_bot_help(self, mapping):
+    async def base_help(self, footer: str, obj: Union[Group, Command] = None):
         embed = discord.Embed(color=discord.Color.blurple())
         embed.set_author(name="Thy help center", icon_url=self.context.bot.user.avatar.url)
-        embed.set_footer(text=f"For more, do {self.context.prefix}help `command`")
-        for cog in (self.context.bot.cogs).values():
-            if cog.get_commands().__len__() > 0:
-                filtered = await self.filter_commands(cog.get_commands(), sort=True)
-                names = [f"`{command.name}`" for command in filtered]
-                available_commands = " ".join(names)
-                embed.add_field(name=f"{cog.emoji} {cog.qualified_name}", value=available_commands, inline=False)
-        await self.get_destination().send(embed=embed)
+        embed.set_footer(text=footer)
+
+        # global commands
+        if obj is None:
+            for cog in (self.context.bot.cogs).values():
+                if cog.get_commands().__len__() > 0:
+                    filtered = await self.filter_commands(cog.get_commands(), sort=True)
+                    names = [f"`{command.name}`" for command in filtered]
+                    available_commands = " ".join(names)
+                    embed.add_field(name=f"{cog.emoji} {cog.qualified_name}", value=available_commands, inline=False)
+        
+        else:
+            # description & name
+            embed.add_field(
+                name=f"{':crown:' if any(func.__qualname__ == commands.is_owner().predicate.__qualname__ for func in obj.checks) else ''} {obj.cog.emoji} {obj.qualified_name.capitalize()}",
+                value=obj.short_doc if obj.short_doc else "No description *yet*",
+                inline=False
+            )
+
+            # aliases
+            if obj.aliases != []:
+                embed.add_field(name="Aliases", value=f"`{'` `'.join(obj.aliases)}`")
+            
+            # usage
+            clean_signature = self.get_command_signature(obj).split()
+            clean_signature[0] = f"{self.context.prefix}{obj.name}"
+            embed.add_field(name="Usage", value=f"```\n{' '.join(clean_signature)}```\nWhere `< Required >`, `[ Optional ]` & `| Either |`", inline=False)
+
+            if isinstance(obj, Group):
+                # sub commands
+                embed.add_field(name="Commands", value=" ".join([f"`{command.name}`" for command in obj.commands]), inline=False)
+            
+        await self.context.reply(embed=embed)
+
+    async def send_bot_help(self, mapping):
+        await self.base_help(f"To see a command's usage, refer to {self.context.prefix}help <command>")
     
     async def send_command_help(self, command: Command):
-        embed = discord.Embed(color=discord.Color.blurple())
-        embed.set_author(name="Thy help center", icon_url=self.context.bot.user.avatar.url)
-        embed.add_field(name=f" {':crown:' if any(func.__qualname__ == commands.is_owner().predicate.__qualname__ for func in command.checks) else ''} {command.cog.emoji} {command.qualified_name.capitalize()}", value=command.short_doc if command.short_doc else "No description *yet*", inline=False)
-
-        # aliases
-        if len(command.aliases) > 0:
-            embed.add_field(name="Aliases", value=f"`{'` `'.join(x for x in command.aliases)}`")
-        
-        # usage
-        clean_signature = self.get_command_signature(command).split()
-        clean_signature[0] = f"{self.context.prefix}{command.name}"
-        embed.add_field(name="Usage", value=f"```\n{' '.join(clean_signature)}```\nWhere `< Required >`, `[ Optional ]` & `| Either |`", inline=False)
-
-        embed.set_footer(text=f"For a global view of the commands, refer to {self.context.prefix}help")
-        await self.get_destination().send(embed=embed)
+        await self.base_help(f"For all available commands, refer to {self.context.prefix}help", command)
     
     async def send_group_help(self, group: Group):
-        embed = discord.Embed(color=discord.Color.blurple())
-        embed.set_author(name="Thy help center", icon_url=self.context.bot.user.avatar.url)
-        embed.add_field(name=f" {':crown:' if any(func.__qualname__ == commands.is_owner().predicate.__qualname__ for func in group.checks) else ''} {group.cog.emoji} {group.qualified_name.capitalize()}", value=group.short_doc if group.short_doc else "No description *yet*", inline=False)
-
-        # aliases
-        if len(group.aliases) > 0:
-            embed.add_field(name="Aliases", value=f"`{'` `'.join(x for x in group.aliases)}`")
-
-        # sub commands
-        embed.add_field(name="Commands", value=" ".join([f"`{command.name}`" for command in group.commands]), inline=False)
-
-        # usage
-        clean_signature = self.get_command_signature(group).split()
-        clean_signature[0] = f"{self.context.prefix}{group.name}"
-        embed.add_field(name="Usage", value=f"```\n{' '.join(clean_signature)}```\nWhere `< Required >`, `[ Optional ]` & `| Either |`", inline=False)
-
-        embed.set_footer(text=f"For more, do {self.context.prefix}help command")
-        await self.get_destination().send(embed=embed)
+        await self.base_help(f"For all available commands, refer to {self.context.prefix}help", group)
 
     async def send_error_message(self, error):
         await self.get_destination().send(error)
@@ -94,7 +71,6 @@ class AceBot(commands.Bot):
         super().__init__(command_prefix=dotenv.dotenv_values('.env')["PREFIX"], intents=discord.Intents.all(), help_command=AceHelp())
         self.connection = sqlite3.connect(directory / 'database.db')
         self.token = dotenv.dotenv_values('.env')["TOKEN"]
-        self.config: dict = json.load(open(directory / 'config.json', 'r'))
 
     def get_guild_config(self, id: int, key: Optional[str]=None):
         if key is not None:
@@ -106,6 +82,17 @@ class AceBot(commands.Bot):
         self.connection.cursor().execute("INSERT INTO guildConfig (id, key, value) VALUES (?, ?, ?) ON CONFLICT (id, key) DO UPDATE SET value=EXCLUDED.value", (id, key, value))
         self.connection.commit()
         return
+    
+    async def log(self, ctx: commands.Context, obj: Union[str, discord.Embed]):
+        channel_id = self.get_guild_config(ctx.guild.id, "logs")[0][0]
+        if channel_id:
+            channel = self.get_channel(channel_id)
+            if isinstance(obj, discord.Embed):
+                await channel.send(embed=obj)
+            else:
+                await channel.send(obj)
+        else:
+            await ctx.send("Missing logging channel !")
 
     async def setup_hook(self):
         await self.add_cog(Debug(self))
@@ -122,14 +109,19 @@ class AceBot(commands.Bot):
     async def on_ready(self):
         print(f'Connected as {self.user} (ID: {self.user.id})')
 
-    async def on_command_error(self, ctx, error: commands.CommandError):
-        if isinstance(error, commands.MissingPermissions):
-            await ctx.reply("https://tenor.com/view/nuh-uh-beocord-no-lol-gif-24435520")
+    async def on_command_error(self, ctx: commands.Context, error: commands.CommandError):
+        if isinstance(error, commands.CommandNotFound):
+            await ctx.reply("This command does not exist ! Please use actual commands :pray:")
+        
+        elif isinstance(error, commands.MissingPermissions):
+            await ctx.reply("Yous lacking thy necessary rights to perform thus action !")
+        
         elif isinstance(error, commands.NotOwner):
-            await ctx.reply(error)
+            await ctx.reply("Such action is reserved to the one who coded it")
+
         else:
-            print('Ignoring exception in command {}:'.format(ctx.command), file=sys.stderr)
-            traceback.print_exception(type(error), error, error.__traceback__, file=sys.stderr)
+            embed = discord.Embed(title=f"Ignoring exception in command {ctx.command}", description=f"```\n{''.join(traceback.format_exception(type(error), error, error.__traceback__))}```")
+            await self.log(ctx, embed)
 
 
 class Debug(commands.Cog):
@@ -138,31 +130,7 @@ class Debug(commands.Cog):
         self.emoji = ":space_invader:"
 
 
-    @commands.command()
-    @commands.guild_only()
-    @commands.is_owner()
-    async def sync(self, ctx: commands.Context, option: Optional[Literal["local", "copy", "clear"]] = None):
-        """Syncs all application commands to the specified guild"""
-        async with ctx.channel.typing():
-            match option:
-                case "local":
-                    synced = await self.bot.tree.sync(guild=ctx.guild)
-                case "copy":
-                    self.bot.tree.copy_global_to(guild=ctx.guild)
-                    synced = await self.bot.tree.sync(guild=ctx.guild)
-                case "clear":
-                    self.bot.tree.clear_commands(guild=ctx.guild)
-                    await self.bot.tree.sync(guild=ctx.guild)
-                    synced = []
-                case _:
-                    synced = await self.bot.tree.sync()
-            
-        await asyncio.sleep(5)
-
-        await ctx.send(f"Synced {len(synced)} commands {'globally' if option is None else 'to the current guild.'}\n`{' '.join(command.name for command in synced)}`")
-        return
-
-    @commands.hybrid_group(fallback="list")
+    @commands.group()
     async def modules(self, ctx: commands.Context):
         """Lists all modules with their current status"""
         embed = discord.Embed(color=discord.Color.blurple(), title="Extensions")
@@ -178,7 +146,7 @@ class Debug(commands.Cog):
 
         await ctx.send(embed=embed)
 
-    @commands.hybrid_command(name="module-reload")
+    @modules.command(name="reload")
     @commands.is_owner()
     async def module_reload(self, ctx: commands.Context, module: str):
         """Reloads a module"""
@@ -187,10 +155,6 @@ class Debug(commands.Cog):
             await ctx.reply(f":arrows_counterclockwise: Reloaded module {module}")
         except Exception as e:
             await ctx.reply(f":octagonal_sign: Couldn't reload `{module}` : `{e}`")
-
-    @module_reload.autocomplete("module")
-    async def autocomplete_reload(self, interaction: discord.Interaction, current: str):
-        return [app_commands.Choice(name=module.capitalize(), value=module) for module in self.bot.config["initial_modules"]]
 
     @commands.command()
     @commands.is_owner()
@@ -204,55 +168,7 @@ class Debug(commands.Cog):
 
         except Exception as e:
             await ctx.send(e)
-    
-    @commands.hybrid_command()
-    @commands.is_owner()
-    async def sudo(self, ctx: commands.Context, member: discord.Member, *, command: str):
-        """Runs a command as someone else"""
-        alt_msg: discord.Message = copy.copy(ctx.message)
-        alt_msg.author = member
-        alt_msg.content = f"{ctx.prefix}{command}"
-        alt_ctx = await bot.get_context(alt_msg, cls=type(ctx))
-        await ctx.reply(f"Command executed successfully as {member.name}", ephemeral=True)
-        await self.bot.invoke(alt_ctx)
 
-
-    @commands.hybrid_command()
-    @commands.is_owner()
-    async def eval(self, ctx, flags: Optional[Literal["no-output"]] = None, *, code):
-        """Evaluates code and outputs the result if any"""
-        fn_name = "_eval_expr"
-
-        cmd = code.strip("` ")
-
-        # add a layer of indentation
-        cmd = "\n".join(f"    {i}" for i in cmd.splitlines())
-
-        # wrap in async def body
-        body = f"async def {fn_name}():\n{cmd}"
-
-        parsed = ast.parse(body)
-        body = parsed.body[0].body
-
-        insert_returns(body)
-
-        env = {
-            'bot': self.bot,
-            'discord': discord,
-            'commands': commands,
-            'ctx': ctx,
-            '__import__': __import__,
-            '__file__': __file__
-        }
-        exec(compile(parsed, filename="<ast>", mode="exec"), env)
-
-        result = (await eval(f"{fn_name}()", env))
-        match flags:
-            case "no-output":
-                pass
-            case _:
-                await ctx.send(result)
-    
 
 if __name__ == "__main__":
     bot = AceBot()
