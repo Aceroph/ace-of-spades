@@ -12,15 +12,15 @@ class Utility(commands.Cog):
     async def party_event(self, member: discord.Member, before: discord.VoiceState, after: discord.VoiceState):
         party_config = self.bot.get_guild_config(member.guild.id, "party_id")[0][0]
         if party_config:
-            name = member.name + "'s vc\u2800"
+            name = member.name + "'s vc\u200b"
             if after.channel and after.channel.id == party_config:
                 await member.move_to(await member.guild.create_voice_channel(name=name, category=after.channel.category))
             
-            if before.channel and before.channel.name.endswith("\u2800") and after.channel != before.channel:
+            if before.channel and before.channel.name.endswith("\u200b") and after.channel != before.channel:
                 if not before.channel.members:
                     await before.channel.delete()
     
-    @commands.group(aliases=["vc", "voice"])
+    @commands.group(aliases=["vc", "voice"], invoke_without_command=True)
     async def party(self, ctx: commands.Context):
         """An all-in-one menu to configure your own voice channel"""
         await ctx.send("*Insert a complete dashboard of your party here* (im lazy)")

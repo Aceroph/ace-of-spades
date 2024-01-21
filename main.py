@@ -130,7 +130,7 @@ class Debug(commands.Cog):
         self.emoji = ":space_invader:"
 
 
-    @commands.group()
+    @commands.group(invoke_without_command=True)
     async def modules(self, ctx: commands.Context):
         """Lists all modules with their current status"""
         embed = discord.Embed(color=discord.Color.blurple(), title="Extensions")

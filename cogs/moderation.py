@@ -12,7 +12,7 @@ class Moderation(commands.Cog):
         self.emoji = ":scales:"
 
 
-    @commands.group(aliases=['perms', 'rights'])
+    @commands.group(aliases=['perms', 'rights'], invoke_without_command=True)
     async def permissions(self, ctx: commands.Context, object: Union[discord.Member, discord.Role] = None, channel: Optional[discord.TextChannel] = None):
         """Outputs the permissions of any role or person in a webpage"""
         channel = channel if channel else ctx.channel
