@@ -84,7 +84,7 @@ class AceBot(commands.Bot):
         return
     
     async def log(self, ctx: commands.Context, obj: Union[str, discord.Embed]):
-        channel_id = self.get_guild_config(ctx.guild.id, "logs")[0][0]
+        channel_id = self.get_guild_config(ctx.guild.id, "logs")[0]
         if channel_id:
             channel = self.get_channel(channel_id)
             if isinstance(obj, discord.Embed):
