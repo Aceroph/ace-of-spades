@@ -11,7 +11,7 @@ class Economy(commands.Cog):
         self.connection = sqlite3.connect("database.db")
     
     def get_balance(self, id):
-        return self.connection.cursor().execute(f"SELECT money FROM users WHERE id = {id}").fetchall()[0][0]
+        return self.connection.cursor().execute(self.bot.queries["BALANCE"], (id)).fetchall()[0][0]
 
     @commands.command()
     async def balance(self, ctx: commands.Context, member: Optional[discord.Member] = None, amount: Optional[int] = None):
@@ -21,7 +21,7 @@ class Economy(commands.Cog):
         current_balance = self.get_balance(id)
         if amount:
             if await self.bot.is_owner(ctx.message.author):
-                self.connection.cursor().execute(f"UPDATE users SET money = ? WHERE id = ?;", (current_balance + amount, id))
+                self.connection.cursor().execute(self.bot.queries["UPDATE_BALANCE"], (current_balance + amount, id))
                 self.connection.commit()
                 await ctx.send(f"{abs(amount)}$ was {'added to' if amount >= 0 else 'removed from'} your balance ({current_balance}$ -> {current_balance + amount}$)")
             else:

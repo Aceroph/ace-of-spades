@@ -88,7 +88,7 @@ class Moderation(commands.Cog):
     @commands.is_owner()
     async def config(self, ctx: commands.Context):
         """Shows current guild's config"""
-        config = self.bot.get_guild_config(ctx.guild.id)
+        config = self.bot.connection.cursor().execute(self.bot.queries["GET_ALL"], {"id": ctx.guild.id}).fetchall()
         config = [[x[1], x[2]] for x in config]
 
         embed = discord.Embed(title=f"{ctx.guild.name}'s configuration", colour=discord.Color.blurple())

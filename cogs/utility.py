@@ -11,7 +11,7 @@ class Utility(commands.Cog):
 
     @commands.Cog.listener("on_voice_state_update")
     async def party_event(self, member: discord.Member, before: discord.VoiceState, after: discord.VoiceState):
-        party_config = self.bot.get_guild_config(member.guild.id, "party_id")[0][0]
+        party_config = self.bot.connection.cursor().execute(self.bot.queries["GET_VALUE"], {"key": "party_id", "id": member.guild.id}).fetchall()[0][0]
         if party_config:
             name = member.name + "'s vc"
             if after.channel and after.channel.id == party_config:
@@ -29,16 +29,22 @@ class Utility(commands.Cog):
     @party.command(name="config")
     @commands.is_owner()
     async def party_config(self, ctx: commands.Context, channel: Union[discord.VoiceChannel, int] = None):
+        # in case i forgot to make one
+        self.bot.connection.cursor().execute(self.bot.queries["CREATE_CONFIG"])
+        self.bot.connection.commit()
         """Sets the party lobby"""
         if channel:
-            self.bot.set_guild_config(ctx.guild.id, "party_id", channel.id or channel)
+            id = channel if type(channel) is int else channel.id or ctx.channel.id
+            self.bot.connection.cursor().execute(self.bot.queries["SET_VALUE"], {"id": ctx.guild.id, "key": "party_id", "value": id}).fetchone()
+            self.bot.connection.commit()
             if isinstance(channel, discord.VoiceChannel):
                 await ctx.send(f"Party lobby is now {channel.mention}")
             else:
                 await ctx.send("Disabled party lobby")
         else:
-            channel_id = self.bot.get_guild_config(ctx.guild.id, "party_id")[0][0]
-            await ctx.send(f"Current channel is {self.bot.get_channel(channel_id).mention}")
+            channel_id = self.bot.connection.cursor().execute(self.bot.queries["GET_VALUE"], {"id": ctx.guild.id, "key": "party_id"}).fetchone()
+            channel = self.bot.get_channel(channel_id[0])
+            await ctx.send(f"Current channel is {channel.mention if isinstance(channel, discord.VoiceChannel) else None}")
 
 async def setup(bot: AceBot):
     await bot.add_cog(Utility(bot))

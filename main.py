@@ -9,6 +9,7 @@ from datetime import datetime
 from typing import Optional, Union
 import sqlite3
 import traceback
+import json
 import pathlib
 
 # FILE MANAGEMENT
@@ -71,28 +72,7 @@ class AceBot(commands.Bot):
         super().__init__(command_prefix=dotenv.dotenv_values('.env')["PREFIX"], intents=discord.Intents.all(), help_command=AceHelp())
         self.connection = sqlite3.connect(directory / 'database.db')
         self.token = dotenv.dotenv_values('.env')["TOKEN"]
-
-    def get_guild_config(self, id: int, key: Optional[str]=None):
-        if key is not None:
-            return self.connection.cursor().execute("SELECT value FROM guildConfig WHERE id = ? AND key = ?;", (id, key)).fetchall()
-        else:
-            return self.connection.cursor().execute(f"SELECT * FROM guildConfig WHERE id = {id};").fetchall()
-    
-    def set_guild_config(self, id: int, key: str, value: int):
-        self.connection.cursor().execute("INSERT INTO guildConfig (id, key, value) VALUES (?, ?, ?) ON CONFLICT (id, key) DO UPDATE SET value=EXCLUDED.value", (id, key, value))
-        self.connection.commit()
-        return
-    
-    async def log(self, ctx: commands.Context, obj: Union[str, discord.Embed]):
-        channel_id = self.get_guild_config(ctx.guild.id, "logs")[0]
-        if channel_id:
-            channel = self.get_channel(channel_id)
-            if isinstance(obj, discord.Embed):
-                await channel.send(embed=obj)
-            else:
-                await channel.send(obj)
-        else:
-            await ctx.send("Missing logging channel !")
+        self.queries = json.load(open(directory / 'sql.json'))
 
     async def setup_hook(self):
         await self.add_cog(Debug(self))
@@ -121,7 +101,7 @@ class AceBot(commands.Bot):
 
         else:
             embed = discord.Embed(title=f"Ignoring exception in command {ctx.command}", description=f"```\n{''.join(traceback.format_exception(type(error), error, error.__traceback__))}```")
-            await self.log(ctx, embed)
+            await ctx.reply(embed=embed)
 
 
 class Debug(commands.Cog):
