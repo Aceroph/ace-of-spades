@@ -3,6 +3,7 @@ from discord.ext import commands
 import discord
 from typing import Optional, Union
 from main import AceBot
+from utility.sql_querries import *
 from tabulate import tabulate
 
 
@@ -88,7 +89,7 @@ class Moderation(commands.Cog):
     @commands.is_owner()
     async def config(self, ctx: commands.Context):
         """Shows current guild's config"""
-        config = self.bot.connection.cursor().execute(self.bot.queries["GET_ALL"], {"id": ctx.guild.id}).fetchall()
+        config = get_all(self.bot.connection, ctx.guild.id)
         config = [[x[1], x[2]] for x in config]
 
         embed = discord.Embed(title=f"{ctx.guild.name}'s configuration", colour=discord.Color.blurple())

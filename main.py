@@ -1,4 +1,3 @@
-import ast
 from discord.ext import commands
 import discord
 from discord.ext.commands.core import Command, Group
@@ -6,7 +5,7 @@ from cogs import EXTENSIONS
 import pytz
 import dotenv
 from datetime import datetime
-from typing import Optional, Union
+from typing import Union
 import sqlite3
 import traceback
 import json
@@ -75,6 +74,11 @@ class AceBot(commands.Bot):
         self.queries = json.load(open(directory / 'sql.json'))
 
     async def setup_hook(self):
+        # create tables in case they do not exist
+        self.connection.cursor().execute("CREATE TABLE IF NOT EXISTS users ( id INTEGER NOT NULL, money INTEGER DEFAULT (0), xp INTEGER DEFAULT (0) );")
+        self.connection.cursor().execute("CREATE TABLE IF NOT EXISTS guildConfig ( id INTEGER NOT NULL, key TEXT NOT NULL, value INTEGER DEFAULT (0), PRIMARY KEY(id, key) );")
+        self.connection.commit()
+
         await self.add_cog(Debug(self))
 
         for extension in EXTENSIONS:
