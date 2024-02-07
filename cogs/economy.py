@@ -1,14 +1,16 @@
 from discord.ext import commands
 import discord
-import sqlite3
 from main import AceBot
 from typing import Optional
-from utility.sql_querries import *
+from utils.sql_querries import *
+import utils
 
-class Economy(commands.Cog):
+class Economy(utils.Cog):
     def __init__(self, bot):
+        super().__init__()
         self.bot: AceBot = bot
-        self.emoji = ":coin:"
+        self.emoji = utils.EMOJIS["coin"]
+
 
     @commands.command()
     async def balance(self, ctx: commands.Context, member: Optional[discord.Member] = None, amount: Optional[int] = None):

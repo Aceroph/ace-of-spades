@@ -3,14 +3,16 @@ from discord.ext import commands
 import discord
 from typing import Optional, Union
 from main import AceBot
-from utility.sql_querries import *
+from utils.sql_querries import *
 from tabulate import tabulate
+import utils
 
 
-class Moderation(commands.Cog):
+class Moderation(utils.Cog):
     def __init__(self, bot):
+        super().__init__()
         self.bot: AceBot = bot
-        self.emoji = ":scales:"
+        self.emoji = utils.EMOJIS["scales"]
 
 
     @commands.group(aliases=['perms', 'rights'], invoke_without_command=True)

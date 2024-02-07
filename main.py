@@ -10,6 +10,7 @@ import sqlite3
 import traceback
 import json
 import pathlib
+import utils
 
 # FILE MANAGEMENT
 directory = pathlib.Path(__file__).parent
@@ -108,37 +109,23 @@ class AceBot(commands.Bot):
             await ctx.reply(embed=embed)
 
 
-class Debug(commands.Cog):
+class Debug(utils.Cog):
     def __init__(self, bot):
+        super().__init__()
         self.bot: AceBot = bot
-        self.emoji = ":space_invader:"
-
+        self.emoji = "\ud83d\udc7e"
 
     @commands.group(invoke_without_command=True)
     async def modules(self, ctx: commands.Context):
         """Lists all modules with their current status"""
-        embed = discord.Embed(color=discord.Color.blurple(), title="Extensions")
+        embed = discord.Embed(color=discord.Color.blurple())
         embed.set_footer(text=datetime.strftime(datetime.now(tz=pytz.timezone('US/Eastern')), "Today at %H:%M"))
+        
+        embed.add_field(name="Extensions", value="\n".join([f"{self.bot.get_cog(name).emoji} {name}" for name in self.bot.cogs]), inline=True)
 
-        embed.description = ""
+        view = utils.ui.ModuleMenu(self.bot)
 
-        for name in bot.cogs:
-            if self.bot.get_cog(name):
-                embed.description += f"\n{bot.get_cog(name).emoji} {name} `[{'Loaded' if name != 'Debug' else 'Core'}]`"
-            else:
-                embed.description += f"\n{bot.get_cog(name).emoji} {name} `[Unloaded]`"
-
-        await ctx.send(embed=embed)
-
-    @modules.command(name="reload")
-    @commands.is_owner()
-    async def module_reload(self, ctx: commands.Context, module: str):
-        """Reloads a module"""
-        try:
-            await self.bot.reload_extension(module)
-            await ctx.reply(f":arrows_counterclockwise: Reloaded module {module}")
-        except Exception as e:
-            await ctx.reply(f":octagonal_sign: Couldn't reload `{module}` : `{e}`")
+        await ctx.send(embed=embed, view=view)
 
     @commands.command()
     @commands.is_owner()

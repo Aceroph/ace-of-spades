@@ -1,12 +1,14 @@
 from typing import Union
 from discord.ext import commands
 import discord
+import utils
 from main import AceBot
 
-class Utility(commands.Cog):
-    def __init__(self, bot):
+class Utility(utils.Cog):
+    def __init__(self, bot: AceBot):
+        super().__init__()
         self.bot: AceBot = bot
-        self.emoji = ":tools:"
+        self.emoji = utils.EMOJIS["tools"]
 
 
     @commands.Cog.listener("on_voice_state_update")
