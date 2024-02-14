@@ -124,7 +124,7 @@ class Debug(utils.Cog):
 
         view = utils.ui.ModuleMenu(self.bot)
 
-        await ctx.send(embed=embed, view=view)
+        await ctx.reply(embed=embed, view=view)
 
     @commands.command()
     @commands.is_owner()
@@ -134,10 +134,16 @@ class Debug(utils.Cog):
             r = self.bot.connection.cursor().execute(command).fetchall()
             self.bot.connection.commit()
 
-            await ctx.send("Done !" if r is None else r)
+            await ctx.reply("Done !" if r is None else r)
 
         except Exception as e:
-            await ctx.send(e)
+            await ctx.reply(e)
+    
+    @commands.command(aliases=["killyourself", "shutdown"])
+    @commands.is_owner()
+    async def kys(self, ctx: commands.Context):
+        await ctx.reply("https://tenor.com/view/pc-computer-shutting-down-off-windows-computer-gif-17192330")
+        await self.bot.close()
 
 
 if __name__ == "__main__":
