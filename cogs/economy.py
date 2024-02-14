@@ -9,7 +9,7 @@ class Economy(utils.Cog):
     def __init__(self, bot):
         super().__init__()
         self.bot: AceBot = bot
-        self.emoji = utils.EMOJIS["coin"]
+        self.emoji = utils.ui.EMOJIS["coin"]
 
 
     @commands.command()

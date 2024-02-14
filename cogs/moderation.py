@@ -12,7 +12,7 @@ class Moderation(utils.Cog):
     def __init__(self, bot):
         super().__init__()
         self.bot: AceBot = bot
-        self.emoji = utils.EMOJIS["scales"]
+        self.emoji = utils.ui.EMOJIS["scales"]
 
 
     @commands.group(aliases=['perms', 'rights'], invoke_without_command=True)
@@ -99,8 +99,6 @@ class Moderation(utils.Cog):
         embed.description = f'```\n{tabulate(config, headers=["Key", "Value"], tablefmt="outline")}```'
 
         await ctx.send(embed=embed)
-
-    
 
 
 async def setup(bot: AceBot):

@@ -108,12 +108,11 @@ class AceBot(commands.Bot):
             embed = discord.Embed(title=f"Ignoring exception in command {ctx.command}", description=f"```\n{''.join(traceback.format_exception(type(error), error, error.__traceback__))}```")
             await ctx.reply(embed=embed)
 
-
 class Debug(utils.Cog):
     def __init__(self, bot):
         super().__init__()
         self.bot: AceBot = bot
-        self.emoji = "\ud83d\udc7e"
+        self.emoji = utils.ui.EMOJIS["tools"]
 
     @commands.group(invoke_without_command=True)
     async def modules(self, ctx: commands.Context):
