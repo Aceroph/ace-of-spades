@@ -44,9 +44,8 @@ class AceHelp(commands.HelpCommand):
                 embed.add_field(name="Aliases", value=f"`{'` `'.join(obj.aliases)}`")
             
             # usage
-            clean_signature = self.get_command_signature(obj).split()
-            clean_signature[0] = f"{self.context.prefix}{obj.name}"
-            embed.add_field(name="Usage", value=f"```\n{' '.join(clean_signature)}```\nWhere `< Required >` & `[ Optional ]`", inline=False)
+            clean_signature = f'{self.context.prefix}{obj.name} {" ".join([f"<{name}>" if param.required else f"[{name}]" for name, param in obj.params.items()])}'
+            embed.add_field(name="Usage", value=f"```\n{clean_signature}```\nWhere `< Required >` & `[ Optional ]`", inline=False)
 
             if isinstance(obj, Group):
                 # sub commands

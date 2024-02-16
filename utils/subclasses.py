@@ -23,7 +23,7 @@ class View(discord.ui.View):
 
 
 class Time(commands.Converter):      
-    async def convert(self, ctx: commands.Context, argument: str):
+    async def convert(self, ctx: commands.Context, argument: str) -> datetime.datetime:
         # Fixed date like 2024-02-16
         if re.fullmatch("\d{4}-\d{2}-\d{2}", argument):
             return datetime.datetime.strptime(argument, "%Y-%m-%d")
@@ -36,6 +36,4 @@ class Time(commands.Converter):
                 return datetime.datetime.today() + datetime.timedelta(days=abs(days))
             else:
                 return datetime.datetime.today() - datetime.timedelta(days=abs(days))
-        
-        return
         
