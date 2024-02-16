@@ -1,8 +1,8 @@
 from main import AceBot
 from jishaku.cog import STANDARD_FEATURES
-import utils
+from utils import subclasses
 
-class Jishaku(*STANDARD_FEATURES, utils.Cog):
+class Jishaku(*STANDARD_FEATURES, subclasses.Cog):
     pass
 
 async def setup(bot: AceBot):

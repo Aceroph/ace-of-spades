@@ -2,10 +2,7 @@ import discord
 from discord.ext import commands
 from main import AceBot
 import time
-import json
-import pathlib
-
-EMOJIS = json.load(open(pathlib.Path(__file__).parent / "emoji_map.json", "r"))
+from . import EMOJIS, subclasses
 
 
 class ModuleSelect(discord.ui.Select):
@@ -30,7 +27,7 @@ class ModuleSelect(discord.ui.Select):
         return await interaction.response.edit_message(embed=embed)
 
 
-class ModuleMenu(discord.ui.View):
+class ModuleMenu(subclasses.View):
     def __init__(self, bot: AceBot):
         super().__init__(timeout=None)
 
@@ -59,7 +56,7 @@ class ModuleMenu(discord.ui.View):
             raise commands.NotOwner
 
 
-class PartyMenu(discord.ui.View):
+class PartyMenu(subclasses.View):
     def __init__(self, bot: AceBot, vcs):
         super().__init__(timeout=None)
 

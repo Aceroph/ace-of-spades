@@ -3,16 +3,15 @@ from discord.ext import commands
 import discord
 from typing import Optional, Union
 from main import AceBot
-from utils.sql_querries import *
 from tabulate import tabulate
-import utils
+from utils import EMOJIS, subclasses, sql_querries
 
 
-class Moderation(utils.Cog):
+class Moderation(subclasses.Cog):
     def __init__(self, bot):
         super().__init__()
         self.bot: AceBot = bot
-        self.emoji = utils.ui.EMOJIS["scales"]
+        self.emoji = EMOJIS["scales"]
 
 
     @commands.group(aliases=['perms', 'rights'], invoke_without_command=True)
@@ -91,7 +90,7 @@ class Moderation(utils.Cog):
     @commands.is_owner()
     async def config(self, ctx: commands.Context):
         """Shows current guild's config"""
-        config = get_all(self.bot.connection, ctx.guild.id)
+        config = sql_querries.get_all(self.bot.connection, ctx.guild.id)
         config = [[x[1], x[2]] for x in config]
 
         embed = discord.Embed(title=f"{ctx.guild.name}'s configuration", colour=discord.Color.blurple())

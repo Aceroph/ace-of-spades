@@ -1,14 +1,15 @@
 from typing import Union
 from discord.ext import commands
 import discord
-import utils
+from utils import EMOJIS, subclasses, ui
 from main import AceBot
 
-class Utility(utils.Cog):
+
+class Utility(subclasses.Cog):
     def __init__(self, bot: AceBot):
         super().__init__()
         self.bot: AceBot = bot
-        self.emoji = utils.ui.EMOJIS["tools"]
+        self.emoji = EMOJIS["tools"]
         self.vcs = {}
 
 
@@ -39,8 +40,8 @@ class Utility(utils.Cog):
                 msg = f"Transfered party ownership to {ctx.author.mention}"
                 self.vcs[str(vc.id)] = ctx.author.id
 
-            embed = discord.Embed(color=discord.Color.gold(), title=f"{utils.ui.EMOJIS['loud_sound']} {vc.name}", description=f"Owner : {self.bot.get_user(self.vcs[str(vc.id)]).mention}\nCreated : <t:{int(vc.created_at.timestamp())}:R>")
-            menu = utils.ui.PartyMenu(self.bot, self.vcs)
+            embed = discord.Embed(color=discord.Color.gold(), title=f"{EMOJIS['loud_sound']} {vc.name}", description=f"Owner : {self.bot.get_user(self.vcs[str(vc.id)]).mention}\nCreated : <t:{int(vc.created_at.timestamp())}:R>")
+            menu = ui.PartyMenu(self.bot, self.vcs)
             await ctx.reply(msg, embed=embed, view=menu)
         elif vc:
             await ctx.reply(":warning: You are not in a party !")

@@ -10,7 +10,7 @@ import sqlite3
 import traceback
 import json
 import pathlib
-import utils
+from utils import EMOJIS, subclasses, ui
 
 # FILE MANAGEMENT
 directory = pathlib.Path(__file__).parent
@@ -25,8 +25,8 @@ class AceHelp(commands.HelpCommand):
         # global commands
         if obj is None:
             for cog in (self.context.bot.cogs).values():
-                if cog.get_commands().__len__() > 0:
-                    filtered = await self.filter_commands(cog.get_commands(), sort=True)
+                filtered = await self.filter_commands(cog.get_commands(), sort=True)
+                if len(filtered) > 0:
                     names = [f"`{command.name}`" for command in filtered]
                     available_commands = " ".join(names)
                     embed.add_field(name=f"{cog.emoji} {cog.qualified_name}", value=available_commands, inline=False)
@@ -35,7 +35,7 @@ class AceHelp(commands.HelpCommand):
             # description & name
             embed.add_field(
                 name=f"{':crown:' if any(func.__qualname__ == commands.is_owner().predicate.__qualname__ for func in obj.checks) else ''} {obj.cog.emoji} {obj.qualified_name.capitalize()}",
-                value=obj.short_doc if obj.short_doc else "No description *yet*",
+                value='⤷ ' + obj.short_doc if obj.short_doc else "⤷ No description *yet*",
                 inline=False
             )
 
@@ -46,7 +46,7 @@ class AceHelp(commands.HelpCommand):
             # usage
             clean_signature = self.get_command_signature(obj).split()
             clean_signature[0] = f"{self.context.prefix}{obj.name}"
-            embed.add_field(name="Usage", value=f"```\n{' '.join(clean_signature)}```\nWhere `< Required >`, `[ Optional ]` & `| Either |`", inline=False)
+            embed.add_field(name="Usage", value=f"```\n{' '.join(clean_signature)}```\nWhere `< Required >` & `[ Optional ]`", inline=False)
 
             if isinstance(obj, Group):
                 # sub commands
@@ -96,23 +96,27 @@ class AceBot(commands.Bot):
 
     async def on_command_error(self, ctx: commands.Context, error: commands.CommandError):
         if isinstance(error, commands.CommandNotFound):
-            await ctx.reply("This command does not exist ! Please use actual commands :pray:")
+            return await ctx.reply(f"{EMOJIS['warning']} This command does not exist ! Please use actual commands :pray:")
         
-        elif isinstance(error, commands.MissingPermissions):
-            await ctx.reply("Yous lacking thy necessary rights to perform thus action !")
+        if isinstance(error, commands.MissingPermissions):
+            return await ctx.reply("Yous lacking thy necessary rights to perform thus action !")
         
-        elif isinstance(error, commands.NotOwner):
-            await ctx.reply("Such action is reserved to the one who coded it")
+        if isinstance(error, commands.NotOwner):
+            return await ctx.reply("Such action is reserved to the one who coded it")
+        
+        if isinstance(error, commands.MissingRequiredArgument):
+            return await ctx.reply(f"{EMOJIS['warning']} {' '.join(error.args).capitalize()}")
 
         else:
             embed = discord.Embed(title=f"Ignoring exception in command {ctx.command}", description=f"```\n{''.join(traceback.format_exception(type(error), error, error.__traceback__))}```")
             await ctx.reply(embed=embed)
 
-class Debug(utils.Cog):
+
+class Debug(subclasses.Cog):
     def __init__(self, bot):
         super().__init__()
         self.bot: AceBot = bot
-        self.emoji = utils.ui.EMOJIS["tools"]
+        self.emoji = EMOJIS["space_invader"]
 
     @commands.group(invoke_without_command=True)
     async def modules(self, ctx: commands.Context):
@@ -122,7 +126,7 @@ class Debug(utils.Cog):
         
         embed.add_field(name="Extensions", value="\n".join([f"{self.bot.get_cog(name).emoji} {name}" for name in self.bot.cogs]), inline=True)
 
-        view = utils.ui.ModuleMenu(self.bot)
+        view = ui.ModuleMenu(self.bot)
 
         await ctx.reply(embed=embed, view=view)
 
