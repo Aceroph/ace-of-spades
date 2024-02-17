@@ -5,6 +5,7 @@ import time, datetime, pytz
 from . import EMOJIS, subclasses, misc
 import inspect
 
+
 class ModuleEmbed(discord.Embed):
     def __init__(self, bot: AceBot):
         super().__init__(color=discord.Color.blurple())
@@ -14,6 +15,17 @@ class ModuleEmbed(discord.Embed):
         self.set_thumbnail(url='https://static-00.iconduck.com/assets.00/cog-settings-icon-2048x1619-0lz5tnft.png')
         self.count = 0
     
+    @classmethod
+    def from_embed(cls, bot: AceBot, embed: discord.Embed):
+        e = cls(bot)
+        # fields
+        e.add_field(name=embed.fields[0].name, value=embed.fields[0].value, inline=embed.fields[0].inline)
+        e.set_field_at(1, name=embed.fields[1].name, value=embed.fields[1].value, inline=embed.fields[1].inline) if len(embed.fields) > 1 else None
+        
+        e.set_footer(text=embed.footer.text, icon_url=embed.footer.icon_url)
+        e.set_author(name=embed.author.name, url=embed.author.url, icon_url=embed.author.icon_url) if embed.author else None
+        return e
+
     def list_modules(self, selected: subclasses.Cog=None):
         data = {'name': "Extensions", 'value': "\n".join([f"{self.bot.get_cog(name).emoji} {f'`{name}`' if selected and selected.qualified_name == name else name}" for name in self.bot.cogs]), 'inline': True}
         if len(self.fields) > 0:
@@ -36,11 +48,10 @@ class ModuleEmbed(discord.Embed):
 
 
 class ModuleMenu(subclasses.View):
-    def __init__(self, bot: AceBot, embed: ModuleEmbed):
+    def __init__(self, bot: AceBot):
         super().__init__(timeout=None)
 
         self.bot = bot
-        self.embed = embed
         options = [discord.SelectOption(label=name, value=name, emoji=module.emoji) for name, module in self.bot.cogs.items()]
         self.add_item(self.ModuleSelect(options))
     
@@ -50,7 +61,7 @@ class ModuleMenu(subclasses.View):
         
         async def callback(self, interaction: discord.Interaction):
             cog = self.view.bot.get_cog(str(self.values[0]))
-            embed: ModuleEmbed = self.view.embed
+            embed = ModuleEmbed.from_embed(self.view.bot, interaction.message.embeds[0])
             await embed.module_info(cog)
             embed.list_modules(cog)
 
@@ -82,12 +93,15 @@ class PartyMenu(subclasses.View):
     def __init__(self, bot: AceBot, vcs):
         super().__init__(timeout=None)
 
-        self.bot = bot
-        self.vcs = vcs
+        self.bot: AceBot = bot
+        self.vcs: dict = vcs
         self.edit_cd = commands.CooldownMapping.from_cooldown(2, 600, commands.BucketType.channel)
 
     def check_ownership(self, interaction: discord.Interaction):
-        return interaction.user.id == self.vcs[str(interaction.user.voice.channel.id)]
+        if str(interaction.user.voice.channel.id) in self.vcs.keys():
+            return interaction.user.id == self.vcs[str(interaction.user.voice.channel.id)]
+        else:
+            return True
     
     def is_locked(self, interaction: discord.Interaction):
         return interaction.user.voice.channel.user_limit == 1

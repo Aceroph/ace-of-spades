@@ -2,7 +2,7 @@ from typing import Union
 from discord.ext import commands
 import discord
 from utils import EMOJIS, subclasses, ui
-from main import AceBot
+from main import AceBot, LOGGER
 
 
 class Utility(subclasses.Cog):
@@ -11,7 +11,10 @@ class Utility(subclasses.Cog):
         self.bot: AceBot = bot
         self.emoji = EMOJIS["tools"]
         self.vcs = {}
-
+    
+    def cog_load(self):
+        self.bot.add_view(ui.PartyMenu(self.bot, self.vcs))
+        LOGGER.info("Loaded persistent view %s from %s", ui.PartyMenu.__qualname__, self.qualified_name)
 
     @commands.Cog.listener("on_voice_state_update")
     async def party_event(self, member: discord.Member, before: discord.VoiceState, after: discord.VoiceState):

@@ -2,7 +2,7 @@ from discord.ext import commands
 import discord
 from discord.ext.commands.core import Command, Group
 from cogs import EXTENSIONS
-from typing import Union
+from typing import Coroutine, Union
 import sqlite3
 import traceback
 import json, dotenv
@@ -13,8 +13,8 @@ import logging, logging.handlers
 # FILE MANAGEMENT
 directory = pathlib.Path(__file__).parent
 
-logger = logging.getLogger('discord')
-logger.setLevel(logging.DEBUG)
+LOGGER = logging.getLogger('discord')
+LOGGER.setLevel(logging.DEBUG)
 logging.getLogger('discord.http').setLevel(logging.INFO)
 
 handler = logging.handlers.RotatingFileHandler(
@@ -25,7 +25,7 @@ handler = logging.handlers.RotatingFileHandler(
 )
 formatter = logging.Formatter('[{asctime}] [{levelname:<8}] {name}: {message}', '%Y-%m-%d %H:%M:%S', style='{')
 handler.setFormatter(formatter)
-logger.addHandler(handler)
+LOGGER.addHandler(handler)
 
 
 class AceHelp(commands.HelpCommand):
@@ -98,13 +98,13 @@ class AceBot(commands.Bot):
             if extension != "debug":
                 try:
                     await self.load_extension(extension)
-                    logger.info("%s loaded", extension)
+                    LOGGER.info("%s loaded", extension)
 
                 except Exception as e:
-                    logger.error("%s failed to load", extension, exc_info=1)
+                    LOGGER.error("%s failed to load", extension, exc_info=1)
 
     async def on_ready(self):
-        logger.info('Connected as %s (ID: %d)', self.user, self.user.id)
+        LOGGER.info('Connected as %s (ID: %d)', self.user, self.user.id)
 
     async def on_command_error(self, ctx: commands.Context, error: commands.CommandError):
         if isinstance(error, commands.CommandNotFound):
@@ -129,11 +129,15 @@ class Debug(subclasses.Cog):
         self.bot: AceBot = bot
         self.emoji = EMOJIS["space_invader"]
 
+    def cog_load(self):
+        self.bot.add_view(ui.ModuleMenu(self.bot))
+        LOGGER.info("Loaded persistent view %s from %s", ui.ModuleMenu.__qualname__, self.qualified_name)
+
     @commands.group(invoke_without_command=True)
     async def modules(self, ctx: commands.Context):
         """Lists all modules with their current status"""
         menu = ui.ModuleEmbed(self.bot)
-        return await ctx.reply(embed=menu, view=ui.ModuleMenu(self.bot, menu))
+        return await ctx.reply(embed=menu, view=ui.ModuleMenu(self.bot))
 
     @commands.command()
     @commands.is_owner()
