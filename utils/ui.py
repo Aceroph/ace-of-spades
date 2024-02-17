@@ -1,45 +1,67 @@
 import discord
 from discord.ext import commands
 from main import AceBot
-import time
-from . import EMOJIS, subclasses
+import time, datetime, pytz
+from . import EMOJIS, subclasses, misc
+import inspect
 
-
-class ModuleSelect(discord.ui.Select):
+class ModuleEmbed(discord.Embed):
     def __init__(self, bot: AceBot):
+        super().__init__(color=discord.Color.blurple())
         self.bot = bot
-        options = [discord.SelectOption(label=name, value=name, emoji=module.emoji) for name, module in bot.cogs.items()]
-
-        super().__init__(placeholder="Choose a module", custom_id="Module:Select", options=options, row=1)
+        self.set_footer(text=datetime.datetime.strftime(datetime.datetime.now(tz=pytz.timezone('US/Eastern')), "Today at %H:%M"))
+        self.list_modules()
+        self.set_thumbnail(url='https://static-00.iconduck.com/assets.00/cog-settings-icon-2048x1619-0lz5tnft.png')
+        self.count = 0
     
-    async def callback(self, interaction: discord.Interaction):
-        embed = interaction.message.embeds[0]
-        cog = self.bot.get_cog(str(self.values[0]))
-
-        # embeded data
-        data = {"name": self.values[0] + " Module", "value": f"⤷ <t:{int(cog.time)}:R>\n\n__Stats__ :\n-> Total : {cog.cmds}", "inline": True}
-
-        if embed.fields.__len__() == 2:
-            embed.set_field_at(index=1, **data)
+    def list_modules(self, selected: subclasses.Cog=None):
+        data = {'name': "Extensions", 'value': "\n".join([f"{self.bot.get_cog(name).emoji} {f'`{name}`' if selected and selected.qualified_name == name else name}" for name in self.bot.cogs]), 'inline': True}
+        if len(self.fields) > 0:
+            return self.set_field_at(0, **data)
         else:
-            embed.add_field(**data)
+            return self.insert_field_at(0, **data)
 
-        return await interaction.response.edit_message(embed=embed)
+    async def module_info(self, cog: subclasses.Cog=None):
+        if cog:
+            # count lines for cog
+            self.count = 0
+            lines, _ = inspect.getsourcelines(cog.__class__)
+            for line in lines:
+                self.count += 1 if len(line.strip()) > 0 else 0
+
+            data = {'name': cog.qualified_name + ' Module', 'value':f"Loaded\n⤷ <t:{int(cog.time)}:R>\n\nStats\n⤷ Commands used : {cog.cmds}\n⤷ Lines : {self.count}\n⤷ [Source]({await misc.git_source(self.bot, cog)})", 'inline': True}
+            return self.set_field_at(1, **data) if len(self.fields) > 1 else self.insert_field_at(1, **data)
+        elif len(self.fields) > 1:
+            return self.remove_field(1)
 
 
 class ModuleMenu(subclasses.View):
-    def __init__(self, bot: AceBot):
+    def __init__(self, bot: AceBot, embed: ModuleEmbed):
         super().__init__(timeout=None)
 
         self.bot = bot
-        self.add_item(ModuleSelect(bot))
+        self.embed = embed
+        options = [discord.SelectOption(label=name, value=name, emoji=module.emoji) for name, module in self.bot.cogs.items()]
+        self.add_item(self.ModuleSelect(options))
+    
+    class ModuleSelect(discord.ui.Select["ModuleMenu"]):
+        def __init__(self, options):
+            super().__init__(placeholder="Choose a module", custom_id="Module:Select", options=options, row=1)
+        
+        async def callback(self, interaction: discord.Interaction):
+            cog = self.view.bot.get_cog(str(self.values[0]))
+            embed: ModuleEmbed = self.view.embed
+            await embed.module_info(cog)
+            embed.list_modules(cog)
+
+            return await interaction.response.edit_message(embed=embed)
     
     @discord.ui.button(style=discord.ButtonStyle.blurple, label="Reload", custom_id="Module:Reload", emoji=EMOJIS["repeat"], row=2)
     async def reload(self, interaction: discord.Interaction, button: discord.ui):
         if interaction.user.id == self.bot.owner_id:
             for child in self.children:
                 module = None
-                if isinstance(child, ModuleSelect) and child.values.__len__() > 0:
+                if isinstance(child, self.ModuleSelect) and child.values.__len__() > 0:
                     module = child.values[0]
                     break
             
@@ -47,13 +69,13 @@ class ModuleMenu(subclasses.View):
                 start = time.time()
                 try:
                     await self.bot.reload_extension(f"cogs.{module.lower()}")
-                    await interaction.response.send_message(f":repeat: Reloaded *{module}* (Took around {round(time.time()-start, 4)}s)", ephemeral=True)
+                    await interaction.response.send_message(f":repeat: Reloaded {module} `(Took around {round(time.time()-start, 4)}s)`", ephemeral=True)
                 except Exception as err:
-                    await interaction.response.send_message(f":warning: An error occured while trying to reload *{module}* ! `{err}`", ephemeral=True)
+                    await interaction.response.send_message(f":warning: An error occured while trying to reload {module} ! `{err}`", ephemeral=True)
             else:
-                await interaction.response.send_message("Did not select any module !", ephemeral=True)
+                await interaction.response.send_message(":warning: Did not select any module !", ephemeral=True)
         else:
-            raise commands.NotOwner
+            raise commands.errors.NotOwner
 
 
 class PartyMenu(subclasses.View):

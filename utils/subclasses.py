@@ -1,7 +1,7 @@
 from discord.ext import commands
 import discord
-import time, datetime
-import re
+import time
+import traceback
 
 
 class Cog(commands.Cog):
@@ -19,21 +19,5 @@ class Cog(commands.Cog):
 
 class View(discord.ui.View):
     async def on_error(self, interaction: discord.Interaction, error: Exception, item: discord.ui.Item):
-        await interaction.response.send_message(f"Unhandled error : {error}")
-
-
-class Time(commands.Converter):      
-    async def convert(self, ctx: commands.Context, argument: str) -> datetime.datetime:
-        # Fixed date like 2024-02-16
-        if re.fullmatch("\d{4}-\d{2}-\d{2}", argument):
-            return datetime.datetime.strptime(argument, "%Y-%m-%d")
-
-        # Relative date like 1d
-        if re.fullmatch("-?\d+d", argument):
-            days = int(re.match("-?\d+", argument).group())
-
-            if days > 0:
-                return datetime.datetime.today() + datetime.timedelta(days=abs(days))
-            else:
-                return datetime.datetime.today() - datetime.timedelta(days=abs(days))
-        
+        embed = discord.Embed(title=f":warning: Unhandled error in interaction", description=f"```\n{''.join(traceback.format_exception(type(error), error, error.__traceback__))}```")
+        await interaction.response.send_message(embed=embed)

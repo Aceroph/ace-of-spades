@@ -1,9 +1,11 @@
-from utils import checks, subclasses, EMOJIS, schooldata
+from utils import checks, subclasses, EMOJIS, misc
 from main import AceBot
 from discord.ext import commands
 import datetime
 import discord
+import json, pathlib
 
+schooldata = json.load(open(pathlib.Path(__file__).parent.parent / 'utils' / "schoolday.json", "r"))
 
 class School(subclasses.Cog):
     def __init__(self, bot: AceBot):
@@ -35,7 +37,7 @@ class School(subclasses.Cog):
 
     @checks.guild_command(971165718844440647)
     @commands.command()
-    async def schedule(self, ctx: commands.Context, date: subclasses.Time=datetime.datetime.today()):
+    async def schedule(self, ctx: commands.Context, date: misc.Time=datetime.datetime.today()):
         """Prints today's or another day's schedule"""
         day = self.get_schoolday(date)
         schedule = self.schedule[day - 1]

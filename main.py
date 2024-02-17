@@ -2,18 +2,30 @@ from discord.ext import commands
 import discord
 from discord.ext.commands.core import Command, Group
 from cogs import EXTENSIONS
-import pytz
-import dotenv
-from datetime import datetime
 from typing import Union
 import sqlite3
 import traceback
-import json
+import json, dotenv
 import pathlib
-from utils import EMOJIS, subclasses, ui
+from utils import EMOJIS, subclasses, ui, misc
+import logging, logging.handlers
 
 # FILE MANAGEMENT
 directory = pathlib.Path(__file__).parent
+
+logger = logging.getLogger('discord')
+logger.setLevel(logging.DEBUG)
+logging.getLogger('discord.http').setLevel(logging.INFO)
+
+handler = logging.handlers.RotatingFileHandler(
+    filename='discord.log',
+    encoding='utf-8',
+    maxBytes=32 * 1024 ** 2,
+    backupCount=5
+)
+formatter = logging.Formatter('[{asctime}] [{levelname:<8}] {name}: {message}', '%Y-%m-%d %H:%M:%S', style='{')
+handler.setFormatter(formatter)
+logger.addHandler(handler)
 
 
 class AceHelp(commands.HelpCommand):
@@ -68,10 +80,11 @@ class AceHelp(commands.HelpCommand):
 
 class AceBot(commands.Bot):
     def __init__(self):
-        super().__init__(command_prefix=dotenv.dotenv_values('.env')["PREFIX"], intents=discord.Intents.all(), help_command=AceHelp())
+        super().__init__(command_prefix=dotenv.dotenv_values('.env')["PREFIX"], intents=discord.Intents.all(), help_command=AceHelp(), log_handler=None)
         self.connection = sqlite3.connect(directory / 'database.db')
         self.token = dotenv.dotenv_values('.env')["TOKEN"]
         self.queries = json.load(open(directory / 'sql.json'))
+        self.owner_id = 493107597281329185
 
     async def setup_hook(self):
         # create tables in case they do not exist
@@ -85,30 +98,29 @@ class AceBot(commands.Bot):
             if extension != "debug":
                 try:
                     await self.load_extension(extension)
-                    print(f"{datetime.now().__format__('%Y-%m-%d %H:%M:%S')} INFO     {extension.capitalize()} loaded !")
+                    logger.info("%s loaded", extension)
 
                 except Exception as e:
-                    print(f"{datetime.now().__format__('%Y-%m-%d %H:%M:%S')} ERROR    {extension.capitalize()} failed to load ! : {e}")
+                    logger.error("%s failed to load", extension, exc_info=1)
 
     async def on_ready(self):
-        print(f'Connected as {self.user} (ID: {self.user.id})')
+        logger.info('Connected as %s (ID: %d)', self.user, self.user.id)
 
     async def on_command_error(self, ctx: commands.Context, error: commands.CommandError):
         if isinstance(error, commands.CommandNotFound):
-            return await ctx.reply(f"{EMOJIS['warning']} This command does not exist ! Please use actual commands :pray:")
+            return await ctx.reply(":warning: This command does not exist ! Please use actual commands")
         
         if isinstance(error, commands.MissingPermissions):
-            return await ctx.reply("Yous lacking thy necessary rights to perform thus action !")
+            return await ctx.reply(":warning: Yous lacking thy necessary rights to perform thus action !")
         
         if isinstance(error, commands.NotOwner):
-            return await ctx.reply("Such action is reserved to the one who coded it")
+            return await ctx.reply(":warning: Such action is reserved to the one who coded it")
         
         if isinstance(error, commands.MissingRequiredArgument):
             return await ctx.reply(f"{EMOJIS['warning']} {' '.join(error.args).capitalize()}")
 
-        else:
-            embed = discord.Embed(title=f"Ignoring exception in command {ctx.command}", description=f"```\n{''.join(traceback.format_exception(type(error), error, error.__traceback__))}```")
-            await ctx.reply(embed=embed)
+        embed = discord.Embed(title=f":warning: Unhandled error in command", description=f"```\n{''.join(traceback.format_exception(type(error), error, error.__traceback__))}```")
+        return await ctx.reply(embed=embed)
 
 
 class Debug(subclasses.Cog):
@@ -120,14 +132,8 @@ class Debug(subclasses.Cog):
     @commands.group(invoke_without_command=True)
     async def modules(self, ctx: commands.Context):
         """Lists all modules with their current status"""
-        embed = discord.Embed(color=discord.Color.blurple())
-        embed.set_footer(text=datetime.strftime(datetime.now(tz=pytz.timezone('US/Eastern')), "Today at %H:%M"))
-        
-        embed.add_field(name="Extensions", value="\n".join([f"{self.bot.get_cog(name).emoji} {name}" for name in self.bot.cogs]), inline=True)
-
-        view = ui.ModuleMenu(self.bot)
-
-        await ctx.reply(embed=embed, view=view)
+        menu = ui.ModuleEmbed(self.bot)
+        return await ctx.reply(embed=menu, view=ui.ModuleMenu(self.bot, menu))
 
     @commands.command()
     @commands.is_owner()
@@ -147,6 +153,11 @@ class Debug(subclasses.Cog):
     async def kys(self, ctx: commands.Context):
         await ctx.reply("https://tenor.com/view/pc-computer-shutting-down-off-windows-computer-gif-17192330")
         await self.bot.close()
+    
+    @commands.command(aliases=["src"])
+    async def source(self, ctx: commands.Context, *, obj: str=None):
+        url = await misc.git_source(self.bot, obj)
+        await ctx.reply(url)
 
 
 if __name__ == "__main__":
