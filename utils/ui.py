@@ -2,52 +2,9 @@ import discord
 from discord.ext import commands
 import time, datetime, pytz
 import inspect
-from typing import TYPE_CHECKING
 from . import EMOJIS, subclasses, misc
-
-if TYPE_CHECKING:
-    from main import AceBot
-
-
-class ModuleEmbed(discord.Embed):
-    def __init__(self, bot: AceBot):
-        super().__init__(color=discord.Color.blurple())
-        self.bot = bot
-        self.set_footer(text=datetime.datetime.strftime(datetime.datetime.now(tz=pytz.timezone('US/Eastern')), "Today at %H:%M"))
-        self.list_modules()
-        self.set_thumbnail(url='https://static-00.iconduck.com/assets.00/cog-settings-icon-2048x1619-0lz5tnft.png')
-        self.count = 0
-    
-    @classmethod
-    def from_embed(cls, bot: AceBot, embed: discord.Embed):
-        e = cls(bot)
-        # fields
-        e.add_field(name=embed.fields[0].name, value=embed.fields[0].value, inline=embed.fields[0].inline)
-        e.set_field_at(1, name=embed.fields[1].name, value=embed.fields[1].value, inline=embed.fields[1].inline) if len(embed.fields) > 1 else None
-        
-        e.set_footer(text=embed.footer.text, icon_url=embed.footer.icon_url)
-        e.set_author(name=embed.author.name, url=embed.author.url, icon_url=embed.author.icon_url) if embed.author else None
-        return e
-
-    def list_modules(self, selected: subclasses.Cog=None):
-        data = {'name': "Extensions", 'value': "\n".join([f"{self.bot.get_cog(name).emoji} {f'`{name}`' if selected and selected.qualified_name == name else name}" for name in self.bot.cogs]), 'inline': True}
-        if len(self.fields) > 0:
-            return self.set_field_at(0, **data)
-        else:
-            return self.insert_field_at(0, **data)
-
-    async def module_info(self, cog: subclasses.Cog=None):
-        if cog:
-            # count lines for cog
-            self.count = 0
-            lines, _ = inspect.getsourcelines(cog.__class__)
-            for line in lines:
-                self.count += 1 if len(line.strip()) > 0 else 0
-
-            data = {'name': cog.qualified_name + ' Module', 'value':f"Loaded\n⤷ <t:{int(cog.time)}:R>\n\nStats\n⤷ Commands used : {cog.cmds}\n⤷ Lines : {self.count}\n⤷ [Source]({await misc.git_source(self.bot, cog)})", 'inline': True}
-            return self.set_field_at(1, **data) if len(self.fields) > 1 else self.insert_field_at(1, **data)
-        elif len(self.fields) > 1:
-            return self.remove_field(1)
+from typing import Union
+from main import AceBot
 
 
 class ModuleMenu(subclasses.View):
@@ -56,17 +13,49 @@ class ModuleMenu(subclasses.View):
 
         self.bot = bot
         options = [discord.SelectOption(label=name, value=name, emoji=module.emoji) for name, module in self.bot.cogs.items()]
-        self.add_item(self.ModuleSelect(options))
+        self.add_item(self.Select(options))
     
-    class ModuleSelect(discord.ui.Select["ModuleMenu"]):
+    class Embed(discord.Embed):
+        def __init__(self, bot: AceBot):
+            super().__init__(color=discord.Color.blurple())
+            self.list_modules(bot)
+            self.set_footer(text=datetime.datetime.strftime(datetime.datetime.now(tz=pytz.timezone('US/Eastern')), "Today at %H:%M"))
+            self.set_thumbnail(url='https://static-00.iconduck.com/assets.00/cog-settings-icon-2048x1619-0lz5tnft.png')
+            self.count = 0
+        
+        @classmethod
+        def from_embed(cls, bot: AceBot, embed: discord.Embed):
+            return cls(bot).from_dict(embed.to_dict())
+
+        def list_modules(self, bot: AceBot, selected: subclasses.Cog=None):
+            data = {'name': "Extensions", 'value': "\n".join([f"{bot.get_cog(name).emoji} {f'`{name}`' if selected and selected.qualified_name == name else name}" for name in bot.cogs]), 'inline': True}
+            if len(self.fields) > 0:
+                return self.set_field_at(0, **data)
+            else:
+                return self.insert_field_at(0, **data)
+
+        def module_info(self, bot: AceBot, cog: subclasses.Cog=None):
+            if cog:
+                # count lines for cog
+                self.count = 0
+                lines, _ = inspect.getsourcelines(cog.__class__)
+                for line in lines:
+                    self.count += 1 if len(line.strip()) > 0 else 0
+
+                data = {'name': cog.qualified_name + ' Module', 'value':f"Loaded\n⤷ <t:{int(cog.time)}:R>\n\nStats\n⤷ Commands used : {cog.cmds}\n⤷ Lines : {self.count}\n⤷ [Source]({misc.git_source(bot, cog)})", 'inline': True}
+                return self.set_field_at(1, **data) if len(self.fields) > 1 else self.insert_field_at(1, **data)
+            elif len(self.fields) > 1:
+                return self.remove_field(1)
+
+    class Select(discord.ui.Select["ModuleMenu"]):
         def __init__(self, options):
             super().__init__(placeholder="Choose a module", custom_id="Module:Select", options=options, row=1)
         
         async def callback(self, interaction: discord.Interaction):
             cog = self.view.bot.get_cog(str(self.values[0]))
-            embed = ModuleEmbed.from_embed(self.view.bot, interaction.message.embeds[0])
-            await embed.module_info(cog)
-            embed.list_modules(cog)
+            embed = self.view.Embed.from_embed(self.view.bot, interaction.message.embeds[0])
+            embed.module_info(interaction.client, cog)
+            embed.list_modules(interaction.client, cog)
 
             return await interaction.response.edit_message(embed=embed)
     
@@ -93,39 +82,68 @@ class ModuleMenu(subclasses.View):
 
 
 class PartyMenu(subclasses.View):
-    def __init__(self, bot: AceBot, vcs):
+    def __init__(self, bot: AceBot, vcs: dict):
         super().__init__(timeout=None)
-
-        self.bot: AceBot = bot
-        self.vcs: dict = vcs
+        self.bot = bot
+        self.vcs = vcs
         self.edit_cd = commands.CooldownMapping.from_cooldown(2, 600, commands.BucketType.channel)
-
-    def check_ownership(self, interaction: discord.Interaction):
-        if str(interaction.user.voice.channel.id) in self.vcs.keys():
-            return interaction.user.id == self.vcs[str(interaction.user.voice.channel.id)]
+    
+    class Embed(discord.Embed):
+        def __init__(self, ctx: commands.Context, vcs: dict):
+            super().__init__(color=discord.Color.gold())
+            self.vc = ctx.author.voice.channel
+            self.vcs = vcs
+            self.title = f":loud_sound: {self.vc.name}"
+            self.description = f"Owner : {ctx.bot.get_user(self.vcs[str(self.vc.id)]).mention}\nCreated : <t:{int(self.vc.created_at.timestamp())}:R>"
+    
+    async def check_ownership(self, ctx: Union[discord.Interaction, commands.Context], override: bool=False):
+        if isinstance(ctx, discord.Interaction):
+            author, bot = ctx.user, ctx.client
         else:
-            return True
+            author, bot = ctx.author, ctx.bot
     
-    def is_locked(self, interaction: discord.Interaction):
+        vc = author.voice.channel
+
+        if override or str(vc.id) not in self.vcs.keys() or bot.get_user(self.vcs[str(vc.id)]) not in vc.members:
+            self.vcs[str(vc.id)] = author.id
+            return author
+    
+        return author.id == self.vcs[str(vc.id)]
+
+    def locked(self, interaction: discord.Interaction):
         return interaction.user.voice.channel.user_limit == 1
-    
+
     @discord.ui.button(style=discord.ButtonStyle.grey, custom_id="Party:Lock", emoji=EMOJIS["lock"])
     async def lock(self, interaction: discord.Interaction, button: discord.ui.Button):
-        channel = interaction.user.voice.channel
-        if self.check_ownership(interaction):
+        vc = interaction.user.voice.channel
+        ownership = await self.check_ownership(interaction) # Returns new owner if changed
+
+        if ownership:
+            # Cooldown
             cd = self.edit_cd.update_rate_limit(interaction.message)
             if cd:
                 retry = int(time.time() + cd)
                 await interaction.response.send_message(f":clock1: You can't lock/unlock this channel for the moment, please try again in <t:{retry}:R>", ephemeral=True)
             else:
-                if self.is_locked(interaction):
-                    await channel.edit(user_limit=None, name=channel.name.strip(EMOJIS["lock"]))
+                locked = self.locked(interaction)
+                # Unlock
+                if locked:
+                    await vc.edit(user_limit=None, name=vc.name.strip(EMOJIS["lock"]))
                     button.emoji = EMOJIS["lock"]
                     await interaction.response.send_message(":unlock: Unlocked channel", ephemeral=True)
+                # Lock
                 else:
-                    await channel.edit(user_limit=1, name=f"{EMOJIS['lock']} {channel.name}")
+                    await vc.edit(user_limit=1, name=f"{EMOJIS['lock']} {vc.name}")
                     button.emoji = EMOJIS["unlock"]
                     await interaction.response.send_message(":lock: Locked channel", ephemeral=True)
+                
+                # Update embed
+                embed = interaction.message.embeds[0]
+                embed.title = f":loud_sound:{' :lock:' if locked else ''} {vc.name}"
+                if isinstance(ownership, Union[discord.User, discord.Member]):
+                    embed.set_footer(f"Transfered ownership -> {ownership.mention}")
+                
+                await interaction.message.edit(embed=embed)
     
     async def edit_name(self, interaction: discord.Interaction):
         def is_author(msg: discord.Message):
@@ -135,17 +153,19 @@ class PartyMenu(subclasses.View):
         cd = self.edit_cd.update_rate_limit(interaction.message)
         if cd:
             retry = int(time.time() + cd)
-            await interaction.followup.send(f":clock1: You can't rename this channel for the moment, please try again in <t:{retry}:R>", ephemeral=True)
+            await interaction.followup.send(f":clock1: You can't rename this channel for the moment, please try again in <t:{retry}:R>")
         else:
-            await interaction.followup.send(f":memo: Edited party: `{interaction.user.voice.channel.name} -> {msg.content}`", ephemeral=True)
-            await interaction.user.voice.channel.edit(name=f"{EMOJIS['lock'] if self.is_locked(interaction) else ''} {msg.content}")
+            await interaction.followup.send(f":memo: Edited party: `{interaction.user.voice.channel.name} -> {msg.content}`")
+            await interaction.user.voice.channel.edit(name=f"{EMOJIS['lock'] if self.locked(interaction) else ''} {msg.content}")
+
         embed = interaction.message.embeds[0].set_footer(text=None)
-        embed.title = f":loud_sound: {msg.content}"
+        embed.title = f":loud_sound:{' :lock:' if self.locked(interaction) else ''} {msg.content}"
+
         await interaction.message.edit(embed=embed)
 
     @discord.ui.button(style=discord.ButtonStyle.grey, custom_id="Party:Edit", emoji=EMOJIS["memo"])
     async def edit(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if self.check_ownership(interaction):
+        if await self.check_ownership(interaction):
             await interaction.response.defer()
             await interaction.message.edit(embed=interaction.message.embeds[0].set_footer(text="Waiting for message..."))
             await self.edit_name(interaction)

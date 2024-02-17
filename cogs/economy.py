@@ -1,10 +1,8 @@
 from discord.ext import commands
 import discord
-from typing import Optional, TYPE_CHECKING
+from typing import Optional
 from utils import subclasses, EMOJIS, sql_querries
-
-if TYPE_CHECKING:
-    from main import AceBot
+from main import AceBot
 
 class Economy(subclasses.Cog):
     def __init__(self, bot):

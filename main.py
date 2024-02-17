@@ -135,8 +135,7 @@ class Debug(subclasses.Cog):
     @commands.group(invoke_without_command=True)
     async def modules(self, ctx: commands.Context):
         """Lists all modules with their current status"""
-        menu = ui.ModuleEmbed(self.bot)
-        return await ctx.reply(embed=menu, view=ui.ModuleMenu(self.bot))
+        return await ctx.reply(embed=ui.ModuleMenu.Embed(self.bot), view=ui.ModuleMenu(self.bot))
 
     @commands.command()
     @commands.is_owner()

@@ -1,10 +1,8 @@
-from typing import Union, TYPE_CHECKING
+from typing import Union
 from discord.ext import commands
 import discord
 from utils import EMOJIS, subclasses, ui
-
-if TYPE_CHECKING:
-    from main import AceBot, LOGGER
+from main import AceBot, LOGGER
 
 
 class Utility(subclasses.Cog):
@@ -40,14 +38,10 @@ class Utility(subclasses.Cog):
         vc = ctx.author.voice.channel if ctx.author.voice else None
         msg = ""
         if vc and vc.bitrate == 63000:
-            # if the channel isnt registered to vcs or the owner left the vc, change the owner to author
-            if str(vc.id) not in self.vcs.keys() or self.bot.get_user(self.vcs[str(vc.id)]) not in vc.members:
-                msg = f"Transfered party ownership to {ctx.author.mention}"
-                self.vcs[str(vc.id)] = ctx.author.id
-
-            embed = discord.Embed(color=discord.Color.gold(), title=f"{EMOJIS['loud_sound']} {vc.name}", description=f"Owner : {self.bot.get_user(self.vcs[str(vc.id)]).mention}\nCreated : <t:{int(vc.created_at.timestamp())}:R>")
             menu = ui.PartyMenu(self.bot, self.vcs)
-            await ctx.reply(msg, embed=embed, view=menu)
+            await menu.check_ownership(ctx)
+
+            await ctx.reply(msg, embed=ui.PartyMenu.Embed(ctx, self.vcs), view=ui.PartyMenu(self.bot, self.vcs))
         elif vc:
             await ctx.reply(":warning: You are not in a party !")
         else:

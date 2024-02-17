@@ -19,7 +19,7 @@ class Time(commands.Converter):
             else:
                 return datetime.datetime.today() - datetime.timedelta(days=abs(days))
 
-async def git_source(bot: commands.Bot, obj: Union[commands.Command, commands.Cog, str]=None):
+def git_source(bot: commands.Bot, obj: Union[commands.Command, commands.Cog, str]=None):
     source_url = 'https://github.com/Aceroph/ace-of-spades'
 
     if type(obj) is str:
