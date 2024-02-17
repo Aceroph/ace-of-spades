@@ -1,7 +1,6 @@
 import datetime
 import re
 from discord.ext import commands
-from . import subclasses
 import inspect, os
 from typing import Union
 

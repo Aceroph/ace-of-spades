@@ -1,8 +1,10 @@
-from typing import Union
+from typing import Union, TYPE_CHECKING
 from discord.ext import commands
 import discord
 from utils import EMOJIS, subclasses, ui
-from main import AceBot, LOGGER
+
+if TYPE_CHECKING:
+    from main import AceBot, LOGGER
 
 
 class Utility(subclasses.Cog):

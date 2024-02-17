@@ -1,9 +1,12 @@
 import discord
 from discord.ext import commands
-from main import AceBot
 import time, datetime, pytz
-from . import EMOJIS, subclasses, misc
 import inspect
+from typing import TYPE_CHECKING
+from . import EMOJIS, subclasses, misc
+
+if TYPE_CHECKING:
+    from main import AceBot
 
 
 class ModuleEmbed(discord.Embed):

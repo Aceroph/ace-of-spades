@@ -1,14 +1,13 @@
 from discord.ext import commands
 import discord
 from discord.ext.commands.core import Command, Group
-from cogs import EXTENSIONS
-from typing import Coroutine, Union
+from typing import Union
 import sqlite3
 import traceback
-import json, dotenv
-import pathlib
-from utils import EMOJIS, subclasses, ui, misc
+import json, dotenv, pathlib
 import logging, logging.handlers
+from cogs import EXTENSIONS
+from utils import EMOJIS, subclasses, ui, misc
 
 # FILE MANAGEMENT
 directory = pathlib.Path(__file__).parent
