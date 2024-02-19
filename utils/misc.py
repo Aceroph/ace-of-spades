@@ -1,8 +1,9 @@
-import datetime
-import re
 from discord.ext import commands
-import inspect, os
 from typing import Union
+import datetime
+import inspect
+import re
+import os
 
 class Time(commands.Converter):      
     async def convert(self, ctx: commands.Context, argument: str) -> datetime.datetime:

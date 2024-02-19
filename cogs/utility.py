@@ -1,9 +1,9 @@
-from typing import Union
-from discord.ext import commands
-import discord
 from utils import subclasses, ui
+from discord.ext import commands
 from main import AceBot, LOGGER
+from typing import Union
 import unicodedata
+import discord
 
 
 class Utility(subclasses.Cog):

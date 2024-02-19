@@ -1,9 +1,10 @@
 from utils import checks, subclasses, misc
-from main import AceBot
 from discord.ext import commands
+from main import AceBot
 import datetime
+import pathlib
 import discord
-import json, pathlib
+import json
 
 schooldata = json.load(open(pathlib.Path(__file__).parent.parent / 'utils' / "schoolday.json", "r"))
 

@@ -1,12 +1,17 @@
-from discord.ext import commands
-import discord
-from typing import Union
-import sqlite3
-import traceback
-import json, dotenv, pathlib
-import logging, logging.handlers
-from cogs import EXTENSIONS
 from utils import subclasses, ui, misc
+from typing import Union, Callable
+from discord.ext import commands
+from cogs import EXTENSIONS
+import logging.handlers
+import traceback
+import discord
+import sqlite3
+import difflib
+import pathlib
+import logging
+import dotenv
+import json
+import copy
 
 # FILE MANAGEMENT
 directory = pathlib.Path(__file__).parent
@@ -105,7 +110,44 @@ class AceBot(commands.Bot):
 
     async def on_command_error(self, ctx: commands.Context, error: commands.CommandError):
         if isinstance(error, commands.CommandNotFound):
-            return await ctx.reply(":warning: This command does not exist !")
+            # Search for possible command (Discusting code down here)
+            filter_cmd: Callable[[str]] = lambda q : difflib.get_close_matches(q, [cmd.qualified_name for cmd in self.commands])[0]
+            filter_sub: Callable[[str, commands.Group]] = lambda sub, cmd : difflib.get_close_matches(f'{cmd.qualified_name} {sub}', [subcmd.qualified_name for subcmd in cmd.commands])[0]
+            
+            split = ctx.message.content.strip(self.command_prefix).split()
+            q = split[0]
+            if len(split) > 1 and isinstance(self.get_command(filter_cmd(q)), commands.Group):
+                command = filter_sub(self.get_command(filter_cmd(q)), split[1])
+            else:
+                command = filter_cmd(q)
+
+            if len(command) > 0:
+                async def yes_callback(interaction: discord.Interaction):
+                    alt_msg = copy.copy(ctx.message)
+                    alt_msg._update({'content': f'{self.command_prefix}{command} {" ".join(split[2:]) if len(split) > 2 else ""}'})
+                    alt_ctx = await self.get_context(alt_msg, cls=type(ctx))
+
+                    await interaction.message.delete()
+                    await interaction.response.defer()
+                    return await alt_ctx.command.invoke(alt_ctx)
+                
+                async def no_callback(interaction: discord.Interaction):
+                    await interaction.message.delete()
+                    return await interaction.response.defer()
+                
+                view = subclasses.View()
+                # Buttons
+                yes = discord.ui.Button(label='Yes', style=discord.ButtonStyle.green)
+                no = discord.ui.Button(label='No', style=discord.ButtonStyle.red)
+
+                yes.callback = yes_callback
+                no.callback = no_callback
+                
+                view.add_item(yes)
+                view.add_item(no)
+                return await ctx.reply(f'Did you mean `{self.command_prefix}{command}` ?', view=view)
+            else:
+                return await ctx.reply(":warning: This command does not exist !")
         
         if isinstance(error, commands.MissingPermissions):
             return await ctx.reply(":warning: Yous lacking thy necessary rights to perform thus action !")

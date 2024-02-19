@@ -1,10 +1,12 @@
-import discord
 from discord.ext import commands
-import time, datetime, pytz
-import inspect
 from . import subclasses, misc
 from typing import List, Union
 from main import AceBot
+import datetime
+import discord
+import inspect
+import time
+import pytz
 
 
 class ModuleMenu(subclasses.View):

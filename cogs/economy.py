@@ -1,8 +1,8 @@
-from discord.ext import commands
-import discord
-from typing import Optional
 from utils import subclasses, sql_querries
+from discord.ext import commands
+from typing import Optional
 from main import AceBot
+import discord
 
 class Economy(subclasses.Cog):
     def __init__(self, bot):
