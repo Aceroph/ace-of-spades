@@ -1,4 +1,4 @@
-from utils import checks, subclasses, EMOJIS, misc
+from utils import checks, subclasses, misc
 from main import AceBot
 from discord.ext import commands
 import datetime
@@ -10,7 +10,7 @@ schooldata = json.load(open(pathlib.Path(__file__).parent.parent / 'utils' / "sc
 class School(subclasses.Cog):
     def __init__(self, bot: AceBot):
         super().__init__()
-        self.emoji = EMOJIS["school"]
+        self.emoji = '\N{SCHOOL}'
         self.bot = bot
 
         self.start = datetime.datetime.strptime(schooldata["start"], "%Y-%m-%d")
@@ -56,7 +56,7 @@ class School(subclasses.Cog):
 
             teacher = data["teacher"]
 
-            embed.add_field(name=f"{data['descriptionShort']} - {subject}", value=f"{EMOJIS['teacher']} {teacher['firstName']} {teacher['lastName']}\n{EMOJIS['busts_in_silhouette']} Group {data['group']}\n{EMOJIS['clock1']} {self.hours[i]}\n", inline=False)
+            embed.add_field(name=f"{data['descriptionShort']} - {subject}", value=f":teacher: {teacher['firstName']} {teacher['lastName']}\n\N{BUSTS IN SILHOUETTE} Group {data['group']}\n\N{CLOCK FACE TEN-THIRTY} {self.hours[i]}\n", inline=False)
         await ctx.reply(embed=embed)
 
 

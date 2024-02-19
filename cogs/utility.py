@@ -1,15 +1,16 @@
 from typing import Union
 from discord.ext import commands
 import discord
-from utils import EMOJIS, subclasses, ui
+from utils import subclasses, ui
 from main import AceBot, LOGGER
+import unicodedata
 
 
 class Utility(subclasses.Cog):
     def __init__(self, bot: AceBot):
         super().__init__()
         self.bot: AceBot = bot
-        self.emoji = EMOJIS["tools"]
+        self.emoji = '\N{HAMMER AND WRENCH}'
         self.vcs = {}
     
     def cog_load(self):
@@ -63,6 +64,14 @@ class Utility(subclasses.Cog):
             channel_id = self.bot.connection.cursor().execute(self.bot.queries["GET_VALUE"], {"id": ctx.guild.id, "key": "party_id"}).fetchone()
             channel = self.bot.get_channel(channel_id[0])
             await ctx.send(f"Current channel is {channel.mention if isinstance(channel, discord.VoiceChannel) else None}")
+    
+    @commands.command(aliases=['char', 'character'])
+    async def charinfo(self, ctx: commands.Context, *, characters: str):
+        fn = lambda c : "%s → \\N{%s}" % (f'{ord(c):x>8}', unicodedata.name(c, 'Found nothing'))
+        msg = '\n'.join(map(fn, characters))
+        await ctx.reply(msg)
+        
+            
 
 
 async def setup(bot: AceBot):

@@ -1,14 +1,14 @@
 from discord.ext import commands
 import discord
 from typing import Optional
-from utils import subclasses, EMOJIS, sql_querries
+from utils import subclasses, sql_querries
 from main import AceBot
 
 class Economy(subclasses.Cog):
     def __init__(self, bot):
         super().__init__()
         self.bot: AceBot = bot
-        self.emoji = EMOJIS["coin"]
+        self.emoji = '\N{COIN}'
 
 
     @commands.command()

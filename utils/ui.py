@@ -2,8 +2,8 @@ import discord
 from discord.ext import commands
 import time, datetime, pytz
 import inspect
-from . import EMOJIS, subclasses, misc
-from typing import Union
+from . import subclasses, misc
+from typing import List, Union
 from main import AceBot
 
 
@@ -59,7 +59,7 @@ class ModuleMenu(subclasses.View):
 
             return await interaction.response.edit_message(embed=embed)
     
-    @discord.ui.button(style=discord.ButtonStyle.blurple, label="Reload", custom_id="Module:Reload", emoji=EMOJIS["repeat"], row=2)
+    @discord.ui.button(style=discord.ButtonStyle.blurple, label="Reload", custom_id="Module:Reload", emoji='\N{CLOCKWISE RIGHTWARDS AND LEFTWARDS OPEN CIRCLE ARROWS}', row=2)
     async def reload(self, interaction: discord.Interaction, button: discord.ui):
         if interaction.user.id == self.bot.owner_id:
             for child in self.children:
@@ -113,7 +113,7 @@ class PartyMenu(subclasses.View):
     def locked(self, interaction: discord.Interaction):
         return interaction.user.voice.channel.user_limit == 1
 
-    @discord.ui.button(style=discord.ButtonStyle.grey, custom_id="Party:Lock", emoji=EMOJIS["lock"])
+    @discord.ui.button(style=discord.ButtonStyle.grey, custom_id="Party:Lock", emoji='\N{LOCK}')
     async def lock(self, interaction: discord.Interaction, button: discord.ui.Button):
         vc = interaction.user.voice.channel
         ownership = await self.check_ownership(interaction) # Returns new owner if changed
@@ -128,13 +128,13 @@ class PartyMenu(subclasses.View):
                 locked = self.locked(interaction)
                 # Unlock
                 if locked:
-                    await vc.edit(user_limit=None, name=vc.name.strip(EMOJIS["lock"]))
-                    button.emoji = EMOJIS["lock"]
+                    await vc.edit(user_limit=None, name=vc.name.strip(None))
+                    button.emoji = '\N{OPEN LOCK}'
                     await interaction.response.send_message(":unlock: Unlocked channel", ephemeral=True)
                 # Lock
                 else:
-                    await vc.edit(user_limit=1, name=f"{EMOJIS['lock']} {vc.name}")
-                    button.emoji = EMOJIS["unlock"]
+                    await vc.edit(user_limit=1, name=f"{None} {vc.name}")
+                    button.emoji = '\N{LOCK}'
                     await interaction.response.send_message(":lock: Locked channel", ephemeral=True)
                 
                 # Update embed
@@ -156,17 +156,59 @@ class PartyMenu(subclasses.View):
             await interaction.followup.send(f":clock1: You can't rename this channel for the moment, please try again in <t:{retry}:R>")
         else:
             await interaction.followup.send(f":memo: Edited party: `{interaction.user.voice.channel.name} -> {msg.content}`")
-            await interaction.user.voice.channel.edit(name=f"{EMOJIS['lock'] if self.locked(interaction) else ''} {msg.content}")
+            await interaction.user.voice.channel.edit(name=f"{None if self.locked(interaction) else ''} {msg.content}")
 
         embed = interaction.message.embeds[0].set_footer(text=None)
         embed.title = f":loud_sound:{' :lock:' if self.locked(interaction) else ''} {msg.content}"
 
         await interaction.message.edit(embed=embed)
 
-    @discord.ui.button(style=discord.ButtonStyle.grey, custom_id="Party:Edit", emoji=EMOJIS["memo"])
+    @discord.ui.button(style=discord.ButtonStyle.grey, custom_id="Party:Edit", emoji='\N{MEMO}')
     async def edit(self, interaction: discord.Interaction, button: discord.ui.Button):
         if await self.check_ownership(interaction):
             await interaction.response.defer()
             await interaction.message.edit(embed=interaction.message.embeds[0].set_footer(text="Waiting for message..."))
             await self.edit_name(interaction)
+
+class HelpView(subclasses.View):
+    def __init__(self, bot: AceBot, context: commands.Context):
+        super().__init__(timeout=None)
+        self.bot = bot
+        self.context = context
+        self.old = None
         
+    async def filter_commands(self, commands: List[commands.Command]):
+        filtered_commands = []
+        for command in commands:
+            try:
+                if await command.can_run(self.context):
+                    filtered_commands.append(command)
+            except:
+                pass
+        return filtered_commands
+
+    @discord.ui.button(label="Show commands", style=discord.ButtonStyle.grey, custom_id="Help:ShowCommands", emoji='\N{INFORMATION SOURCE}')
+    async def show(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if self.context.author == interaction.user:
+            if button.label == 'Show commands':
+                self.old = interaction.message.embeds[0]
+                embed = discord.Embed(color=discord.Color.blurple())
+                embed.set_thumbnail(url="https://upload.wikimedia.org/wikipedia/commons/thumb/3/31/Documents_icon_-_noun_project_5020_-_white.svg/1200px-Documents_icon_-_noun_project_5020_-_white.svg.png")
+                embed.set_author(name=f"{self.context.author.display_name}: Help", icon_url=self.context.author.avatar.url)
+
+                # Modules & Commands
+                for name, module in self.bot.cogs.items():
+                    # Filter commands
+                    filtered_commands = await self.filter_commands(module.get_commands())
+                    cmds = [f'`{command.qualified_name}`' for command in filtered_commands]
+                    embed.add_field(name=f"{module.emoji} {name} - {len(cmds)}", value=' '.join(cmds), inline=False) if len(cmds) > 0 else None
+
+                button.label = 'Back to help'
+                return await interaction.response.edit_message(embed=embed, view=self)
+            else:
+                button.label = 'Show commands'
+                return await interaction.response.edit_message(embed=self.old, view=self)
+        else:
+            return await interaction.response.send_message("This is not your instance !", ephemeral=True)
+
+    
