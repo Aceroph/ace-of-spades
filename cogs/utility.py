@@ -4,7 +4,8 @@ from main import AceBot, LOGGER
 from typing import Union
 import unicodedata
 import discord
-
+import inspect
+import pathlib
 
 class Utility(subclasses.Cog):
     def __init__(self, bot: AceBot):
@@ -71,7 +72,19 @@ class Utility(subclasses.Cog):
         msg = '\n'.join(map(fn, characters))
         await ctx.reply(msg)
         
-            
+    @commands.command(aliases=['stats'])
+    async def statistics(self, ctx: commands.Context):
+        lines = 0
+        for obj in pathlib.Path(__file__).parent.parent.iterdir():
+            if not obj.name.startswith(('_', '.')):
+                if obj.is_dir():
+                    for file in obj.iterdir():
+                        if file.name.endswith(('.py', '.json')):
+                            lines += len(open(file, 'r').readlines())
+                elif obj.name.endswith(('.py', '.json')):
+                    lines += len(open(obj, 'r').readlines())
+        
+        await ctx.reply(f'Total lines : {lines}')
 
 
 async def setup(bot: AceBot):

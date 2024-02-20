@@ -111,20 +111,20 @@ class AceBot(commands.Bot):
     async def on_command_error(self, ctx: commands.Context, error: commands.CommandError):
         if isinstance(error, commands.CommandNotFound):
             # Search for possible command (Discusting code down here)
-            filter_cmd: Callable[[str]] = lambda q : difflib.get_close_matches(q, [cmd.qualified_name for cmd in self.commands])[0]
+            filter_cmd: Callable[[str]] = lambda q : difflib.get_close_matches(q, [cmd.qualified_name for cmd in self.commands])
             filter_sub: Callable[[str, commands.Group]] = lambda sub, cmd : difflib.get_close_matches(f'{cmd.qualified_name} {sub}', [subcmd.qualified_name for subcmd in cmd.commands])[0]
             
             split = ctx.message.content.strip(self.command_prefix).split()
             q = split[0]
             if len(split) > 1 and isinstance(self.get_command(filter_cmd(q)), commands.Group):
-                command = filter_sub(self.get_command(filter_cmd(q)), split[1])
+                command = filter_sub(self.get_command(filter_cmd(q)[0]), split[1])
             else:
                 command = filter_cmd(q)
 
             if len(command) > 0:
                 async def yes_callback(interaction: discord.Interaction):
                     alt_msg = copy.copy(ctx.message)
-                    alt_msg._update({'content': f'{self.command_prefix}{command} {" ".join(split[2:]) if len(split) > 2 else ""}'})
+                    alt_msg._update({'content': f'{self.command_prefix}{command[0]} {" ".join(split[2:]) if len(split) > 2 else ""}'})
                     alt_ctx = await self.get_context(alt_msg, cls=type(ctx))
 
                     await interaction.message.delete()
@@ -145,7 +145,7 @@ class AceBot(commands.Bot):
                 
                 view.add_item(yes)
                 view.add_item(no)
-                return await ctx.reply(f'Did you mean `{self.command_prefix}{command}` ?', view=view)
+                return await ctx.reply(f'Did you mean `{self.command_prefix}{command[0]}` ?', view=view)
             else:
                 return await ctx.reply(":warning: This command does not exist !")
         

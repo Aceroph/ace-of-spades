@@ -62,7 +62,7 @@ class ModuleMenu(subclasses.View):
             return await interaction.response.edit_message(embed=embed)
     
     @discord.ui.button(style=discord.ButtonStyle.blurple, label="Reload", custom_id="Module:Reload", emoji='\N{CLOCKWISE RIGHTWARDS AND LEFTWARDS OPEN CIRCLE ARROWS}', row=2)
-    async def reload(self, interaction: discord.Interaction, button: discord.ui):
+    async def reload(self, interaction: discord.Interaction, button: discord.ui.Button):
         if interaction.user.id == self.bot.owner_id:
             for child in self.children:
                 module = None
