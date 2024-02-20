@@ -1,17 +1,19 @@
+from typing import Optional, Union, TYPE_CHECKING
 from utils import subclasses, sql_querries
-from typing import Optional, Union
 from discord.ext import commands
 from tabulate import tabulate
-from main import AceBot
 import discord
 import asyncio
 
+if TYPE_CHECKING:
+    from main import AceBot
 
-class Moderation(subclasses.Cog):
-    def __init__(self, bot):
+
+class Admin(subclasses.Cog):
+    def __init__(self, bot: 'AceBot'):
         super().__init__()
-        self.bot: AceBot = bot
-        self.emoji = '\N{SCALES}'
+        self.emoji = '\N{NAME BADGE}'
+        self.bot = bot
 
 
     @commands.group(aliases=['perms', 'rights'], invoke_without_command=True)
@@ -100,5 +102,5 @@ class Moderation(subclasses.Cog):
         await ctx.send(embed=embed)
 
 
-async def setup(bot: AceBot):
-    await bot.add_cog(Moderation(bot))
+async def setup(bot):
+    await bot.add_cog(Admin(bot))

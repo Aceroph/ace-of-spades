@@ -1,18 +1,22 @@
+from typing import Union, Callable, TYPE_CHECKING
 from utils import subclasses, ui
 from discord.ext import commands
-from main import AceBot, LOGGER
-from typing import Union
+from main import LOGGER
 import unicodedata
 import discord
-import inspect
 import pathlib
+import time
+
+if TYPE_CHECKING:
+    from main import AceBot
 
 class Utility(subclasses.Cog):
-    def __init__(self, bot: AceBot):
+    def __init__(self, bot: 'AceBot'):
         super().__init__()
-        self.bot: AceBot = bot
         self.emoji = '\N{HAMMER AND WRENCH}'
+        self.bot = bot
         self.vcs = {}
+        self.lines = 0
     
     def cog_load(self):
         self.bot.add_view(ui.PartyMenu(self.bot, self.vcs))
@@ -68,24 +72,22 @@ class Utility(subclasses.Cog):
     
     @commands.command(aliases=['char', 'character'])
     async def charinfo(self, ctx: commands.Context, *, characters: str):
-        fn = lambda c : "%s → \\N{%s}" % (f'{ord(c):x>8}', unicodedata.name(c, 'Found nothing'))
+        fn: Callable[[str]] = lambda c : "%s : `%s` -> `\\N{%s}`" % (c, c.encode('unicode-escape'), unicodedata.name(c, 'Found nothing'))
         msg = '\n'.join(map(fn, characters))
         await ctx.reply(msg)
         
     @commands.command(aliases=['stats'])
     async def statistics(self, ctx: commands.Context):
-        lines = 0
-        for obj in pathlib.Path(__file__).parent.parent.iterdir():
-            if not obj.name.startswith(('_', '.')):
-                if obj.is_dir():
-                    for file in obj.iterdir():
-                        if file.name.endswith(('.py', '.json')):
-                            lines += len(open(file, 'r').readlines())
-                elif obj.name.endswith(('.py', '.json')):
-                    lines += len(open(obj, 'r').readlines())
-        
-        await ctx.reply(f'Total lines : {lines}')
+        if self.lines == 0 or not int(self.bot.boot_time - time.time()) % 600:
+            async with ctx.typing():
+                root = pathlib.Path(__file__).parent.parent
+                for file in pathlib.Path(__file__).parent.parent.glob('**/*'):
+                    if file.name.endswith(('.py', '.json')) and not any(file.is_relative_to(bad) for bad in root.glob('**/.*')):
+                        with open(file, 'r') as f:
+                            self.lines += len(f.readlines())
+            
+        await ctx.reply(f'Total lines : {self.lines}')
 
 
-async def setup(bot: AceBot):
+async def setup(bot):
     await bot.add_cog(Utility(bot))

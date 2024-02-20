@@ -10,6 +10,7 @@ import difflib
 import pathlib
 import logging
 import dotenv
+import time
 import json
 import copy
 
@@ -17,7 +18,7 @@ import copy
 directory = pathlib.Path(__file__).parent
 
 LOGGER = logging.getLogger('discord')
-LOGGER.setLevel(logging.DEBUG)
+LOGGER.setLevel(logging.INFO)
 logging.getLogger('discord.http').setLevel(logging.INFO)
 
 handler = logging.handlers.RotatingFileHandler(
@@ -47,6 +48,9 @@ class AceHelp(commands.HelpCommand):
         await self.context.reply(embed=embed, view=ui.HelpView(self.context.bot, self.context))
     
     async def send_command_help(self, command: Union[commands.Command, commands.Group]):
+        if command not in await self.filter_commands(self.context.bot.commands):
+            raise commands.CheckFailure
+        
         embed = discord.Embed(color=discord.Color.blurple())
         embed.set_thumbnail(url="https://upload.wikimedia.org/wikipedia/commons/thumb/3/31/Documents_icon_-_noun_project_5020_-_white.svg/1200px-Documents_icon_-_noun_project_5020_-_white.svg.png")
         embed.set_author(name=f"{self.context.author.display_name} : Help -> {command.qualified_name.capitalize()}", icon_url=self.context.author.avatar.url)
@@ -87,6 +91,7 @@ class AceBot(commands.Bot):
         self.token = dotenv.dotenv_values('.env')["TOKEN"]
         self.queries = json.load(open(directory / 'sql.json'))
         self.owner_id = 493107597281329185
+        self.boot_time = time.time()
 
     async def setup_hook(self):
         # Create tables in case they do not exist
@@ -94,16 +99,13 @@ class AceBot(commands.Bot):
         self.connection.cursor().execute("CREATE TABLE IF NOT EXISTS guildConfig ( id INTEGER NOT NULL, key TEXT NOT NULL, value INTEGER DEFAULT (0), PRIMARY KEY(id, key) );")
         self.connection.commit()
 
-        await self.add_cog(Debug(self))
-
         for extension in EXTENSIONS:
-            if extension != "debug":
-                try:
-                    await self.load_extension(extension)
-                    LOGGER.info("%s loaded", extension)
+            try:
+                await self.load_extension(extension)
+                LOGGER.info("%s loaded", extension)
 
-                except Exception as e:
-                    LOGGER.error("%s failed to load", extension, exc_info=1)
+            except Exception as e:
+                LOGGER.error("%s failed to load", extension, exc_info=1)
 
     async def on_ready(self):
         LOGGER.info('Connected as %s (ID: %d)', self.user, self.user.id)
@@ -164,48 +166,6 @@ class AceBot(commands.Bot):
         embed = discord.Embed(title=":warning: Unhandled error in command", description=f"```\n{''.join(traceback.format_exception(type(error), error, error.__traceback__))}```")
         await self.get_user(493107597281329185).send(embed=embed)
         return await ctx.reply(":warning: Unhandled error in command !")
-
-
-class Debug(subclasses.Cog):
-    def __init__(self, bot):
-        super().__init__()
-        self.bot: AceBot = bot
-        self.emoji = '\N{DESKTOP COMPUTER}'
-
-    def cog_load(self):
-        self.bot.add_view(ui.ModuleMenu(self.bot))
-        LOGGER.info("Loaded persistent view %s from %s", ui.ModuleMenu.__qualname__, self.qualified_name)
-
-    @commands.group(invoke_without_command=True)
-    async def modules(self, ctx: commands.Context):
-        """Lists all modules"""
-        return await ctx.reply(embed=ui.ModuleMenu.Embed(self.bot), view=ui.ModuleMenu(self.bot))
-
-    @commands.is_owner()
-    @commands.command()
-    async def sql(self, ctx: commands.Context, *, command: str):
-        """Executes SQL commands to the database"""
-        try:
-            r = self.bot.connection.cursor().execute(command).fetchall()
-            self.bot.connection.commit()
-
-            await ctx.reply("Done !" if r is None else r)
-
-        except Exception as e:
-            await ctx.reply(e)
-    
-    @commands.command(aliases=["killyourself", "shutdown"])
-    @commands.is_owner()
-    async def kys(self, ctx: commands.Context):
-        """Self-explanatory"""
-        await ctx.reply("https://tenor.com/view/pc-computer-shutting-down-off-windows-computer-gif-17192330")
-        await self.bot.close()
-    
-    @commands.command(aliases=["src"])
-    async def source(self, ctx: commands.Context, *, obj: str=None):
-        """Get the source of any command or cog"""
-        url = await misc.git_source(self.bot, obj)
-        await ctx.reply(url)
 
 
 if __name__ == "__main__":

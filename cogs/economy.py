@@ -1,14 +1,16 @@
 from utils import subclasses, sql_querries
+from typing import Optional, TYPE_CHECKING
 from discord.ext import commands
-from typing import Optional
-from main import AceBot
 import discord
 
+if TYPE_CHECKING:
+    from main import AceBot
+
 class Economy(subclasses.Cog):
-    def __init__(self, bot):
+    def __init__(self, bot: 'AceBot'):
         super().__init__()
-        self.bot: AceBot = bot
         self.emoji = '\N{COIN}'
+        self.bot = bot
 
 
     @commands.command()
@@ -26,5 +28,5 @@ class Economy(subclasses.Cog):
         else:
             await ctx.send(f"You have currently {current_balance}$")
 
-async def setup(bot: AceBot):
+async def setup(bot):
     await bot.add_cog(Economy(bot))

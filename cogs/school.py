@@ -1,15 +1,18 @@
 from utils import checks, subclasses, misc
 from discord.ext import commands
-from main import AceBot
+from typing import TYPE_CHECKING
 import datetime
 import pathlib
 import discord
 import json
 
+if TYPE_CHECKING:
+    from main import AceBot
+
 schooldata = json.load(open(pathlib.Path(__file__).parent.parent / 'utils' / "schoolday.json", "r"))
 
 class School(subclasses.Cog):
-    def __init__(self, bot: AceBot):
+    def __init__(self, bot: 'AceBot'):
         super().__init__()
         self.emoji = '\N{SCHOOL}'
         self.bot = bot
@@ -62,5 +65,5 @@ class School(subclasses.Cog):
 
 
 
-async def setup(bot: AceBot):
+async def setup(bot):
     await bot.add_cog(School(bot))

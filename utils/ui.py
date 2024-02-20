@@ -1,24 +1,25 @@
+from typing import List, Union, TYPE_CHECKING
 from discord.ext import commands
 from . import subclasses, misc
-from typing import List, Union
-from main import AceBot
 import datetime
 import discord
 import inspect
 import time
 import pytz
 
+if TYPE_CHECKING:
+    from main import AceBot
+
 
 class ModuleMenu(subclasses.View):
-    def __init__(self, bot: AceBot):
+    def __init__(self, bot: 'AceBot'):
         super().__init__(timeout=None)
-
         self.bot = bot
         options = [discord.SelectOption(label=name, value=name, emoji=module.emoji) for name, module in self.bot.cogs.items()]
         self.add_item(self.Select(options))
     
     class Embed(discord.Embed):
-        def __init__(self, bot: AceBot):
+        def __init__(self, bot: 'AceBot'):
             super().__init__(color=discord.Color.blurple())
             self.list_modules(bot)
             self.set_footer(text=datetime.datetime.strftime(datetime.datetime.now(tz=pytz.timezone('US/Eastern')), "Today at %H:%M"))
@@ -26,17 +27,17 @@ class ModuleMenu(subclasses.View):
             self.count = 0
         
         @classmethod
-        def from_embed(cls, bot: AceBot, embed: discord.Embed):
+        def from_embed(cls, bot: 'AceBot', embed: discord.Embed):
             return cls(bot).from_dict(embed.to_dict())
 
-        def list_modules(self, bot: AceBot, selected: subclasses.Cog=None):
+        def list_modules(self, bot: 'AceBot', selected: subclasses.Cog=None):
             data = {'name': "Extensions", 'value': "\n".join([f"{bot.get_cog(name).emoji} {f'`{name}`' if selected and selected.qualified_name == name else name}" for name in bot.cogs]), 'inline': True}
             if len(self.fields) > 0:
                 return self.set_field_at(0, **data)
             else:
                 return self.insert_field_at(0, **data)
 
-        def module_info(self, bot: AceBot, cog: subclasses.Cog=None):
+        def module_info(self, bot: 'AceBot', cog: subclasses.Cog=None):
             if cog:
                 # count lines for cog
                 self.count = 0
@@ -84,7 +85,7 @@ class ModuleMenu(subclasses.View):
 
 
 class PartyMenu(subclasses.View):
-    def __init__(self, bot: AceBot, vcs: dict):
+    def __init__(self, bot: 'AceBot', vcs: dict):
         super().__init__(timeout=None)
         self.bot = bot
         self.vcs = vcs
@@ -173,7 +174,7 @@ class PartyMenu(subclasses.View):
             await self.edit_name(interaction)
 
 class HelpView(subclasses.View):
-    def __init__(self, bot: AceBot, context: commands.Context):
+    def __init__(self, bot: 'AceBot', context: commands.Context):
         super().__init__(timeout=None)
         self.bot = bot
         self.context = context
