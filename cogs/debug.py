@@ -2,10 +2,11 @@ from utils import subclasses, ui, misc
 from typing import TYPE_CHECKING
 from discord.ext import commands
 from main import LOGGER
+import tabulate
+import discord
 
 if TYPE_CHECKING:
     from main import AceBot
-
 
 class Debug(subclasses.Cog):
     def __init__(self, bot: 'AceBot'):
@@ -23,17 +24,19 @@ class Debug(subclasses.Cog):
         return await ctx.reply(embed=ui.ModuleMenu.Embed(self.bot), view=ui.ModuleMenu(self.bot))
 
     @commands.is_owner()
-    @commands.command()
+    @commands.group()
     async def sql(self, ctx: commands.Context, *, command: str):
         """Executes SQL commands to the database"""
-        try:
-            r = self.bot.connection.cursor().execute(command).fetchall()
-            self.bot.connection.commit()
-
-            await ctx.reply("Done !" if r is None else r)
-
-        except Exception as e:
-            await ctx.reply(e)
+        async with self.bot.pool.acquire() as conn:
+            r = await conn.fetchall(command) or await conn.execute(command)
+            await conn.commit()
+            
+            if isinstance(r, list):
+                r = discord.Embed(description=f'```\n{tabulate.tabulate(headers=r[0].keys(), tabular_data=r)}```')
+            else:
+                r = discord.Embed(description='Executed !')
+            
+            await ctx.reply(embed=r)
     
     @commands.command(aliases=["killyourself", "shutdown"])
     @commands.is_owner()

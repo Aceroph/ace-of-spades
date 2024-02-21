@@ -1,5 +1,6 @@
 .env
 *.db
+*.db-*
 __pycache__
 schoolday.json
 .venv/

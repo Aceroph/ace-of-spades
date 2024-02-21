@@ -1,5 +1,5 @@
 from typing import Union, Callable, TYPE_CHECKING
-from utils import subclasses, ui
+from utils import subclasses, ui, sql_querries
 from discord.ext import commands
 from main import LOGGER
 import unicodedata
@@ -24,10 +24,10 @@ class Utility(subclasses.Cog):
 
     @commands.Cog.listener("on_voice_state_update")
     async def party_event(self, member: discord.Member, before: discord.VoiceState, after: discord.VoiceState):
-        party_config = self.bot.connection.cursor().execute(self.bot.queries["GET_VALUE"], {"key": "party_id", "id": member.guild.id}).fetchall()[0][0]
+        party_config = await sql_querries.get_value(self.bot, member.guild.id, 'party_id')
         if party_config:
             name = member.name + "'s vc"
-            if after.channel and after.channel.id == party_config:
+            if after.channel and after.channel.id in party_config:
                 vc = await member.guild.create_voice_channel(name=name, category=after.channel.category, bitrate=63000)
                 self.vcs[str(vc.id)] = member.id
                 await member.move_to(vc)
@@ -54,20 +54,20 @@ class Utility(subclasses.Cog):
             await ctx.reply(":warning: You are not in a vc !")
     
     @party.command(name="config")
+    @commands.guild_only()
     @commands.is_owner()
     async def party_config(self, ctx: commands.Context, channel: Union[discord.VoiceChannel, int] = None):
         """Sets the party lobby"""
         if channel:
-            id = channel if type(channel) is int else channel.id or ctx.channel.id
-            self.bot.connection.cursor().execute(self.bot.queries["SET_VALUE"], {"id": ctx.guild.id, "key": "party_id", "value": id}).fetchone()
-            self.bot.connection.commit()
+            channel_id = channel if type(channel) is int else channel.id or ctx.channel.id
+            await sql_querries.set_value(self.bot, ctx.guild.id, 'party_id', channel_id)
             if isinstance(channel, discord.VoiceChannel):
                 await ctx.send(f"Party lobby is now {channel.mention}")
             else:
                 await ctx.send("Disabled party lobby")
         else:
-            channel_id = self.bot.connection.cursor().execute(self.bot.queries["GET_VALUE"], {"id": ctx.guild.id, "key": "party_id"}).fetchone()
-            channel = self.bot.get_channel(channel_id[0])
+            channel_id = await sql_querries.get_value(self.bot, ctx.guild.id, 'party_id')
+            channel = self.bot.get_channel(*channel_id)
             await ctx.send(f"Current channel is {channel.mention if isinstance(channel, discord.VoiceChannel) else None}")
     
     @commands.command(aliases=['char', 'character'])

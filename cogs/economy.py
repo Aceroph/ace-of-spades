@@ -12,21 +12,20 @@ class Economy(subclasses.Cog):
         self.emoji = '\N{COIN}'
         self.bot = bot
 
-
     @commands.command()
     async def balance(self, ctx: commands.Context, member: Optional[discord.Member] = None, amount: Optional[int] = None):
         """Checks your current balance or another member's"""
-        id = member.id if member else ctx.message.author.id
+        member_id = member.id if member else ctx.message.author.id
         
-        current_balance = sql_querries.get_balance(self.bot.connection, id)
+        current_balance = await sql_querries.get_balance(self.bot, member_id)
         if amount:
             if await self.bot.is_owner(ctx.message.author):
-                sql_querries.set_balance(self.bot.connection, id, amount)
-                await ctx.send(f"{abs(amount)}$ was {'added to' if amount >= 0 else 'removed from'} your balance ({current_balance}$ -> {current_balance + amount}$)")
+                await sql_querries.set_balance(self.bot, member_id, current_balance + amount)
+                await ctx.reply(f"{abs(amount):,}$ was {'added to' if amount >= 0 else 'removed from'} your balance ({current_balance:,}$ -> {current_balance + amount:,}$)")
             else:
                 raise commands.NotOwner()
         else:
-            await ctx.send(f"You have currently {current_balance}$")
+            await ctx.reply(f"You have currently {current_balance:,}$")
 
 async def setup(bot):
     await bot.add_cog(Economy(bot))

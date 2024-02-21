@@ -1,5 +1,20 @@
-discord==2.2.2
-python-dotenv==1.0.0
-pytz~=2023.3
-jishaku
+charset_normalizer
+import_expression
+python-dotenv
+braceexpand
+discord.py
+frozenlist
+multidict
+aiosignal
 tabulate
+requests
+asqlite @ git+https://github.com/Rapptz/asqlite
+jishaku
+aiohttp
+urllib3
+certifi
+chardet
+attrs
+yarl
+idna
+pytz
