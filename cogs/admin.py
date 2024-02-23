@@ -63,7 +63,8 @@ class Admin(subclasses.Cog):
                 
                 embed = interaction.message.embeds[0] # If any category is selected
                 embed.clear_fields()
-                embed.add_field(name=f'[p] {select_category.values[0]}', value=f"```\n- {'\n- '.join([p.replace('_', ' ').capitalize() for p in misc.Categories.sort(permissions, select_category.values[0])])}```")
+                display_categories = '\n- '.join([p.replace('_', ' ').capitalize() for p in misc.Categories.sort(permissions, select_category.values[0])])
+                embed.add_field(name=f'[p] {select_category.values[0]}', value=f"```\n- {display_categories}```")
                 return await interaction.response.edit_message(embed=embed)
             else:
                 return await interaction.response.send_message('This is not your instance !', ephemeral=True)
