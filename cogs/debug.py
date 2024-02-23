@@ -36,20 +36,26 @@ class Debug(subclasses.Cog):
             else:
                 r = discord.Embed(description='Executed !')
             
-            await ctx.reply(embed=r)
+            await ctx.reply(embed=r, view=subclasses.View().add_quit(ctx.author))
     
+
     @commands.command(aliases=["killyourself", "shutdown"])
     @commands.is_owner()
-    async def kys(self, ctx: commands.Context):
+    async def kys(self, ctx: commands.Context) -> None:
         """Self-explanatory"""
         await ctx.reply("https://tenor.com/view/pc-computer-shutting-down-off-windows-computer-gif-17192330")
         await self.bot.close()
     
+
     @commands.command(aliases=["src"])
-    async def source(self, ctx: commands.Context, *, obj: str=None):
+    async def source(self, ctx: commands.Context, *, obj: str=None) -> None:
         """Get the source of any command or cog"""
-        url = await misc.git_source(self.bot, obj)
-        await ctx.reply(url)
+        url = misc.git_source(self.bot, obj)
+
+        if not url: # On error
+            await ctx.reply(embed=discord.Embed(title=f'Failed to fetch {obj} :('), delete_after=10)
+        else:
+            await ctx.reply(embed=discord.Embed(title=f'Source for {obj}', url=url), view=subclasses.View().add_quit(ctx.author))
 
 
 async def setup(bot):

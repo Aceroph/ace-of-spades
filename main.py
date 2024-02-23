@@ -1,7 +1,7 @@
-from typing import Union, Callable
+from utils import subclasses, ui, misc
 from discord.ext import commands
-from utils import subclasses, ui
 from cogs import EXTENSIONS
+from typing import Union
 import logging.handlers
 import traceback
 import discord
@@ -12,6 +12,7 @@ import logging
 import dotenv
 import time
 import copy
+import re
 
 # FILE MANAGEMENT
 directory = pathlib.Path(__file__).parent
@@ -165,11 +166,17 @@ class AceBot(commands.Bot):
             return await ctx.reply(f":warning: {' '.join(error.args).capitalize()}")
 
         if isinstance(error, commands.CheckFailure):
+            if isinstance(error, commands.NoPrivateMessage):
+                return await ctx.reply(":warning: You can't use that command in DMs !")
+            
             return await ctx.reply(":warning: You are not allowed to run that command !")
 
-        embed = discord.Embed(title=":warning: Unhandled error in command", description=f"```\n{''.join(traceback.format_exception(type(error), error, error.__traceback__))}```")
-        await self.get_user(493107597281329185).send(embed=embed)
-        return await ctx.reply(":warning: Unhandled error in command !")
+        # Process the traceback to clean path !
+        trace = ''.join(traceback.format_exception(type(error), error, error.__traceback__))
+        name = re.search(r'(C:\\Users\\.*)\\ace-of-spades', trace)
+        trace = trace.replace(name.group(), r'~\home\acero\ace-of-spades')
+
+        await ctx.reply(embed=discord.Embed(title=":warning: Unhandled error in command", description=f"```py\n{trace}```"))
 
 if __name__ == "__main__":
     bot = AceBot()

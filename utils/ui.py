@@ -83,7 +83,6 @@ class ModuleMenu(subclasses.View):
         else:
             raise commands.errors.NotOwner
 
-
 class PartyMenu(subclasses.View):
     def __init__(self, bot: 'AceBot', vcs: dict):
         super().__init__(timeout=None)
@@ -176,6 +175,7 @@ class PartyMenu(subclasses.View):
 class HelpView(subclasses.View):
     def __init__(self, bot: 'AceBot', context: commands.Context):
         super().__init__(timeout=None)
+        self.add_quit(author=context.author)
         self.bot = bot
         self.context = context
         self.old = None
@@ -213,5 +213,3 @@ class HelpView(subclasses.View):
                 return await interaction.response.edit_message(embed=self.old, view=self)
         else:
             return await interaction.response.send_message("This is not your instance !", ephemeral=True)
-
-    

@@ -15,20 +15,23 @@ class Cog(commands.Cog):
     async def on_command_completion(self, command: commands.Command):
         if hasattr(command.cog, 'cmds') and issubclass(type(command.cog), type(self)):
             command.cog.cmds += 1
-str.replace
+            
 
 class View(discord.ui.View):
-    def __init__(self, quit: bool=False, *args, **kwargs):
+    def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+    
+    def add_quit(self, author: discord.User, row: int=None):
+        self.author = author
+        button = discord.ui.Button(style=discord.ButtonStyle.red, label='Quit', row=row)
+        button.callback = self.quit_callback
+        return self.add_item(button)
 
-        # Quit button
-        if quit:
-            button = discord.ui.Button(style=discord.ButtonStyle.red, label='Quit', row=2)
-            button.callback = self.quit
-            self.add_item(button)
-
-    async def quit(self, interaction: discord.Interaction):
-        await interaction.message.delete()
+    async def quit_callback(self, interaction: discord.Interaction):
+        if interaction.user == self.author:
+            await interaction.message.delete()
+        else:
+            await interaction.response.send_message('This is not your instance !', ephemeral=True)
 
     async def on_error(self, interaction: discord.Interaction, error: Exception, item: discord.ui.Item):
         embed = discord.Embed(title=":warning: Unhandled error in interaction", description=f"```\n{''.join(traceback.format_exception(type(error), error, error.__traceback__))}```")
