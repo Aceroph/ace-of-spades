@@ -42,7 +42,7 @@ class Admin(subclasses.Cog):
             embed.title = f'Permissions for {entity.name}'
             embed.color = entity.color if entity.color.value != 0 else discord.Color.from_str('#2b2d31')
             embed.add_field(name='`[i]` Information', value=f'{misc.space}role: {f"@everyone" if entity.is_default() else entity.mention}\n{misc.space}color : [{embed.color}](https://www.color-hex.com/color/{str(embed.color).strip("#")})') #add additional info
-            old = embed.add_field(name=f'`{len(entity.members)}` Members', value=f'{misc.space}{f"\n{misc.space}".join([member.mention for member in entity.members])}')
+            old = embed.add_field(name=f'`{len(entity.members)}` Members', value=f'{misc.space}{"\n".join([f"{misc.space}{member.mention}" for member in entity.members])}')
 
         # If entity is user/member
         else:
