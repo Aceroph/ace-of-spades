@@ -131,7 +131,7 @@ class Admin(subclasses.Cog):
             # Embed building
             embed = discord.Embed(color=discord.Color.blurple(), title=f'Cleaned up {ctx.channel.mention}', description=f'{misc.space}Deleted `{total}` message{'s' if total > 1 else ''}')
             for user, count in users.items():
-                embed.add_field(name=f'{misc.tilde} @{user}', value=f'{misc.space}{misc.curve} `{count}` deletion{'s' if total > 1 else ''}', inline=False)
+                embed.add_field(name=f'{misc.tilde} @{user}', value=f'{misc.space}{misc.curve} `{count}` deletion{"s" if total > 1 else ""}', inline=False)
             
             if len(embed.fields) == 0:
                 embed.description = 'No message deleted'
@@ -174,7 +174,7 @@ class Admin(subclasses.Cog):
             # Embed building
             embed = discord.Embed(color=discord.Color.blurple(), title=f'Cleaned up {ctx.channel.mention}', description=f'{misc.space}Deleted `{total}` message{'s' if total > 1 else ''}')
             for user, count in users.items():
-                embed.add_field(name=f'{misc.tilde} @{user}', value=f'{misc.space}{misc.curve} `{count}` deletion{'s' if total > 1 else ''}', inline=False)
+                embed.add_field(name=f'{misc.tilde} @{user}', value=f'{misc.space}{misc.curve} `{count}` deletion{"s" if total > 1 else ""}', inline=False)
             
             if len(embed.fields) == 0:
                 embed.description = 'No message deleted'
