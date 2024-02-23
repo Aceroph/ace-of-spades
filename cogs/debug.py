@@ -55,7 +55,7 @@ class Debug(subclasses.Cog):
         if not url: # On error
             await ctx.reply(embed=discord.Embed(title=f'Failed to fetch {obj} :('), delete_after=10)
         else:
-            await ctx.reply(embed=discord.Embed(title=f'Source for {obj}', url=url), view=subclasses.View().add_quit(ctx.author))
+            await ctx.reply(embed=discord.Embed(title=f'Source for {obj or 'Bot'}', url=url), view=subclasses.View().add_quit(ctx.author))
 
 
 async def setup(bot):
