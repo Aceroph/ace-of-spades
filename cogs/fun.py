@@ -122,7 +122,7 @@ class CountryGuessing:
             # End of game, show scores
             scoreboard = sorted(self.scores.items(), reverse=True, key=lambda i : i[1])
             scoreboard = map(lambda u : [self.ctx.bot.get_user(int(u[0])).display_name, u[1]], scoreboard)
-            embed = discord.Embed(title='End of game', description=f'{misc.space}duration : `{self.START.humanize().replace(' ago', '')}`\n{misc.space}rounds : `{self.round}`\n{misc.space}region : `{self.region}`')
+            embed = discord.Embed(title='End of game', description=f"{misc.space}duration : `{self.START.humanize().replace(' ago', '')}`\n{misc.space}rounds : `{self.round}`\n{misc.space}region : `{self.region}`")
             embed.add_field(name='Scoreboard', value=f"```\n{tabulate([x for x in iter(scoreboard)], headers=['name', 'answers'], numalign='right')}```")
 
             await self.old.edit(embed=embed)
