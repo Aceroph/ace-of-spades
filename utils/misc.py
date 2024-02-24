@@ -1,4 +1,5 @@
 from discord.ext import commands
+from typing import Optional
 import datetime
 import inspect
 import discord
@@ -33,15 +34,15 @@ class Categories:
         return 'Default'
         
 
-class Time(commands.Converter):      
-    async def convert(self, ctx: commands.Context, argument: str) -> datetime.datetime:
+class Time(commands.Converter):
+    async def convert(self, ctx: Optional[commands.Context], argument: str) -> datetime.datetime:
         # Fixed date like 2024-02-16
-        if re.fullmatch("\d{4}-\d{2}-\d{2}", argument):
+        if re.fullmatch("\\d{4}-\\d{2}-\\d{2}", argument):
             return datetime.datetime.strptime(argument, "%Y-%m-%d")
 
         # Relative date like 1d
-        if re.fullmatch("-?\d+d", argument):
-            days = int(re.match("-?\d+", argument).group())
+        if re.fullmatch("-?\\d+d", argument):
+            days = int(re.match("-?\\d+", argument).group())
 
             if days > 0:
                 return datetime.datetime.today() + datetime.timedelta(days=abs(days))
@@ -69,3 +70,8 @@ def git_source(bot: commands.Bot, obj: str=None):
     location = os.path.relpath(filename).replace('\\', '/')
 
     return f'{source_url}/blob/master/{location}#L{firstlineno}-L{firstlineno + len(lines) - 1}'
+
+def clean_traceback(t: str) -> str:
+    for r in re.finditer(re.escape(os.getcwd()), t, flags=re.IGNORECASE):
+        t = t.replace(r.group(), f'~{os.sep}ace-of-spades')
+    return t

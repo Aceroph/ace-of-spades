@@ -1,4 +1,5 @@
 from discord.ext import commands
+from . import misc
 import traceback
 import discord
 import time
@@ -26,7 +27,7 @@ class View(discord.ui.View):
         button = discord.ui.Button(style=discord.ButtonStyle.red, label='Quit', row=row)
         button.callback = self.quit_callback
         return self.add_item(button)
-
+    
     async def quit_callback(self, interaction: discord.Interaction):
         if interaction.user == self.author:
             await interaction.message.delete()
@@ -34,9 +35,9 @@ class View(discord.ui.View):
             await interaction.response.send_message('This is not your instance !', ephemeral=True)
 
     async def on_error(self, interaction: discord.Interaction, error: Exception, item: discord.ui.Item):
-        embed = discord.Embed(title=":warning: Unhandled error in interaction", description=f"```\n{''.join(traceback.format_exception(type(error), error, error.__traceback__))}```")
-        await interaction.client.get_user(493107597281329185).send(embed=embed)
-        return await interaction.followup.send(":warning: Unhandled error in interaction")
+        # Process the traceback to clean path !
+        trace = ''.join(traceback.format_exception(type(error), error, error.__traceback__))
+        await interaction.channel.send(embed=discord.Embed(title=":warning: Unhandled error in command", description=f"```py\n{misc.clean_traceback(trace)}```"))
 
     async def on_timeout(self):
         self.clear_items()

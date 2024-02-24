@@ -15,6 +15,7 @@ urllib3
 certifi
 chardet
 attrs
+arrow
 yarl
 idna
 pytz

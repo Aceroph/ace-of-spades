@@ -173,10 +173,7 @@ class AceBot(commands.Bot):
 
         # Process the traceback to clean path !
         trace = ''.join(traceback.format_exception(type(error), error, error.__traceback__))
-        name = re.search(r'(C:\\Users\\.*)\\ace-of-spades', trace)
-        trace = trace.replace(name.group(), r'~\home\acero\ace-of-spades')
-
-        await ctx.reply(embed=discord.Embed(title=":warning: Unhandled error in command", description=f"```py\n{trace}```"))
+        await ctx.reply(embed=discord.Embed(title=":warning: Unhandled error in command", description=f"```py\n{misc.clean_traceback(trace)}```"))
 
 if __name__ == "__main__":
     bot = AceBot()

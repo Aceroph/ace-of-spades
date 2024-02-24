@@ -30,7 +30,7 @@ class Admin(subclasses.Cog):
         self.bot = bot
 
 
-    @commands.group(aliases=['perms', 'rights'], invoke_without_command=True)
+    @commands.command(aliases=['perms', 'rights'], invoke_without_command=True)
     async def permissions(self, ctx: commands.Context, entity: Union[discord.Member, discord.Role] = None, channel: Optional[discord.TextChannel] = None):
         """Outputs the permissions of any role or person in a webpage"""
         entity = entity if entity else ctx.author
@@ -174,7 +174,7 @@ class Admin(subclasses.Cog):
             total = sum(list(users.values()))
             
             # Embed building
-            embed = discord.Embed(color=discord.Color.blurple(), title=f"Cleaned up {ctx.channel.mention}', description=f'{misc.space}Deleted `{total}` message{'s' if total > 1 else ''}")
+            embed = discord.Embed(color=discord.Color.blurple(), title=f"Cleaned up {ctx.channel.mention}", description=f"{misc.space}Deleted `{total}` message{'s' if total > 1 else ''}")
             for user, count in users.items():
                 embed.add_field(name=f'{misc.tilde} @{user}', value=f"{misc.space}{misc.curve} `{count}` deletion{'s' if total > 1 else ''}", inline=False)
             
