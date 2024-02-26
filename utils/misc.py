@@ -35,19 +35,25 @@ class Categories:
         
 
 class Time(commands.Converter):
+    def __init__(self, return_type: str='datetime') -> None:
+        super().__init__()
+        self.return_type = return_type
+
     async def convert(self, ctx: Optional[commands.Context], argument: str) -> datetime.datetime:
         # Fixed date like 2024-02-16
         if re.fullmatch("\\d{4}-\\d{2}-\\d{2}", argument):
-            return datetime.datetime.strptime(argument, "%Y-%m-%d")
+            date = datetime.datetime.strptime(argument, "%Y-%m-%d")
+            return date if self.return_type == 'datetime' else date.date()
 
         # Relative date like 1d
         if re.fullmatch("-?\\d+d", argument):
             days = int(re.match("-?\\d+", argument).group())
 
             if days > 0:
-                return datetime.datetime.today() + datetime.timedelta(days=abs(days))
+                date = datetime.datetime.today() + datetime.timedelta(days=abs(days))
             else:
-                return datetime.datetime.today() - datetime.timedelta(days=abs(days))
+                date = datetime.datetime.today() - datetime.timedelta(days=abs(days))
+            return date if self.return_type == 'datetime' else date.date()
 
 def git_source(bot: commands.Bot, obj: str=None):
     source_url = 'https://github.com/Aceroph/ace-of-spades'

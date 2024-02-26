@@ -37,7 +37,23 @@ class View(discord.ui.View):
     async def on_error(self, interaction: discord.Interaction, error: Exception, item: discord.ui.Item):
         # Process the traceback to clean path !
         trace = ''.join(traceback.format_exception(type(error), error, error.__traceback__))
-        await interaction.channel.send(embed=discord.Embed(title=":warning: Unhandled error in command", description=f"```py\n{misc.clean_traceback(trace)}```"))
+        embed = discord.Embed(title=":warning: Unhandled error in command", description=f"```py\n{misc.clean_traceback(trace)}```")
+
+        async def send_report(i: discord.Interaction):
+            if i.user == interaction.user:
+                reponse = discord.Embed(title='Error sent', description='> Thank you for reporting')
+                await i.response.edit_message(embed=reponse, view=None, delete_after=5)
+                embed.set_footer(text=f'Sent by {i.user.global_name} from {i.guild.name} ({i.guild.id})')
+                await i.client.get_user(493107597281329185).send(embed=embed)
+            else:
+                await i.response.send_message('Only the one who caused the error can report it !', ephemeral=True)
+
+        view = self.__class__()
+        report = discord.ui.Button(label='Report', emoji='\N{PUBLIC ADDRESS LOUDSPEAKER}')
+        report.callback = send_report
+        view.add_item(report)
+        view.add_quit(interaction.user)
+        await interaction.response.send_message(embed=embed, view=view)
 
     async def on_timeout(self):
         self.clear_items()
