@@ -1,11 +1,11 @@
-from typing import Optional, Union, TYPE_CHECKING, Callable
-
-from discord.utils import MISSING
+from typing import Optional, Union, TYPE_CHECKING
 from utils import subclasses, sql_querries, misc
 from discord.ext import commands
 from tabulate import tabulate
+import datetime
 import discord
-import asyncio
+import inspect
+import pytz
 import time
 
 if TYPE_CHECKING:
@@ -185,6 +185,101 @@ class Admin(subclasses.Cog):
             embed.set_footer(text=f'Took {time.time()-timer:.2f} s')
             
             await ctx.send(embed=embed, view=subclasses.View().add_quit(ctx.author, row=2))
+    
+    @commands.command(invoke_without_command=True)
+    async def modules(self, ctx: commands.Context):
+        """Lists all modules"""
+        embed = discord.Embed()
+        embed.add_field(name="Extensions", value="\n".join([f"{self.bot.get_cog(name).emoji} {name}" for name in self.bot.cogs]), inline=True)
+        view = subclasses.View()
+
+        async def reload_module(interaction: discord.Interaction):
+            if interaction.user.id == self.bot.owner_id:
+                for child in view.children:
+                    module = None
+                    if isinstance(child, discord.ui.Select) and len(child.values) > 0:
+                        module = child.values[0]
+                        break
+                
+                if module is not None:
+                    start = time.time()
+                    try:
+                        await self.bot.reload_extension(f"cogs.{module.lower()}")
+                        await interaction.response.send_message(f":repeat: Reloaded {module} `(Took around {round(time.time()-start, 4)}s)`", ephemeral=True)
+                    except Exception as err:
+                        await interaction.response.send_message(f":warning: An error occured while trying to reload {module} ! `{err}`", ephemeral=True)
+                else:
+                    await interaction.response.send_message(":warning: Did not select any module !", ephemeral=True)
+            else:
+                raise commands.errors.NotOwner
+
+        button = discord.ui.Button(style=discord.ButtonStyle.blurple, label="Reload", custom_id="Module:Reload", emoji='\N{CLOCKWISE RIGHTWARDS AND LEFTWARDS OPEN CIRCLE ARROWS}', row=2)
+        button.callback = reload_module
+
+        async def module_selected(interaction: discord.Interaction):
+            cog = self.bot.get_cog(select.values[0])
+            embed = interaction.message.embeds[0]
+            if cog:
+                # count lines for cog
+                count = 0
+                lines, _ = inspect.getsourcelines(cog.__class__)
+                for line in lines:
+                    count += 1 if len(line.strip()) > 0 else 0
+
+                data = {'name': cog.qualified_name + ' Module', 'value':f"Loaded\n⤷ <t:{int(cog.time)}:R>\n\nStats\n⤷ Commands used : {cog.cmds}\n⤷ Lines : {count}\n⤷ [Source]({misc.git_source(self.bot, cog.qualified_name)})", 'inline': True}
+                embed.set_field_at(1, **data) if len(embed.fields) > 1 else embed.insert_field_at(1, **data)
+
+            data = {'name': "Extensions", 'value': "\n".join([f"{self.bot.get_cog(name).emoji} {f'`{name}`' if cog and cog.qualified_name == name else name}" for name in self.bot.cogs]), 'inline': True}
+            embed.set_field_at(0, **data) if len(embed.fields) > 0 else embed.insert_field_at(0, **data)
+
+            return await interaction.response.edit_message(embed=embed)
+
+        
+        options = [discord.SelectOption(label=name, value=name, emoji=module.emoji) for name, module in self.bot.cogs.items()]
+        select = discord.ui.Select(placeholder="Choose a module", custom_id="Module:Select", options=options, row=1)
+        select.callback = module_selected
+        view.add_item(select)
+        view.add_item(button)
+        view.add_quit(ctx.author, row=2)
+        
+        embed.set_thumbnail(url='https://static-00.iconduck.com/assets.00/cog-settings-icon-2048x1619-0lz5tnft.png')
+        embed.set_footer(text=datetime.datetime.strftime(datetime.datetime.now(tz=pytz.timezone('US/Eastern')), "Today at %H:%M"))
+            
+        return await ctx.reply(embed=embed, view=view)
+
+    @commands.is_owner()
+    @commands.command()
+    async def sql(self, ctx: commands.Context, *, command: str):
+        """Executes SQL commands to the database"""
+        async with self.bot.pool.acquire() as conn:
+            r = await conn.fetchall(command) or await conn.execute(command)
+            await conn.commit()
+            
+            if isinstance(r, list):
+                r = discord.Embed(description=f'```\n{tabulate(headers=r[0].keys(), tabular_data=r)}```')
+            else:
+                r = discord.Embed(description='Executed !')
+            
+            await ctx.reply(embed=r, view=subclasses.View().add_quit(ctx.author))
+    
+
+    @commands.command(aliases=["killyourself", "shutdown"])
+    @commands.is_owner()
+    async def kys(self, ctx: commands.Context) -> None:
+        """Self-explanatory"""
+        await ctx.reply("https://tenor.com/view/pc-computer-shutting-down-off-windows-computer-gif-17192330")
+        await self.bot.close()
+    
+
+    @commands.command(aliases=["src"])
+    async def source(self, ctx: commands.Context, *, obj: str=None) -> None:
+        """Get the source of any command or cog"""
+        url = misc.git_source(self.bot, obj)
+
+        if not url: # On error
+            await ctx.reply(embed=discord.Embed(title=f'Failed to fetch {obj} :('), delete_after=10)
+        else:
+            await ctx.reply(embed=discord.Embed(title=f'Source for {obj or "Bot"}', url=url))
 
 
 async def setup(bot):

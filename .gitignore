@@ -3,6 +3,6 @@
 *.db-*
 __pycache__
 schoolday.json
-.venv/
 run.sh
 *.log
+.*/

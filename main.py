@@ -1,3 +1,4 @@
+from discord.ext.commands._types import UserCheck
 from utils import subclasses, ui, misc
 from discord.ext import commands
 from cogs import EXTENSIONS
@@ -125,9 +126,9 @@ class AceBot(commands.Bot):
 
         async with self.pool.acquire() as conn:
             tables = [name[0] for name in await conn.fetchall("select name from sqlite_master where type='table';")]
-            if not 'users' in tables:
-                LOGGER.info('users table missing from database, creating one...')
-                await conn.execute("CREATE TABLE users ( id INTEGER NOT NULL, money INTEGER DEFAULT (0), xp INTEGER DEFAULT (0) );")
+            if not 'economy' in tables:
+                LOGGER.info('economy table missing from database, creating one...')
+                await conn.execute("CREATE TABLE economy ( id INTEGER NOT NULL, money INTEGER DEFAULT (0));")
             
             if not 'guildConfig' in tables:
                 LOGGER.info('guildConfig table missing from database, creating one...')
@@ -211,26 +212,25 @@ class AceBot(commands.Bot):
         if isinstance(error, commands.CheckFailure):
             return
 
+    async def error_handler(self, context: Union[discord.Interaction, commands.Context], error: Exception):
+        ctx = context if isinstance(context, commands.Context) else await self.get_context(context.message)
+
         # Process the traceback to clean path !
         trace = ''.join(traceback.format_exception(type(error), error, error.__traceback__))
-        embed = discord.Embed(title=":warning: Unhandled error in command", description=f"```py\n{misc.clean_traceback(trace)}```")
-
-        async def send_report(interaction: discord.Interaction):
-            if interaction.user == ctx.author:
-                reponse = discord.Embed(title='Error sent', description='> Thank you for reporting')
-                await interaction.response.edit_message(embed=reponse, view=None, delete_after=5)
-                embed.set_footer(text=f'Sent by {interaction.user.global_name} from {interaction.guild.name} ({interaction.guild.id})')
-                await self.get_user(self.owner_id).send(embed=embed)
-            else:
-                await interaction.response.send_message('Only the one who caused the error can report it !', ephemeral=True)
+        embed = discord.Embed(title=f":warning: Unhandled error in command : {ctx.command if hasattr(ctx, 'command') else 'None'}", description=f"```py\n{misc.clean_traceback(trace)}```")
+        embed.set_footer(text=f'Sent by {ctx.author.display_name} from {ctx.guild.name} ({ctx.guild.id})', icon_url=ctx.author.avatar.url)
 
         view = subclasses.View()
-        report = discord.ui.Button(label='Report', emoji='\N{PUBLIC ADDRESS LOUDSPEAKER}')
-        report.callback = send_report
-        view.add_item(report)
         view.add_quit(ctx.author)
+
+        # Owner embed w full traceback
+        await self.get_user(self.owner_id).send(embed=embed)
         await ctx.message.add_reaction('\N{DOUBLE EXCLAMATION MARK}')
+
+        # User error
+        embed = discord.Embed(title=f':warning: {type(error).__qualname__}', description=f'> {" ".join(error.args)}' if len(error.args) > 0 else None)
         await ctx.reply(embed=embed, view=view, mention_author=False)
+
 
 if __name__ == "__main__":
     bot = AceBot()
