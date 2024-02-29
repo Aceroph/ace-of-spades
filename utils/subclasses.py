@@ -1,3 +1,4 @@
+import copy
 from discord.ext import commands
 from . import misc
 from typing import TYPE_CHECKING
@@ -43,3 +44,88 @@ class View(discord.ui.View):
 
     async def on_timeout(self):
         self.clear_items()
+
+
+class Paginator:
+    def __init__(self, ctx: commands.Context, embed: discord.Embed, max_lines: int=25) -> None:
+        self.embed = embed
+        self.index: int = 0
+        self.max_lines = max_lines
+        self.ctx = ctx
+        self.view = View()
+
+        self.pages = []
+        self.current_page = []
+
+        # Buttons
+        _previous = discord.ui.Button(emoji="\N{BLACK LEFT-POINTING TRIANGLE}", disabled=True)
+        _previous.callback = self.previous_page
+        self.view.add_item(_previous)
+
+        self.view.add_quit(ctx.author)
+
+        _next = discord.ui.Button(emoji="\N{BLACK RIGHT-POINTING TRIANGLE}")
+        _next.callback = self.next_page
+        self.view.add_item(_next)
+    
+
+    def add_line(self, line: str = '') -> None:
+        self.current_page.append(line)
+
+        if len(self.current_page) == self.max_lines-1:
+            self.pages.append('\n'.join(self.current_page))
+            self.current_page = []
+    
+
+    def check_buttons(self, interaction: discord.Interaction):
+        self.view.clear_items()
+
+        _previous = discord.ui.Button(emoji="\N{BLACK LEFT-POINTING TRIANGLE}", disabled=self.index == 0)
+        _previous.callback = self.previous_page
+        self.view.add_item(_previous)
+
+        self.view.add_quit(interaction.user)
+
+        _next = discord.ui.Button(emoji="\N{BLACK RIGHT-POINTING TRIANGLE}", disabled=self.index == len(self.pages)-1)
+        _next.callback = self.next_page
+        self.view.add_item(_next)
+
+
+    async def start(self):
+        self.pages.append('\n'.join(self.current_page))
+
+        self.embed.description = self.pages[self.index]
+        self.embed.set_footer(text=f'Page {self.index+1} of {len(self.pages)}')
+        await self.ctx.reply(embed=self.embed, view=self.view, mention_author=False)
+
+
+    async def next_page(self, interaction: discord.Interaction):
+        if interaction.user == self.ctx.author:
+            self.index += 1
+
+            self.check_buttons(interaction)
+
+            page = self.pages[self.index]
+            embed = interaction.message.embeds[0]
+            embed.description = page
+            embed.set_footer(text=f'Page {self.index+1} of {len(self.pages)}')
+            await interaction.response.edit_message(embed=embed, view=self.view)
+        else:
+            await interaction.response.send_message("This is not your instance !", ephemeral=True)
+
+
+    async def previous_page(self, interaction: discord.Interaction):
+        if interaction.user == self.ctx.author:
+            self.index -= 1
+            
+            self.check_buttons(interaction)
+
+            page = self.pages[self.index]
+            embed = interaction.message.embeds[0]
+            embed.description = page
+            embed.set_footer(text=f'Page {self.index+1} of {len(self.pages)}')
+            await interaction.response.edit_message(embed=embed, view=self.view)
+        else:
+            await interaction.response.send_message("This is not your instance !", ephemeral=True)
+    
+    

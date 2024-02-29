@@ -206,16 +206,16 @@ class AceBot(commands.Bot):
         if isinstance(error, (commands.CheckFailure, commands.NotOwner)):
             return
 
-    async def error_handler(self, context: Union[discord.Interaction, commands.Context], error: Exception):
-        ctx = context if isinstance(context, commands.Context) else await self.get_context(context.message)
+    async def error_handler(self, ctx: Union[discord.Interaction, commands.Context], error: Exception):
+        author = ctx.user or ctx.author
 
         # Process the traceback to clean path !
         trace = ''.join(traceback.format_exception(type(error), error, error.__traceback__))
         embed = discord.Embed(title=f":warning: Unhandled error in command : {ctx.command if hasattr(ctx, 'command') else 'None'}", description=f"```py\n{misc.clean_traceback(trace)}```")
-        embed.set_footer(text=f'Caused by {ctx.author.display_name} in {ctx.guild.name if ctx.guild else 'DMs'} ({ctx.guild.id if ctx.guild else 0})', icon_url=ctx.author.avatar.url)
+        embed.set_footer(text=f'Caused by {author.display_name} in {ctx.guild.name if ctx.guild else 'DMs'} ({ctx.guild.id if ctx.guild else 0})', icon_url=author.avatar.url)
 
         view = subclasses.View()
-        view.add_quit(ctx.author)
+        view.add_quit(author)
 
         # Owner embed w full traceback
         await self.get_user(self.owner_id).send(embed=embed)
@@ -223,7 +223,7 @@ class AceBot(commands.Bot):
 
         # User error
         embed = discord.Embed(title=f':warning: {type(error).__qualname__}', description=f'> {" ".join(error.args)}' if len(error.args) > 0 else None)
-        await ctx.reply(embed=embed, view=view, mention_author=False)
+        await ctx.reply(embed=embed, view=view, mention_author=False) or await ctx.response.send_message(embed=embed, view=view)
 
 
 if __name__ == "__main__":

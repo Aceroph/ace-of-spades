@@ -8,23 +8,26 @@ import os
 
 # Emojis
 tilde = '<:Tilde:1210003514479083581>'
-warning = '<:error:1210047483141685290>'
 curve = '<:curve:1210049217280745502>'
 space = '<:space:1210019090920382464>'
+
 
 class Categories:
     presets = {'Admin': discord.Permissions._from_value(8),
                'Manager': discord.Permissions._from_value(27812569527),
                'Moderator': discord.Permissions._from_value(17612022151)}
 
+
     @classmethod
     def categories(cls):
         return ['General permissions', 'Membership permissions', 'Text channel permissions', 'Voice channel permissions', 'Advanced permissions']
+
 
     @classmethod
     def sort(cls, perms: discord.Permissions, category: str):
         category = getattr(discord.Permissions, category.split()[0].lower())
         return [perm[0] for perm in perms if perm[1] and perm in [*category()]]
+
 
     @classmethod
     def get_preset(cls, perms: discord.Permissions) -> str:
@@ -38,6 +41,7 @@ class Time(commands.Converter):
     def __init__(self, return_type: str='datetime') -> None:
         super().__init__()
         self.return_type = return_type
+
 
     async def convert(self, ctx: Optional[commands.Context], argument: str) -> datetime.datetime:
         # Fixed date like 2024-02-16
@@ -54,6 +58,7 @@ class Time(commands.Converter):
             else:
                 date = datetime.datetime.today() - datetime.timedelta(days=abs(days))
             return date if self.return_type == 'datetime' else date.date()
+
 
 def git_source(bot: commands.Bot, obj: str=None):
     source_url = 'https://github.com/Aceroph/ace-of-spades'
@@ -76,6 +81,7 @@ def git_source(bot: commands.Bot, obj: str=None):
     location = os.path.relpath(filename).replace('\\', '/')
 
     return f'{source_url}/blob/master/{location}#L{firstlineno}-L{firstlineno + len(lines) - 1}'
+
 
 def clean_traceback(t: str) -> str:
     for r in re.finditer(re.escape(os.getcwd()), t, flags=re.IGNORECASE):
