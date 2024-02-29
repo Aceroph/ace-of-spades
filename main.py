@@ -1,11 +1,10 @@
-from discord.ext.commands._types import UserCheck
-from utils import subclasses, ui, misc
+from utils import subclasses, misc
 from discord.ext import commands
 from cogs import EXTENSIONS
 from typing import Union
 import logging.handlers
-import textwrap
 import traceback
+import textwrap
 import discord
 import asqlite
 import difflib
@@ -93,7 +92,7 @@ class AceHelp(commands.HelpCommand):
         embed.set_author(name=f"{self.context.author.display_name} : Help -> {command.cog.qualified_name}", icon_url=self.context.author.avatar.url)
 
         # Documentation
-        embed.add_field(name="Documentation", value=f">>> {command.help if command.help else 'Couldn\'t fetch documentation\nI probably forgot to write one for this command :skull:'}", inline=False)
+        embed.add_field(name="Documentation", value=f">>> {command.help.format(curve=misc.curve) if command.help else 'Couldn\'t fetch documentation\nI probably forgot to write one for this command :skull:'}", inline=False)
 
         # Subcommands if group
         if isinstance(command, commands.Group):
@@ -118,6 +117,7 @@ class AceBot(commands.Bot):
         self.token = dotenv.dotenv_values('.env')["TOKEN"]
         self.owner_id = 493107597281329185
         self.boot = time.time()
+        self.LOGGER = LOGGER
 
     async def setup_hook(self):
         # Database stuff
@@ -190,16 +190,10 @@ class AceBot(commands.Bot):
                 view.add_item(yes)
                 view.add_item(no)
                 return await ctx.reply(f'Did you mean `{self.command_prefix}{command}` ?', view=view)
-            else:
-                await ctx.message.add_reaction('\N{DOUBLE EXCLAMATION MARK}')
-                return await ctx.reply(embed=discord.Embed(title=':warning: Command Not Found', description=f'> Couldn\'t find command `{query}`', color=discord.Color.red()))
         
         if isinstance(error, commands.MissingPermissions):
             await ctx.message.add_reaction('\N{DOUBLE EXCLAMATION MARK}')
             return await ctx.reply(embed=discord.Embed(title=':warning: Missing permissions', description=f"> `{'` `'.join(error.missing_permissions)}`", color=discord.Color.red()))
-        
-        if isinstance(error, commands.NotOwner):
-            return
         
         if isinstance(error, commands.MissingRequiredArgument):
             await ctx.message.add_reaction('\N{DOUBLE EXCLAMATION MARK}')
@@ -209,7 +203,7 @@ class AceBot(commands.Bot):
             await ctx.message.add_reaction('\N{DOUBLE EXCLAMATION MARK}')
             return await ctx.reply(embed=discord.Embed(title=':warning: No Private Message', description=f'> This command cannot be used in DMs', color=discord.Color.red()))
 
-        if isinstance(error, commands.CheckFailure):
+        if isinstance(error, (commands.CheckFailure, commands.NotOwner)):
             return
 
     async def error_handler(self, context: Union[discord.Interaction, commands.Context], error: Exception):
@@ -218,7 +212,7 @@ class AceBot(commands.Bot):
         # Process the traceback to clean path !
         trace = ''.join(traceback.format_exception(type(error), error, error.__traceback__))
         embed = discord.Embed(title=f":warning: Unhandled error in command : {ctx.command if hasattr(ctx, 'command') else 'None'}", description=f"```py\n{misc.clean_traceback(trace)}```")
-        embed.set_footer(text=f'Sent by {ctx.author.display_name} from {ctx.guild.name} ({ctx.guild.id})', icon_url=ctx.author.avatar.url)
+        embed.set_footer(text=f'Caused by {ctx.author.display_name} in {ctx.guild.name if ctx.guild else 'DMs'} ({ctx.guild.id if ctx.guild else 0})', icon_url=ctx.author.avatar.url)
 
         view = subclasses.View()
         view.add_quit(ctx.author)

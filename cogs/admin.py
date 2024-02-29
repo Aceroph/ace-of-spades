@@ -1,26 +1,23 @@
-from typing import Optional, Union, TYPE_CHECKING
+from typing import Optional, Union, TYPE_CHECKING, Tuple, List
 from utils import subclasses, sql_querries, misc
 from discord.ext import commands
 from tabulate import tabulate
-import datetime
+import difflib
 import discord
-import inspect
-import pytz
 import time
 
 if TYPE_CHECKING:
     from main import AceBot
 
-class PermsModal(discord.ui.Modal):
-    def __init__(self, *, title: str) -> None:
-        super().__init__(title=title)
-    
-    web = discord.ui.Button(style=discord.ButtonStyle.blurple, label='Open permissions manager', url='https://discordapi.com/permissions.html')
-    perms = discord.ui.TextInput(label='Permissions :', style=discord.TextStyle.short, placeholder='Insert number provided by the website', required=True)
+class EditPermissionFlags(commands.FlagConverter):
+    entity: Union[discord.Member, discord.Role] = commands.Flag(name="for", aliases=["member", "role", "m", "r"])
+    channel: Union[discord.TextChannel, discord.ForumChannel, discord.VoiceChannel, discord.Thread] = commands.Flag(name="in", default=None, aliases=["channel", "c"])
+    permissions: Tuple[str, ...] = commands.Flag(aliases=["perms", "p"])
 
-    async def on_submit(self, interaction: discord.Interaction) -> None:
-        permissions = discord.Permissions._from_value(int(self.perms.value))
-        await interaction.response.send_message(content=[*permissions])
+
+class PermissionFlags(commands.FlagConverter):
+    entity: Union[discord.Member, discord.Role] = commands.Flag(name="for", aliases=["member", "role", "m", "r"], default=lambda ctx : ctx.author)
+    channel: Union[discord.TextChannel, discord.ForumChannel, discord.VoiceChannel, discord.Thread] = commands.Flag(name="in", default=None, aliases=["channel", "c"])
 
 
 class Admin(subclasses.Cog):
@@ -30,31 +27,40 @@ class Admin(subclasses.Cog):
         self.bot = bot
 
 
-    @commands.command(aliases=['perms', 'rights'], invoke_without_command=True)
-    async def permissions(self, ctx: commands.Context, entity: Union[discord.Member, discord.Role] = None, channel: Optional[discord.TextChannel] = None):
-        """Outputs the permissions of any role or person in a webpage"""
-        entity = entity if entity else ctx.author
-        permissions = channel.permissions_for(entity) if channel else entity.permissions if isinstance(entity, discord.Role) else entity.guild_permissions
+    @commands.group(aliases=['perms', 'rights'], invoke_without_command=True)
+    async def permissions(self, ctx: commands.Context, *, flags: PermissionFlags):
+        """Displays a role or a user's permissions.
+        If a channel is not specified, will output
+        global permissions.
+        
+        **Flags**
+        `channel:`
+        {curve} Specifies the channel (Optional)
+        `obj|member|role:`
+        {curve} Specifies the member/role"""
 
+        permissions = flags.channel.permissions_for(flags.entity) if flags.channel else flags.entity.permissions if isinstance(flags.entity, discord.Role) else flags.entity.guild_permissions
         embed = discord.Embed()
+        embed.description = f"{misc.curve} {'for ' + flags.channel.mention if flags.channel else 'Globally'}"
         # If entity is role
-        if isinstance(entity, discord.Role):
-            embed.title = f'Permissions for {entity.name}'
-            embed.color = entity.color if entity.color.value != 0 else discord.Color.from_str('#2b2d31')
-            embed.add_field(name='`[i]` Information', value=f'{misc.space}role: {f"@everyone" if entity.is_default() else entity.mention}\n{misc.space}color : [{embed.color}](https://www.color-hex.com/color/{str(embed.color).strip("#")})') #add additional info
-            members = "\n".join([f"{misc.space}{member.mention}" for member in entity.members])
-            old = embed.add_field(name=f'`{len(entity.members)}` Members', value=f'{misc.space}{members}')
+        if isinstance(flags.entity, discord.Role):
+            embed.title = f'Permissions for {flags.entity.name}'
+            embed.color = flags.entity.color if flags.entity.color.value != 0 else discord.Color.from_str('#2b2d31')
+            embed.add_field(name='`[i]` Information', value=f'{misc.space}role: {f"@everyone" if flags.entity.is_default() else flags.entity.mention}\n{misc.space}color : [{embed.color}](https://www.color-hex.com/color/{str(embed.color).strip("#")})') #add additional info
+            # if len(members)
+            members = "\n".join([f"{misc.space}{member.mention}" for member in flags.entity.members[:5]])
+            old = embed.add_field(name=f'`{len(flags.entity.members)}` Members', value=f'{members}')
 
         # If entity is user/member
         else:
-            embed.set_author(name=f'Permissions for {entity.display_name}', icon_url=entity.avatar.url)
-            embed.color = entity.top_role.color if entity.top_role.color.value != 0 else discord.Color.from_str('#2b2d31')
-            old = embed.add_field(name='`[u]` User Info', value=f'{misc.space}preset : {misc.Categories.get_preset(permissions)}\n{misc.space}top role : {entity.top_role.mention}')
+            embed.set_author(name=f'Permissions for {flags.entity.display_name}', icon_url=flags.entity.avatar.url)
+            embed.color = flags.entity.top_role.color if flags.entity.top_role.color.value != 0 else discord.Color.from_str('#2b2d31')
+            old = embed.add_field(name='`[u]` User Info', value=f'{misc.space}preset : {misc.Categories.get_preset(permissions)}\n{misc.space}top role : {flags.entity.top_role.mention}')
         
         # Select permissions category
         categories = [category for category in misc.Categories.categories() if len(misc.Categories.sort(permissions, category)) > 0]
         options = [discord.SelectOption(label=category) for category in categories]
-        options.insert(0, discord.SelectOption(label=f'{"Role" if isinstance(entity, discord.Role) else "User"} Info', value='Info'))
+        options.insert(0, discord.SelectOption(label=f'{"Role" if isinstance(flags.entity, discord.Role) else "User"} Info', value='Info'))
         select_category = discord.ui.Select(placeholder=f'Select a  category ({len(categories)})', options=options)
         async def category(interaction: discord.Interaction) -> None:
             if interaction.user == ctx.author:
@@ -70,22 +76,81 @@ class Admin(subclasses.Cog):
                 return await interaction.response.send_message('This is not your instance !', ephemeral=True)
         select_category.callback = category
 
-        # Edit permissions button
-        edit_button = discord.ui.Button(style=discord.ButtonStyle.gray, label='Edit permissions', emoji='\N{MEMO}', disabled=True)
-        
-        async def edit_button_callback(interaction: discord.Interaction) -> None:
-            await interaction.response.send_modal(PermsModal(title=f"Editing {entity.name if isinstance(entity, discord.Role) else entity.display_name}'s permissions"))
-
-        edit_button.callback = edit_button_callback
-
         # View stuff
         view = subclasses.View()
         view.add_item(select_category)
-        view.add_item(edit_button)
-        view.add_item(discord.ui.Button(style=discord.ButtonStyle.blurple, label='Permissions', url='https://discordapi.com/permissions.html'))
         view.add_quit(author=ctx.author)
 
-        await ctx.reply(embed=embed, view=view)
+        await ctx.reply(embed=embed, view=view, mention_author=False)
+    
+    
+    @permissions.command(name="edit")
+    @commands.has_guild_permissions(administrator=True)
+    async def permissions_edit(self, ctx: commands.Context, *, flags: EditPermissionFlags):
+        """Edits a member or a role's permissions.
+        If a channel is specified, the permissions
+        will be updated for the channel only,
+        otherwise will update globally.
+        
+        **Flags**
+        `channel:`
+        {curve} Specifies the channel (Optional)
+        `obj|member|role:`
+        {curve} Specifies the member/role to edit
+        `permissions|perms:`
+        {curve} Specifies the permissions to edit"""
+
+        permissions = {}
+        changelog = "```ansi"
+        all_permissions = [p for p in dir(discord.Permissions) if not p.startswith('_') and not callable(getattr(discord.Permissions, p))]
+        # Find permissions or add them to not found
+        for perm in flags.permissions:
+            action = perm[0] if perm[0] in ['+', '-', '='] else '+'
+            perm = perm[1:] if perm[0] in ['+', '-', '='] else perm
+            for perm2 in all_permissions:
+                ratio = difflib.SequenceMatcher(None, perm.casefold(), perm2.casefold()).ratio()
+                if ratio >= 0.85:
+                    match action:
+                        case '+':
+                            changelog += f"\n\u001b[0;32m[+] {perm2}\u001b[0m"
+                            permissions[perm2] = True
+                        case '-':
+                            changelog += f"\n\u001b[0;31m[-] {perm2}\u001b[0m"
+                            permissions[perm2] = False
+                        case '=':
+                            changelog += f"\n\u001b[0;30m[=] {perm2}\u001b[0m"
+                            permissions[perm2] = None
+                    break
+
+        if flags.channel:
+            await flags.channel.set_permissions(target=flags.entity, overwrite=discord.PermissionOverwrite(**permissions))
+        else:
+            if isinstance(flags.entity, discord.Role):
+                await flags.entity.edit(permissions=discord.Permissions(**permissions))
+            else:
+                return await ctx.reply(mention_author=False, embed=discord.Embed(title=":warning: Error while editing user", description="> Cannot edit a user's permissions globally !", color=discord.Color.red()))
+        
+        if len(permissions) < 1:
+            changelog += "\nNothing changed```"
+        else:
+            changelog += "```"
+
+        embed = discord.Embed()
+        embed.description = f"{misc.curve} {'in ' + flags.channel.mention if flags.channel else 'Globally'}"
+        # If entity is role
+        if isinstance(flags.entity, discord.Role):
+            embed.title = f"Updated {flags.entity.name}"
+            embed.color = flags.entity.color if flags.entity.color.value != 0 else discord.Color.from_str('#2b2d31')
+            embed.add_field(name="`[p]` Changelog", value=changelog)
+            
+        # If entity is user/member
+        else:
+            embed.set_author(name=f"Updated {flags.entity.display_name}", icon_url=flags.entity.avatar.url)
+            embed.color = flags.entity.top_role.color if flags.entity.top_role.color.value != 0 else discord.Color.from_str('#2b2d31')
+            embed.add_field(name="`[p]` Changelog", value=changelog)
+        
+        await ctx.reply(embed=embed, mention_author=False)
+
 
 
     @commands.command()
@@ -100,7 +165,7 @@ class Admin(subclasses.Cog):
         embed.set_author(name="Guild Config", icon_url=self.bot.user.avatar.url)
         embed.description = f'```\n{tabulate(config, headers=["Key", "Value"], tablefmt="outline")}```'
 
-        await ctx.send(embed=embed)
+        await ctx.reply(embed=embed, mention_author=False)
 
 
     @commands.guild_only()
@@ -145,8 +210,12 @@ class Admin(subclasses.Cog):
     
 
     @commands.guild_only()
+    @commands.has_permissions(manage_messages=True)
     @cleanup.command(name='until')
     async def cleanup_until(self, ctx: commands.Context, message: int=None):
+        """Cleans up the channel by removing bot responses.
+        Will delete up to the replied message or if provided,
+        to the given id."""
         async with ctx.typing():
             # Get message refered or mentionned
             timer = time.time()
@@ -185,67 +254,94 @@ class Admin(subclasses.Cog):
             embed.set_footer(text=f'Took {time.time()-timer:.2f} s')
             
             await ctx.send(embed=embed, view=subclasses.View().add_quit(ctx.author, row=2))
-    
-    @commands.command(invoke_without_command=True)
-    async def modules(self, ctx: commands.Context):
-        """Lists all modules"""
-        embed = discord.Embed()
-        embed.add_field(name="Extensions", value="\n".join([f"{self.bot.get_cog(name).emoji} {name}" for name in self.bot.cogs]), inline=True)
-        view = subclasses.View()
 
-        async def reload_module(interaction: discord.Interaction):
-            if interaction.user.id == self.bot.owner_id:
-                for child in view.children:
-                    module = None
-                    if isinstance(child, discord.ui.Select) and len(child.values) > 0:
-                        module = child.values[0]
-                        break
-                
-                if module is not None:
-                    start = time.time()
-                    try:
-                        await self.bot.reload_extension(f"cogs.{module.lower()}")
-                        await interaction.response.send_message(f":repeat: Reloaded {module} `(Took around {round(time.time()-start, 4)}s)`", ephemeral=True)
-                    except Exception as err:
-                        await interaction.response.send_message(f":warning: An error occured while trying to reload {module} ! `{err}`", ephemeral=True)
-                else:
-                    await interaction.response.send_message(":warning: Did not select any module !", ephemeral=True)
-            else:
-                raise commands.errors.NotOwner
 
-        button = discord.ui.Button(style=discord.ButtonStyle.blurple, label="Reload", custom_id="Module:Reload", emoji='\N{CLOCKWISE RIGHTWARDS AND LEFTWARDS OPEN CIRCLE ARROWS}', row=2)
-        button.callback = reload_module
-
-        async def module_selected(interaction: discord.Interaction):
-            cog = self.bot.get_cog(select.values[0])
-            embed = interaction.message.embeds[0]
-            if cog:
-                # count lines for cog
-                count = 0
-                lines, _ = inspect.getsourcelines(cog.__class__)
-                for line in lines:
-                    count += 1 if len(line.strip()) > 0 else 0
-
-                data = {'name': cog.qualified_name + ' Module', 'value':f"Loaded\n⤷ <t:{int(cog.time)}:R>\n\nStats\n⤷ Commands used : {cog.cmds}\n⤷ Lines : {count}\n⤷ [Source]({misc.git_source(self.bot, cog.qualified_name)})", 'inline': True}
-                embed.set_field_at(1, **data) if len(embed.fields) > 1 else embed.insert_field_at(1, **data)
-
-            data = {'name': "Extensions", 'value': "\n".join([f"{self.bot.get_cog(name).emoji} {f'`{name}`' if cog and cog.qualified_name == name else name}" for name in self.bot.cogs]), 'inline': True}
-            embed.set_field_at(0, **data) if len(embed.fields) > 0 else embed.insert_field_at(0, **data)
-
-            return await interaction.response.edit_message(embed=embed)
-
+    @commands.is_owner()
+    @commands.command(name="reload", aliases=["r"])
+    async def module_reload(self, ctx: commands.Context, cog: str):
+        """Reloads the provided module if exists"""
+        module: str = None
+        # Find module name (eg. cogs.admin)
+        for cg in self.bot.cogs:
+            ratio = difflib.SequenceMatcher(None, cog.casefold(), cg.casefold()).ratio()
+            if ratio >= 0.70:
+                cog: commands.Cog = self.bot.get_cog(cg)
+                module = cog.__module__
+                break
         
-        options = [discord.SelectOption(label=name, value=name, emoji=module.emoji) for name, module in self.bot.cogs.items()]
-        select = discord.ui.Select(placeholder="Choose a module", custom_id="Module:Select", options=options, row=1)
-        select.callback = module_selected
-        view.add_item(select)
-        view.add_item(button)
-        view.add_quit(ctx.author, row=2)
+        if not module:
+            await ctx.message.add_reaction("\N{DOUBLE EXCLAMATION MARK}")
+            embed = discord.Embed(title=":warning: ExtensionNotFound", description=f"> Couldn't find module : `{cog}`", color=discord.Color.red())
+            return await ctx.reply(embed=embed, mention_author=False)
         
-        embed.set_thumbnail(url='https://static-00.iconduck.com/assets.00/cog-settings-icon-2048x1619-0lz5tnft.png')
-        embed.set_footer(text=datetime.datetime.strftime(datetime.datetime.now(tz=pytz.timezone('US/Eastern')), "Today at %H:%M"))
+        timer = time.time()
+        try:
+            await self.bot.reload_extension(module)
+        except Exception as error:
+            await self.bot.error_handler(ctx, error)
             
-        return await ctx.reply(embed=embed, view=view)
+        embed = discord.Embed(title=":gear: Reloaded Module", description=f">>> {cog.qualified_name}\n{misc.curve} reloaded `{len(cog.get_commands())}` commands", color=discord.Color.blurple())
+        embed.set_footer(text=f"Took {(time.time() - timer)*1000:.2f}ms")
+        await ctx.reply(embed=embed, mention_author=False)
+    
+
+    @commands.is_owner()
+    @commands.command(name="load", aliases=["l"])
+    async def module_load(self, ctx: commands.Context, cog: str):
+        """Loads the provided module if exists"""
+        module: str = None
+        # Find module name (eg. cogs.admin)
+        for cg in self.bot.cogs:
+            ratio = difflib.SequenceMatcher(None, cog.casefold(), cg.casefold()).ratio()
+            if ratio >= 0.70:
+                cog: commands.Cog = self.bot.get_cog(cg)
+                module = cog.__module__
+                break
+        
+        if not module:
+            await ctx.message.add_reaction("\N{DOUBLE EXCLAMATION MARK}")
+            embed = discord.Embed(title=":warning: ExtensionNotFound", description=f"> Couldn't find module : `{cog}`", color=discord.Color.red())
+            return await ctx.reply(embed=embed, mention_author=False)
+        
+        timer = time.time()
+        try:
+            await self.bot.load_extension(module)
+        except Exception as error:
+            await self.bot.error_handler(ctx, error)
+            
+        embed = discord.Embed(title=":gear: Loaded Module", description=f">>> {cog.qualified_name}\n{misc.curve} loaded `{len(cog.get_commands())}` commands", color=discord.Color.blurple())
+        embed.set_footer(text=f"Took {(time.time() - timer)*1000:.2f}ms")
+        await ctx.reply(embed=embed, mention_author=False)
+    
+
+    @commands.is_owner()
+    @commands.command(name="unload", aliases=["u"])
+    async def module_unload(self, ctx: commands.Context, cog: str):
+        """Unloads the provided module if exists"""
+        module: str = None
+        # Find module name (eg. cogs.admin)
+        for cg in self.bot.cogs:
+            ratio = difflib.SequenceMatcher(None, cog.casefold(), cg.casefold()).ratio()
+            if ratio >= 0.70:
+                cog: commands.Cog = self.bot.get_cog(cg)
+                module = cog.__module__
+                break
+        
+        if not module:
+            await ctx.message.add_reaction("\N{DOUBLE EXCLAMATION MARK}")
+            embed = discord.Embed(title=":warning: ExtensionNotFound", description=f"> Couldn't find module : `{cog}`", color=discord.Color.red())
+            return await ctx.reply(embed=embed, mention_author=False)
+        
+        timer = time.time()
+        try:
+            await self.bot.unload_extension(module)
+        except Exception as error:
+            await self.bot.error_handler(ctx, error)
+            
+        embed = discord.Embed(title=":gear: Unloaded Module", description=f">>> {cog.qualified_name}\n{misc.curve} unloaded `{len(cog.get_commands())}` commands", color=discord.Color.blurple())
+        embed.set_footer(text=f"Took {(time.time() - timer)*1000:.2f}ms")
+        await ctx.reply(embed=embed, mention_author=False)
+
 
     @commands.is_owner()
     @commands.command()
@@ -260,14 +356,14 @@ class Admin(subclasses.Cog):
             else:
                 r = discord.Embed(description='Executed !')
             
-            await ctx.reply(embed=r, view=subclasses.View().add_quit(ctx.author))
+            await ctx.reply(embed=r, view=subclasses.View().add_quit(ctx.author), mention_author=False)
     
 
     @commands.command(aliases=["killyourself", "shutdown"])
     @commands.is_owner()
     async def kys(self, ctx: commands.Context) -> None:
         """Self-explanatory"""
-        await ctx.reply("https://tenor.com/view/pc-computer-shutting-down-off-windows-computer-gif-17192330")
+        await ctx.reply("https://tenor.com/view/pc-computer-shutting-down-off-windows-computer-gif-17192330", mention_author=False)
         await self.bot.close()
     
 
@@ -277,9 +373,9 @@ class Admin(subclasses.Cog):
         url = misc.git_source(self.bot, obj)
 
         if not url: # On error
-            await ctx.reply(embed=discord.Embed(title=f'Failed to fetch {obj} :('), delete_after=10)
+            await ctx.reply(embed=discord.Embed(title=f'Failed to fetch {obj} :('), delete_after=10, mention_author=False)
         else:
-            await ctx.reply(embed=discord.Embed(title=f'Source for {obj or "Bot"}', url=url))
+            await ctx.reply(embed=discord.Embed(title=f'Source for {obj or "Bot"}', url=url), mention_author=False)
 
 
 async def setup(bot):

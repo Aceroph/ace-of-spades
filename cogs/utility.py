@@ -24,7 +24,9 @@ class Utility(subclasses.Cog):
 
     @commands.Cog.listener("on_voice_state_update")
     async def party_event(self, member: discord.Member, before: discord.VoiceState, after: discord.VoiceState):
-        party_config = await sql_querries.get_value(self.bot, member.guild.id, 'party_id')
+        async with self.bot.pool.acquire() as conn:
+            party_config = await conn.fetchone("SELECT value FROM guildConfig WHERE id = :id AND key = :key;", {"id": member.id, "key": 'party_id'})
+
         if party_config:
             name = member.name + "'s vc"
             if after.channel and after.channel.id in party_config:
@@ -38,6 +40,7 @@ class Utility(subclasses.Cog):
                 elif len(before.channel.members) == 1:
                     self.vcs[str(before.channel.id)] = before.channel.members[0].id
     
+    @commands.guild_only()
     @commands.group(aliases=["vc", "voice"], invoke_without_command=True)
     async def party(self, ctx: commands.Context):
         """An all-in-one menu to configure your own voice channel"""
