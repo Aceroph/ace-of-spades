@@ -1,7 +1,6 @@
 from typing import Union, Callable, TYPE_CHECKING
 from utils import subclasses, ui, sql_querries
 from discord.ext import commands
-from main import LOGGER
 import unicodedata
 import discord
 import pathlib
@@ -20,7 +19,7 @@ class Utility(subclasses.Cog):
     
     def cog_load(self):
         self.bot.add_view(ui.PartyMenu(self.bot, self.vcs))
-        LOGGER.info("Loaded persistent view %s from %s", ui.PartyMenu.__qualname__, self.qualified_name)
+        self.bot.logger.info("Loaded persistent view %s from %s", ui.PartyMenu.__qualname__, self.qualified_name)
 
     @commands.Cog.listener("on_voice_state_update")
     async def party_event(self, member: discord.Member, before: discord.VoiceState, after: discord.VoiceState):

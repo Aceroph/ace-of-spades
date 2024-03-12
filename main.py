@@ -117,7 +117,7 @@ class AceBot(commands.Bot):
         self.token = dotenv.dotenv_values('.env')["TOKEN"]
         self.owner_id = 493107597281329185
         self.boot = time.time()
-        self.LOGGER = LOGGER
+        self.logger = LOGGER
 
     async def setup_hook(self):
         # Database stuff
@@ -223,7 +223,10 @@ class AceBot(commands.Bot):
 
         # User error
         embed = discord.Embed(title=f':warning: {type(error).__qualname__}', description=f'> {" ".join(error.args)}' if len(error.args) > 0 else None)
-        await ctx.reply(embed=embed, view=view, mention_author=False) or await ctx.response.send_message(embed=embed, view=view)
+        if isinstance(ctx, commands.Context):
+            await ctx.reply(embed=embed, view=view, mention_author=False)
+        else:
+            await ctx.response.send_message(embed=embed, view=view)
 
 
 if __name__ == "__main__":
