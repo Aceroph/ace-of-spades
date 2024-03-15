@@ -92,7 +92,7 @@ class AceHelp(commands.HelpCommand):
         embed.set_author(name=f"{self.context.author.display_name} : Help -> {command.cog.qualified_name}", icon_url=self.context.author.avatar.url)
 
         # Documentation
-        embed.add_field(name="Documentation", value=f">>> {command.help.format(curve=misc.curve) if command.help else 'Couldn\'t fetch documentation\nI probably forgot to write one for this command :skull:'}", inline=False)
+        embed.add_field(name="Documentation", value=f">>> {command.help.format(curve=misc.curve) if command.help else 'Failed to fetch documentation\nProbably forgot to write one for this command\nThis is awkward..'}", inline=False)
 
         # Subcommands if group
         if isinstance(command, commands.Group):
