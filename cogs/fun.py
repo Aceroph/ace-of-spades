@@ -92,7 +92,8 @@ class CountryGuessing:
             self.playing = False
 
             # Get all scores and send the final results
-            scores = sorted(self.scores.items(), reverse=True, key=lambda i : i[1])
+            scores = sorted(self.scores.items(), reverse=True, key=lambda i : i[1]['answers'])
+            print(scores)
             scoreboard = map(lambda u : [self.ctx.bot.get_user(int(u[0])).display_name, u[1]['answers'], format(sum(u[1]['avgAccuracy'])/u[1]['answers']*100, '.2f') + '%'], scores)
             embed = discord.Embed(title='End of game', description=f"{misc.space}duration : `{self.START.humanize().replace(' ago', '')}`\n{misc.space}rounds : `{self.round}`\n{misc.space}region : `{self.region}`")
             if len(scores) > 0:
