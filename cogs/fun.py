@@ -21,16 +21,20 @@ class CountryGuessing:
     def __init__(self, ctx: commands.Context) -> None:
         self.START = arrow.get(time.time())
         self.country_names = None
-        self.accuracy = 0
-        self.old = None
         self.country = None
         self.playing = False
-        self.region: str = 'global'
-        self.gamemaster = ctx.author
         self.ctx = ctx
+
+        # Game config
+        self.gamemaster = ctx.author
+        self.region: str = 'global'
         self.timeout = 120
         self.round = 0
+
+        # Player
+        self.accuracy = 0
         self.scores: dict[str, int] = {}
+        self.winner: discord.User = None
 
 
     @classmethod
@@ -78,7 +82,7 @@ class CountryGuessing:
         view = subclasses.View()
         view.add_item(start)
         view.add_item(cancel)
-        self.old = await self.ctx.reply(embed=embed, view=view, mention_author=False)
+        await self.ctx.reply(embed=embed, view=view, mention_author=False)
     
 
     async def end_game(self, origin: discord.TextChannel):
@@ -86,19 +90,21 @@ class CountryGuessing:
 
         if self.playing:
             self.playing = False
+
+            # Get all scores and send the final results
             scores = sorted(self.scores.items(), reverse=True, key=lambda i : i[1])
-            scoreboard = map(lambda u : [self.ctx.bot.get_user(int(u[0])).display_name, u[1]], scores)
+            scoreboard = map(lambda u : [self.ctx.bot.get_user(int(u[0])).display_name, u[1]['answers'], format(sum(u[1]['avgAccuracy'])/u[1]['answers']*100, '.2f') + '%'], scores)
             embed = discord.Embed(title='End of game', description=f"{misc.space}duration : `{self.START.humanize().replace(' ago', '')}`\n{misc.space}rounds : `{self.round}`\n{misc.space}region : `{self.region}`")
             if len(scores) > 0:
-                embed.add_field(name='Scoreboard', value=f"```\n{tabulate([x for x in iter(scoreboard)], headers=['name', 'answers'], numalign='right')}```")
+                embed.add_field(name='Scoreboard', value=f"```\n{tabulate([x for x in iter(scoreboard)], headers=['name', 'answers', 'accuracy'], colalign=('left', 'center', 'decimal'))}```")
 
             await origin.send(embed=embed)
     
 
     async def cancel_game(self, interaction: discord.Interaction):
         if interaction.user == self.gamemaster:
-            await interaction.response.edit_message(view=None)
             games.pop(str(interaction.channel_id), None)
+            await interaction.response.edit_message(view=None)
         else:
             await interaction.response.send_message('You are not the gamemaster !', ephemeral=True)
     
@@ -110,23 +116,23 @@ class CountryGuessing:
     def check_msg(self, msg: discord.Message):
         if 'quit' in msg.content.casefold() or 'stop' in msg.content.casefold():
             if msg.author == self.gamemaster:
+                self.winner = None
                 asyncio.create_task(self.react(msg, '\N{OCTAGONAL SIGN}'))
                 asyncio.create_task(self.end_game(msg.channel))
-                return
+                return True
             
         elif 'skip' in msg.content.casefold():
             if msg.author == self.gamemaster:
+                self.winner = None
                 asyncio.create_task(self.react(msg, '\N{BLACK RIGHT-POINTING DOUBLE TRIANGLE WITH VERTICAL BAR}'))
                 return True
         
         for n in self.country_names:
             self.accuracy = difflib.SequenceMatcher(None, self.clean_string(msg.content), self.clean_string(n)).ratio()
             if self.accuracy >= 0.65:
+                self.winner = msg.author
                 asyncio.create_task(self.react(msg, '\N{WHITE HEAVY CHECK MARK}'))
                 return True
-            elif self.accuracy >= 0.45:
-                asyncio.create_task(self.react(msg, '\N{EYES}'))
-                
         return
     
 
@@ -135,10 +141,8 @@ class CountryGuessing:
         # Check if the gamemaster started the game
         if interaction.user == self.gamemaster:
             while self.playing: # Game loop
-                if self.round > 20: # 20 games have passed, print results
-                    await self.end_game(self.ctx.channel)
-                    break
                 self.round += 1
+
                 # Set answer
                 self.country: dict = next(self.random_country())
                 self.country_names: list[str] = [n for n in self.country['name'].values() if type(n) != dict]
@@ -149,24 +153,38 @@ class CountryGuessing:
                 embed.add_field(name='Timer', value=f'{misc.space}{misc.curve}<t:{int(time.time() + self.timeout)}:R>', inline=False)
                 embed.set_thumbnail(url=self.country['flags']['png'])
 
-                # Remove components from previous response & send new round
-                await self.response.edit(view=None) if hasattr(self, 'response') else None
-                self.old = await self.old.edit(view=None, embed=embed) if self.old.embeds[0].title == '\N{EARTH GLOBE AMERICAS} Country Guesser' else await self.old.channel.send(embed=embed)
+                if self.round == 1:
+                    await interaction.response.defer()
+                    self.game_msg = await interaction.message.edit(view=None, embed=embed)
+                else:
+                    self.game_msg = await self.ctx.channel.send(embed=embed)
 
                 self.response_time = time.time()
 
                 try:
                     msg: discord.Message = await self.ctx.bot.wait_for('message', check=self.check_msg, timeout=self.timeout)
+
                 except asyncio.TimeoutError:
-                    await self.old.edit(embed=discord.Embed(title='\N{CLOCK FACE ONE OCLOCK} Game terminated', description=f"{misc.space}Players failed to respond within `{self.timeout//60}m`\n{misc.space}{misc.curve} country was `{self.country_names[0]}`", color=discord.Color.red()))
-                    await self.end_game(self.old.channel)
-                    break
+                    embed = discord.Embed(title="\N{CLOCK FACE ONE OCLOCK} Game terminated", description=f"{misc.space}players failed to respond within `{self.timeout//60}m`\n{misc.space}{misc.curve} country was `{self.country_names[0]}`", color=discord.Color.red())
+                    info = self.info(self.country['cca3'])
+                    if len(info) > 0:
+                        embed.add_field(name=f"{misc.space}\nInfo", value="\n".join(info), inline=False)
+
+                    embed.set_thumbnail(url=self.country['flags']['png'])
+                    await self.game_msg.edit(embed=embed)
+                    return await self.end_game(self.ctx.channel)
                 
                 # End (win)
-                embed = discord.Embed(title=f'\N{PARTY POPPER} {self.country["name"]["common"]} \N{PARTY POPPER}', description=f'{misc.space}{misc.curve}next in `10s`', color=msg.author.top_role.color if msg.author.top_role.color.value != 0 else None)
+                embed = discord.Embed(title=f"\N{PARTY POPPER} {self.country['name']['common']} \N{PARTY POPPER}", description=f'{misc.space}{misc.curve}next in `10s`', color=msg.author.top_role.color if msg.author.top_role.color.value != 0 else None)
+                if self.winner:
+                    embed.title = f"\N{PARTY POPPER} {self.country['name']['common']} \N{PARTY POPPER}"
+                    embed.add_field(name='Stats', value=f'{misc.space}accuracy : `{self.accuracy*100:.2f}%`\n{misc.space}time : `{time.time() - self.response_time:.2f}s`\n{misc.space}round : `{self.round} of 20`', inline=False)
+                else:
+                    embed.title = f"\N{BLACK RIGHT-POINTING DOUBLE TRIANGLE WITH VERTICAL BAR} {self.country['name']['common']}"
+                    embed.add_field(name='Stats', value=f'{misc.space}round : `{self.round} of 20`', inline=False)
+
                 embed.set_author(name=msg.author.display_name, icon_url=msg.author.avatar.url)
-                embed.add_field(name='Stats', value=f'{misc.space}accuracy : `{self.accuracy*100:.2f}%`\n{misc.space}time : `{time.time() - self.response_time:.2f}s`\n{misc.space}round : `{self.round} of 20`', inline=False)
-                
+
                 info = self.info(self.country['cca3'])
                 if len(info) > 0:
                     embed.add_field(name=f"{misc.space}\nInfo", value="\n".join(info), inline=False)
@@ -174,12 +192,17 @@ class CountryGuessing:
                 embed.set_thumbnail(url=self.country['flags']['png'])
 
                 # Save score
-                if self.scores.get(str(msg.author.id)):
-                    self.scores[str(msg.author.id)] += 1
-                else:
-                    self.scores[str(msg.author.id)] = 1
+                if self.winner:
+                    if self.scores.get(str(self.winner.id)):
+                        self.scores[str(self.winner.id)]['answers'] += 1
+                        self.scores[str(self.winner.id)]['avgAccuracy'].append(self.accuracy)
+                    else:
+                        self.scores[str(self.winner.id)] = {'answers': 1, 'avgAccuracy': [self.accuracy]}
 
-                self.response = await self.old.edit(embed=embed)
+                await self.game_msg.edit(embed=embed)
+
+                if self.round == 20:
+                    return await self.end_game(self.ctx.channel)
 
                 # Start next game in 10s
                 await asyncio.sleep(10.0)
@@ -200,14 +223,6 @@ class Fun(subclasses.Cog):
             games[str(ctx.channel.id)] = 'country'
             game = CountryGuessing(ctx)
             await game.config()
-    
-    
-    @country.command(name='fix')
-    async def country_fix(self, ctx: commands.Context, channel: Union[discord.TextChannel, discord.Thread]=lambda ctx : ctx.channel):
-        if games.pop(f'{channel.id}', None):
-            await ctx.reply(f"Found game in {channel.mention}", mention_author=False)
-        else:
-            await ctx.reply(f"Did not found any game in {channel.mention}", mention_author=False)
         
 
 async def setup(bot):
