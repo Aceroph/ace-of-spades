@@ -212,7 +212,7 @@ class AceBot(commands.Bot):
         # Process the traceback to clean path !
         trace = ''.join(traceback.format_exception(type(error), error, error.__traceback__))
         embed = discord.Embed(title=f":warning: Unhandled error in command : {ctx.command if hasattr(ctx, 'command') else 'None'}", description=f"```py\n{misc.clean_traceback(trace)}```")
-        embed.set_footer(text=f'Caused by {author.display_name} in {ctx.guild.name if ctx.guild else 'DMs'} ({ctx.guild.id if ctx.guild else 0})', icon_url=author.avatar.url)
+        embed.set_footer(text=f"Caused by {author.display_name} in {ctx.guild.name if ctx.guild else 'DMs'} ({ctx.guild.id if ctx.guild else 0})", icon_url=author.avatar.url)
 
         view = subclasses.View()
         view.add_quit(author)
@@ -222,7 +222,7 @@ class AceBot(commands.Bot):
         await ctx.message.add_reaction('\N{DOUBLE EXCLAMATION MARK}')
 
         # User error
-        embed = discord.Embed(title=f':warning: {type(error).__qualname__}', description=f'> {" ".join(error.args)}' if len(error.args) > 0 else None)
+        embed = discord.Embed(title=f":warning: {type(error).__qualname__}", description=f"> {' '.join(error.args)}" if len(error.args) > 0 else None)
         if isinstance(ctx, commands.Context):
             await ctx.reply(embed=embed, view=view, mention_author=False)
         else:
