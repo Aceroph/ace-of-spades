@@ -9,16 +9,6 @@ import time
 if TYPE_CHECKING:
     from main import AceBot
 
-class EditPermissionFlags(commands.FlagConverter):
-    entity: Union[discord.Member, discord.Role] = commands.Flag(name="for", aliases=["member", "role", "m", "r"])
-    channel: Union[discord.TextChannel, discord.ForumChannel, discord.VoiceChannel, discord.Thread] = commands.Flag(name="in", default=None, aliases=["channel", "c"])
-    permissions: Tuple[str, ...] = commands.Flag(aliases=["perms", "p"])
-
-
-class PermissionFlags(commands.FlagConverter):
-    entity: Union[discord.Member, discord.Role] = commands.Flag(name="for", aliases=["member", "role", "m", "r"], default=lambda ctx : ctx.author)
-    channel: Union[discord.TextChannel, discord.ForumChannel, discord.VoiceChannel, discord.Thread] = commands.Flag(name="in", default=None, aliases=["channel", "c"])
-
 
 class Admin(subclasses.Cog):
     def __init__(self, bot: 'AceBot'):
@@ -28,39 +18,34 @@ class Admin(subclasses.Cog):
 
 
     @commands.group(aliases=['perms', 'rights'], invoke_without_command=True)
-    async def permissions(self, ctx: commands.Context, *, flags: PermissionFlags):
+    async def permissions(self, ctx: commands.Context, target: Union[discord.Member, discord.Role]=lambda ctx : ctx.author, channel: discord.TextChannel=None):
         """Displays a role or a user's permissions.
-        If a channel is not specified, will output
-        global permissions.
         
-        **Flags**
-        `channel:`
-        {curve} Specifies the channel (Optional)
-        `obj|member|role:`
-        {curve} Specifies the member/role"""
+        `[target]` can be either a role or a member
+        `[channel]` defaults to global permissions"""
 
-        permissions = flags.channel.permissions_for(flags.entity) if flags.channel else flags.entity.permissions if isinstance(flags.entity, discord.Role) else flags.entity.guild_permissions
+        permissions = channel.permissions_for(target) if channel else target.permissions if isinstance(target, discord.Role) else target.guild_permissions
         embed = discord.Embed()
-        embed.description = f"{misc.curve} {'for ' + flags.channel.mention if flags.channel else 'Globally'}"
+        embed.description = f"{misc.curve} {'for ' + channel.mention if channel else 'Globally'}"
         # If entity is role
-        if isinstance(flags.entity, discord.Role):
-            embed.title = f'Permissions for {flags.entity.name}'
-            embed.color = flags.entity.color if flags.entity.color.value != 0 else discord.Color.from_str('#2b2d31')
-            embed.add_field(name='`[i]` Information', value=f'{misc.space}role: {f"@everyone" if flags.entity.is_default() else flags.entity.mention}\n{misc.space}color : [{embed.color}](https://www.color-hex.com/color/{str(embed.color).strip("#")})') #add additional info
+        if isinstance(target, discord.Role):
+            embed.title = f'Permissions for {target.name}'
+            embed.color = target.color if target.color.value != 0 else discord.Color.from_str('#2b2d31')
+            embed.add_field(name='`[i]` Information', value=f'{misc.space}role: {f"@everyone" if target.is_default() else target.mention}\n{misc.space}color : [{embed.color}](https://www.color-hex.com/color/{str(embed.color).strip("#")})') #add additional info
             # if len(members)
-            members = "\n".join([f"{misc.space}{member.mention}" for member in flags.entity.members[:5]])
-            old = embed.add_field(name=f'`{len(flags.entity.members)}` Members', value=f'{members}')
+            members = "\n".join([f"{misc.space}{member.mention}" for member in target.members[:5]])
+            old = embed.add_field(name=f'`{len(target.members)}` Members', value=f'{members}')
 
         # If entity is user/member
         else:
-            embed.set_author(name=f'Permissions for {flags.entity.display_name}', icon_url=flags.entity.avatar.url)
-            embed.color = flags.entity.top_role.color if flags.entity.top_role.color.value != 0 else discord.Color.from_str('#2b2d31')
-            old = embed.add_field(name='`[u]` User Info', value=f'{misc.space}preset : {misc.Categories.get_preset(permissions)}\n{misc.space}top role : {flags.entity.top_role.mention}')
+            embed.set_author(name=f'Permissions for {target.display_name}', icon_url=target.avatar.url)
+            embed.color = target.top_role.color if target.top_role.color.value != 0 else discord.Color.from_str('#2b2d31')
+            old = embed.add_field(name='`[u]` User Info', value=f'{misc.space}preset : {misc.Categories.get_preset(permissions)}\n{misc.space}top role : {target.top_role.mention}')
         
         # Select permissions category
         categories = [category for category in misc.Categories.categories() if len(misc.Categories.sort(permissions, category)) > 0]
         options = [discord.SelectOption(label=category) for category in categories]
-        options.insert(0, discord.SelectOption(label=f'{"Role" if isinstance(flags.entity, discord.Role) else "User"} Info', value='Info'))
+        options.insert(0, discord.SelectOption(label=f'{"Role" if isinstance(target, discord.Role) else "User"} Info', value='Info'))
         select_category = discord.ui.Select(placeholder=f'Select a  category ({len(categories)})', options=options)
         async def category(interaction: discord.Interaction) -> None:
             if interaction.user == ctx.author:
@@ -86,25 +71,21 @@ class Admin(subclasses.Cog):
     
     @permissions.command(name="edit")
     @commands.has_guild_permissions(administrator=True)
-    async def permissions_edit(self, ctx: commands.Context, *, flags: EditPermissionFlags):
+    async def permissions_edit(self, ctx: commands.Context, target: Optional[Union[discord.Member, discord.Role]]=lambda ctx : ctx.author, channel: Optional[discord.TextChannel]=None, *, permissions: str):
         """Edits a member or a role's permissions.
-        If a channel is specified, the permissions
-        will be updated for the channel only,
-        otherwise will update globally.
         
-        **Flags**
-        `channel:`
-        {curve} Specifies the channel (Optional)
-        `obj|member|role:`
-        {curve} Specifies the member/role to edit
-        `permissions|perms:`
-        {curve} Specifies the permissions to edit"""
+        `[target]` can be either a role or a member
+        `[channel]` defaults to global permissions
+        
+        e.g.
+        ```
+        perms edit @aceroph +view_channel -send_messages```"""
 
-        permissions = {}
+        changed_permissions = {}
         changelog = "```ansi"
         all_permissions = [p for p in dir(discord.Permissions) if not p.startswith('_') and not callable(getattr(discord.Permissions, p))]
         # Find permissions or add them to not found
-        for perm in flags.permissions:
+        for perm in permissions.split():
             action = perm[0] if perm[0] in ['+', '-', '='] else '+'
             perm = perm[1:] if perm[0] in ['+', '-', '='] else perm
             for perm2 in all_permissions:
@@ -113,40 +94,40 @@ class Admin(subclasses.Cog):
                     match action:
                         case '+':
                             changelog += f"\n\u001b[0;32m[+] {perm2}\u001b[0m"
-                            permissions[perm2] = True
+                            changed_permissions[perm2] = True
                         case '-':
                             changelog += f"\n\u001b[0;31m[-] {perm2}\u001b[0m"
-                            permissions[perm2] = False
+                            changed_permissions[perm2] = False
                         case '=':
                             changelog += f"\n\u001b[0;30m[=] {perm2}\u001b[0m"
-                            permissions[perm2] = None
+                            changed_permissions[perm2] = None
                     break
 
-        if flags.channel:
-            await flags.channel.set_permissions(target=flags.entity, overwrite=discord.PermissionOverwrite(**permissions))
+        if channel:
+            await channel.set_permissions(target=target, overwrite=discord.PermissionOverwrite(**changed_permissions))
         else:
-            if isinstance(flags.entity, discord.Role):
-                await flags.entity.edit(permissions=discord.Permissions(**permissions))
+            if isinstance(target, discord.Role):
+                await target.edit(permissions=discord.Permissions(**changed_permissions))
             else:
                 return await ctx.reply(mention_author=False, embed=discord.Embed(title=":warning: Error while editing user", description="> Cannot edit a user's permissions globally !", color=discord.Color.red()))
         
-        if len(permissions) < 1:
+        if len(changed_permissions) < 1:
             changelog += "\nNothing changed```"
         else:
             changelog += "```"
 
         embed = discord.Embed()
-        embed.description = f"{misc.curve} {'in ' + flags.channel.mention if flags.channel else 'Globally'}"
+        embed.description = f"{misc.curve} {'in ' + channel.mention if channel else 'Globally'}"
         # If entity is role
-        if isinstance(flags.entity, discord.Role):
-            embed.title = f"Updated {flags.entity.name}"
-            embed.color = flags.entity.color if flags.entity.color.value != 0 else discord.Color.from_str('#2b2d31')
+        if isinstance(target, discord.Role):
+            embed.title = f"Updated {target.name}"
+            embed.color = target.color if target.color.value != 0 else discord.Color.from_str('#2b2d31')
             embed.add_field(name="`[p]` Changelog", value=changelog)
             
         # If entity is user/member
         else:
-            embed.set_author(name=f"Updated {flags.entity.display_name}", icon_url=flags.entity.avatar.url)
-            embed.color = flags.entity.top_role.color if flags.entity.top_role.color.value != 0 else discord.Color.from_str('#2b2d31')
+            embed.set_author(name=f"Updated {target.display_name}", icon_url=target.avatar.url)
+            embed.color = target.top_role.color if target.top_role.color.value != 0 else discord.Color.from_str('#2b2d31')
             embed.add_field(name="`[p]` Changelog", value=changelog)
         
         await ctx.reply(embed=embed, mention_author=False)
