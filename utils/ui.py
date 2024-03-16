@@ -1,6 +1,6 @@
 from typing import List, Union, TYPE_CHECKING
+from . import subclasses, misc, errors
 from discord.ext import commands
-from . import subclasses, misc
 import datetime
 import discord
 import inspect
@@ -192,24 +192,24 @@ class HelpView(subclasses.View):
 
     @discord.ui.button(label="Show commands", style=discord.ButtonStyle.grey, custom_id="Help:ShowCommands", emoji='\N{INFORMATION SOURCE}')
     async def show(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if self.context.author == interaction.user:
-            if button.label == 'Show commands':
-                self.old = interaction.message.embeds[0]
-                embed = discord.Embed(color=discord.Color.blurple())
-                embed.set_thumbnail(url="https://upload.wikimedia.org/wikipedia/commons/thumb/3/31/Documents_icon_-_noun_project_5020_-_white.svg/1200px-Documents_icon_-_noun_project_5020_-_white.svg.png")
-                embed.set_author(name=f"{self.context.author.display_name}: Help", icon_url=self.context.author.avatar.url)
+        if self.context.author != interaction.user:
+            raise errors.NotYourButton
 
-                # Modules & Commands
-                for name, module in self.bot.cogs.items():
-                    # Filter commands
-                    filtered_commands = await self.filter_commands(module.get_commands())
-                    cmds = [f'`{command.qualified_name}`' for command in filtered_commands]
-                    embed.add_field(name=f"{module.emoji} {name} - {len(cmds)}", value=' '.join(cmds), inline=False) if len(cmds) > 0 else None
+        if button.label == 'Show commands':
+            self.old = interaction.message.embeds[0]
+            embed = discord.Embed(color=discord.Color.blurple())
+            embed.set_thumbnail(url="https://upload.wikimedia.org/wikipedia/commons/thumb/3/31/Documents_icon_-_noun_project_5020_-_white.svg/1200px-Documents_icon_-_noun_project_5020_-_white.svg.png")
+            embed.set_author(name=f"{self.context.author.display_name}: Help", icon_url=self.context.author.avatar.url)
 
-                button.label = 'Back to help'
-                return await interaction.response.edit_message(embed=embed, view=self)
-            else:
-                button.label = 'Show commands'
-                return await interaction.response.edit_message(embed=self.old, view=self)
+            # Modules & Commands
+            for name, module in self.bot.cogs.items():
+                # Filter commands
+                filtered_commands = await self.filter_commands(module.get_commands())
+                cmds = [f'`{command.qualified_name}`' for command in filtered_commands]
+                embed.add_field(name=f"{module.emoji} {name} - {len(cmds)}", value=' '.join(cmds), inline=False) if len(cmds) > 0 else None
+
+            button.label = 'Back to help'
+            return await interaction.response.edit_message(embed=embed, view=self)
         else:
-            return await interaction.response.send_message("This is not your instance !", ephemeral=True)
+            button.label = 'Show commands'
+            return await interaction.response.edit_message(embed=self.old, view=self)
