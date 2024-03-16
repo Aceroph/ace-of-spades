@@ -12,7 +12,6 @@ import pathlib
 import logging
 import dotenv
 import time
-import copy
 
 # FILE MANAGEMENT
 directory = pathlib.Path(__file__).parent
@@ -113,12 +112,13 @@ class AceHelp(commands.HelpCommand):
 
 
 class AceBot(commands.Bot):
-    def __init__(self):
-        super().__init__(command_prefix=dotenv.dotenv_values('.env')["PREFIX"], intents=discord.Intents.all(), help_command=AceHelp(), log_handler=None)
+    def __init__(self, *args, **kwargs):
+        super().__init__(command_prefix=dotenv.dotenv_values('.env')["PREFIX"], help_command=AceHelp(), log_handler=None, *args, **kwargs)
         self.token = dotenv.dotenv_values('.env')["TOKEN"]
         self.owner_id = 493107597281329185
         self.boot = time.time()
         self.logger = LOGGER
+
 
     async def setup_hook(self):
         # Database stuff
@@ -214,7 +214,11 @@ class AceBot(commands.Bot):
         return await ctx.reply(embed=embed, view=view, mention_author=False)
 
 
-
 if __name__ == "__main__":
-    bot = AceBot()
+    # Intents
+    intents = discord.Intents.default()
+    intents.message_content = True
+    intents.members = True
+
+    bot = AceBot(intents=intents)
     bot.run(bot.token)

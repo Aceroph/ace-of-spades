@@ -90,28 +90,6 @@ class Paginator:
 
     def add_page(self, page: str) -> None:
         self.pages.append(self.prefix + page + self.suffix)
-    
-
-    def check_buttons(self, author: discord.User):
-        self.view.clear_items()
-
-        _first = discord.ui.Button(emoji="\N{BLACK LEFT-POINTING DOUBLE TRIANGLE WITH VERTICAL BAR}", disabled=self.index == 0)
-        _first.callback = self.first_page
-        self.view.add_item(_first)
-
-        _previous = discord.ui.Button(emoji="\N{BLACK LEFT-POINTING TRIANGLE}", disabled=self.index == 0)
-        _previous.callback = self.previous_page
-        self.view.add_item(_previous)
-
-        self.view.add_quit(author)
-
-        _next = discord.ui.Button(emoji="\N{BLACK RIGHT-POINTING TRIANGLE}", disabled=self.index == len(self.pages)-1 or len(self.pages) > 1)
-        _next.callback = self.next_page
-        self.view.add_item(_next)
-
-        _last = discord.ui.Button(emoji="\N{BLACK RIGHT-POINTING DOUBLE TRIANGLE WITH VERTICAL BAR}", disabled=self.index == len(self.pages)-1 or len(self.pages) > 1)
-        _last.callback = self.last_page
-        self.view.add_item(_last)
 
 
     async def start(self):
@@ -125,14 +103,7 @@ class Paginator:
             raise errors.NotYourButton
 
         self.index += 1
-
-        self.check_buttons(interaction.user)
-
-        page = self.pages[self.index]
-        embed = interaction.message.embeds[0]
-        embed.description = page
-        embed.set_footer(text=f'Page {self.index+1} of {len(self.pages)}')
-        await interaction.response.edit_message(embed=embed, view=self.view)
+        return self.update(interaction)
 
 
     async def previous_page(self, interaction: discord.Interaction):
@@ -140,14 +111,7 @@ class Paginator:
             raise errors.NotYourButton
 
         self.index -= 1
-        
-        self.check_buttons(interaction.user)
-
-        page = self.pages[self.index]
-        embed = interaction.message.embeds[0]
-        embed.description = page
-        embed.set_footer(text=f'Page {self.index+1} of {len(self.pages)}')
-        await interaction.response.edit_message(embed=embed, view=self.view)
+        return self.update(interaction)
     
     
     async def first_page(self, interaction: discord.Interaction):
@@ -155,14 +119,7 @@ class Paginator:
             raise errors.NotYourButton
     
         self.index = 0
-
-        self.check_buttons(interaction.user)
-
-        page = self.pages[self.index]
-        embed = interaction.message.embeds[0]
-        embed.description = page
-        embed.set_footer(text=f'Page {self.index+1} of {len(self.pages)}')
-        await interaction.response.edit_message(embed=embed, view=self.view)
+        return self.update(interaction)
     
 
     async def last_page(self, interaction: discord.Interaction):
@@ -170,12 +127,35 @@ class Paginator:
             raise errors.NotYourButton
         
         self.index = len(self.pages)-1
+        return self.update(interaction)
+    
+    
+    async def update(self, interaction: discord.Interaction):
+        # Update buttons
+        self.view.clear_items()
 
-        self.check_buttons(interaction.user)
+        _first = discord.ui.Button(emoji="\N{BLACK LEFT-POINTING DOUBLE TRIANGLE WITH VERTICAL BAR}", disabled=self.index == 0)
+        _first.callback = self.first_page
+        self.view.add_item(_first)
 
+        _previous = discord.ui.Button(emoji="\N{BLACK LEFT-POINTING TRIANGLE}", disabled=self.index == 0)
+        _previous.callback = self.previous_page
+        self.view.add_item(_previous)
+
+        self.view.add_quit(interaction.user)
+
+        _next = discord.ui.Button(emoji="\N{BLACK RIGHT-POINTING TRIANGLE}", disabled=self.index+1 == len(self.pages))
+        _next.callback = self.next_page
+        self.view.add_item(_next)
+
+        _last = discord.ui.Button(emoji="\N{BLACK RIGHT-POINTING DOUBLE TRIANGLE WITH VERTICAL BAR}", disabled=self.index+1 == len(self.pages))
+        _last.callback = self.last_page
+        self.view.add_item(_last)
+
+        # Update page
         page = self.pages[self.index]
         embed = interaction.message.embeds[0]
         embed.description = page
         embed.set_footer(text=f'Page {self.index+1} of {len(self.pages)}')
-        await interaction.response.edit_message(embed=embed, view=self.view)
+        return await interaction.response.edit_message(embed=embed, view=self.view)
     
