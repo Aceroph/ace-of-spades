@@ -147,7 +147,7 @@ class Music(subclasses.Cog):
     
         length = len(player.queue._items)
         if length > 0:
-            paginator = subclasses.Paginator(ctx=ctx, embed=discord.Embed(title=f'Queue ({str(length) + ' songs' if length > 1 else str(length) + ' song'})', color=discord.Color.blurple()), max_lines=20, prefix="```", suffix="```")
+            paginator = subclasses.Paginator(ctx=ctx, embed=discord.Embed(title=f"Queue ({str(length) + ' songs' if length > 1 else str(length) + ' song'})", color=discord.Color.blurple()), max_lines=20, prefix="```", suffix="```")
             items = [[format(i+1, '02d'), textwrap.shorten(track.title, 45, break_long_words=False, placeholder='...')] for i, track in enumerate(player.queue._items)]
             pages = [items[p:p+20] for p in range(0, len(items), 20)]
 
