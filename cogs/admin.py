@@ -1,4 +1,4 @@
-from typing import Optional, Union, TYPE_CHECKING, Tuple, List
+from typing import Optional, Union, TYPE_CHECKING
 from utils import subclasses, sql_querries, misc
 from discord.ext import commands
 from tabulate import tabulate
@@ -238,87 +238,105 @@ class Admin(subclasses.Cog):
 
     @commands.is_owner()
     @commands.command(name="reload", aliases=["r"])
-    async def module_reload(self, ctx: commands.Context, cog: str):
+    async def module_reload(self, ctx: commands.Context, extension: str):
         """Reloads the provided module if exists"""
         module: str = None
         # Find module name (eg. cogs.admin)
+        for name in self.bot.extensions.keys():
+            extension_clean = extension.casefold() if extension.startswith('cogs.') else 'cogs.' + extension.casefold()
+            ratio = difflib.SequenceMatcher(None, extension_clean, name.casefold()).ratio()
+            if ratio >= 0.70:
+                module = name
+                break
+        
+        # Get cog if any
+        cog: commands.Cog = None
         for cg in self.bot.cogs:
-            ratio = difflib.SequenceMatcher(None, cog.casefold(), cg.casefold()).ratio()
+            ratio = difflib.SequenceMatcher(None, extension.casefold(), cg.casefold()).ratio()
             if ratio >= 0.70:
                 cog: commands.Cog = self.bot.get_cog(cg)
-                module = cog.__module__
                 break
         
         if not module:
             await ctx.message.add_reaction("\N{DOUBLE EXCLAMATION MARK}")
-            embed = discord.Embed(title=":warning: ExtensionNotFound", description=f"> Couldn't find module : `{cog}`", color=discord.Color.red())
+            embed = discord.Embed(title=":warning: ExtensionNotFound", description=f"> Couldn't find module : `{extension}`", color=discord.Color.red())
             return await ctx.reply(embed=embed, mention_author=False)
         
         timer = time.time()
-        try:
-            await self.bot.reload_extension(module)
-        except Exception as error:
-            await self.bot.error_handler(ctx, error)
+
+        await self.bot.reload_extension(module)
             
-        embed = discord.Embed(title=":gear: Reloaded Module", description=f">>> {cog.qualified_name}\n{misc.curve} reloaded `{len(cog.get_commands())}` commands", color=discord.Color.blurple())
+        embed = discord.Embed(title=":gear: Reloaded Module", description=f">>> {module}\n{misc.curve} reloaded `{len(cog.get_commands()) if cog else 0}` commands", color=discord.Color.blurple())
         embed.set_footer(text=f"Took {(time.time() - timer)*1000:.2f}ms")
         await ctx.reply(embed=embed, mention_author=False)
     
 
     @commands.is_owner()
     @commands.command(name="load", aliases=["l"])
-    async def module_load(self, ctx: commands.Context, cog: str):
+    async def module_load(self, ctx: commands.Context, extension: str):
         """Loads the provided module if exists"""
         module: str = None
         # Find module name (eg. cogs.admin)
+        for name in self.bot.extensions.keys():
+            extension_clean = extension.casefold() if extension.startswith('cogs.') else 'cogs.' + extension.casefold()
+            ratio = difflib.SequenceMatcher(None, extension_clean, name.casefold()).ratio()
+            if ratio >= 0.70:
+                module = name
+                break
+        
+        # Get cog if any
+        cog: commands.Cog = None
         for cg in self.bot.cogs:
-            ratio = difflib.SequenceMatcher(None, cog.casefold(), cg.casefold()).ratio()
+            ratio = difflib.SequenceMatcher(None, extension.casefold(), cg.casefold()).ratio()
             if ratio >= 0.70:
                 cog: commands.Cog = self.bot.get_cog(cg)
-                module = cog.__module__
                 break
         
         if not module:
             await ctx.message.add_reaction("\N{DOUBLE EXCLAMATION MARK}")
-            embed = discord.Embed(title=":warning: ExtensionNotFound", description=f"> Couldn't find module : `{cog}`", color=discord.Color.red())
+            embed = discord.Embed(title=":warning: ExtensionNotFound", description=f"> Couldn't find module : `{extension}`", color=discord.Color.red())
             return await ctx.reply(embed=embed, mention_author=False)
         
         timer = time.time()
-        try:
-            await self.bot.load_extension(module)
-        except Exception as error:
-            await self.bot.error_handler(ctx, error)
+
+        await self.bot.load_extension(module)
             
-        embed = discord.Embed(title=":gear: Loaded Module", description=f">>> {cog.qualified_name}\n{misc.curve} loaded `{len(cog.get_commands())}` commands", color=discord.Color.blurple())
+        embed = discord.Embed(title=":gear: Loaded Module", description=f">>> {module}\n{misc.curve} loaded `{len(cog.get_commands()) if cog else 0}` commands", color=discord.Color.blurple())
         embed.set_footer(text=f"Took {(time.time() - timer)*1000:.2f}ms")
         await ctx.reply(embed=embed, mention_author=False)
     
 
     @commands.is_owner()
     @commands.command(name="unload", aliases=["u"])
-    async def module_unload(self, ctx: commands.Context, cog: str):
+    async def module_unload(self, ctx: commands.Context, extension: str):
         """Unloads the provided module if exists"""
         module: str = None
         # Find module name (eg. cogs.admin)
+        for name in self.bot.extensions.keys():
+            extension_clean = extension.casefold() if extension.startswith('cogs.') else 'cogs.' + extension.casefold()
+            ratio = difflib.SequenceMatcher(None, extension_clean, name.casefold()).ratio()
+            if ratio >= 0.70:
+                module = name
+                break
+        
+        # Get cog if any
+        cog: commands.Cog = None
         for cg in self.bot.cogs:
-            ratio = difflib.SequenceMatcher(None, cog.casefold(), cg.casefold()).ratio()
+            ratio = difflib.SequenceMatcher(None, extension.casefold(), cg.casefold()).ratio()
             if ratio >= 0.70:
                 cog: commands.Cog = self.bot.get_cog(cg)
-                module = cog.__module__
                 break
         
         if not module:
             await ctx.message.add_reaction("\N{DOUBLE EXCLAMATION MARK}")
-            embed = discord.Embed(title=":warning: ExtensionNotFound", description=f"> Couldn't find module : `{cog}`", color=discord.Color.red())
+            embed = discord.Embed(title=":warning: ExtensionNotFound", description=f"> Couldn't find module : `{extension}`", color=discord.Color.red())
             return await ctx.reply(embed=embed, mention_author=False)
         
         timer = time.time()
-        try:
-            await self.bot.unload_extension(module)
-        except Exception as error:
-            await self.bot.error_handler(ctx, error)
+
+        await self.bot.load_extension(module)
             
-        embed = discord.Embed(title=":gear: Unloaded Module", description=f">>> {cog.qualified_name}\n{misc.curve} unloaded `{len(cog.get_commands())}` commands", color=discord.Color.blurple())
+        embed = discord.Embed(title=":gear: Unloaded Module", description=f">>> {module}\n{misc.curve} unloaded `{len(cog.get_commands()) if cog else 0}` commands", color=discord.Color.blurple())
         embed.set_footer(text=f"Took {(time.time() - timer)*1000:.2f}ms")
         await ctx.reply(embed=embed, mention_author=False)
 

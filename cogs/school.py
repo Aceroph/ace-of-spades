@@ -1,6 +1,6 @@
 from utils import checks, subclasses, misc
+from typing import TYPE_CHECKING
 from discord.ext import commands
-from typing import TYPE_CHECKING, Union
 import datetime
 import pathlib
 import discord

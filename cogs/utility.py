@@ -9,6 +9,7 @@ import time
 if TYPE_CHECKING:
     from main import AceBot
 
+
 class Utility(subclasses.Cog):
     def __init__(self, bot: 'AceBot'):
         super().__init__()

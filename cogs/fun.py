@@ -1,7 +1,8 @@
-from utils import subclasses, misc, errors
+from utils import subclasses, misc
 from typing import TYPE_CHECKING
 from discord.ext import commands
 from tabulate import tabulate
+from . import errors
 import unicodedata
 import requests
 import difflib

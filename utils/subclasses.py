@@ -1,7 +1,8 @@
-from . import subclasses, misc, errors
 from discord.ext import commands
-import discord
+from . import subclasses, misc
+from cogs import errors
 import traceback
+import discord
 import time
 
 
