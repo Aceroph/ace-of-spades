@@ -2,6 +2,7 @@ from typing import Optional, Union, TYPE_CHECKING
 from utils import subclasses, sql_querries, misc
 from discord.ext import commands
 from tabulate import tabulate
+from . import EXTENSIONS
 import difflib
 import discord
 import time
@@ -242,12 +243,13 @@ class Admin(subclasses.Cog):
         """Reloads the provided module if exists"""
         module: str = None
         # Find module name (eg. cogs.admin)
-        for name in self.bot.extensions.keys():
+        for name in EXTENSIONS:
             extension_clean = extension.casefold() if extension.startswith('cogs.') else 'cogs.' + extension.casefold()
             ratio = difflib.SequenceMatcher(None, extension_clean, name.casefold()).ratio()
             if ratio >= 0.85:
                 module = name
                 break
+            
         # Get cog if any
         cog: commands.Cog = None
         for cg in self.bot.cogs:
@@ -276,18 +278,11 @@ class Admin(subclasses.Cog):
         """Loads the provided module if exists"""
         module: str = None
         # Find module name (eg. cogs.admin)
-        for name in self.bot.extensions.keys():
+        for name in EXTENSIONS:
             extension_clean = extension.casefold() if extension.startswith('cogs.') else 'cogs.' + extension.casefold()
             ratio = difflib.SequenceMatcher(None, extension_clean, name.casefold()).ratio()
             if ratio >= 0.85:
                 module = name
-                break
-        # Get cog if any
-        cog: commands.Cog = None
-        for cg in self.bot.cogs:
-            ratio = difflib.SequenceMatcher(None, extension.casefold(), cg.casefold()).ratio()
-            if ratio >= 0.85:
-                cog: commands.Cog = self.bot.get_cog(cg)
                 break
         
         if not module:
@@ -298,6 +293,14 @@ class Admin(subclasses.Cog):
         timer = time.time()
 
         await self.bot.load_extension(module)
+
+        # Get cog if any
+        cog: commands.Cog = None
+        for cg in self.bot.cogs:
+            ratio = difflib.SequenceMatcher(None, extension.casefold(), cg.casefold()).ratio()
+            if ratio >= 0.85:
+                cog: commands.Cog = self.bot.get_cog(cg)
+                break
             
         embed = discord.Embed(title=":gear: Loaded Module", description=f">>> {module}\n{misc.curve} loaded `{len(cog.get_commands()) if cog else 0}` commands", color=discord.Color.blurple())
         embed.set_footer(text=f"Took {(time.time() - timer)*1000:.2f}ms")
@@ -310,7 +313,7 @@ class Admin(subclasses.Cog):
         """Unloads the provided module if exists"""
         module: str = None
         # Find module name (eg. cogs.admin)
-        for name in self.bot.extensions.keys():
+        for name in EXTENSIONS:
             extension_clean = extension.casefold() if extension.startswith('cogs.') else 'cogs.' + extension.casefold()
             ratio = difflib.SequenceMatcher(None, extension_clean, name.casefold()).ratio()
             if ratio >= 0.85:
@@ -332,7 +335,7 @@ class Admin(subclasses.Cog):
         
         timer = time.time()
 
-        await self.bot.load_extension(module)
+        await self.bot.unload_extension(module)
             
         embed = discord.Embed(title=":gear: Unloaded Module", description=f">>> {module}\n{misc.curve} unloaded `{len(cog.get_commands()) if cog else 0}` commands", color=discord.Color.blurple())
         embed.set_footer(text=f"Took {(time.time() - timer)*1000:.2f}ms")
