@@ -13,6 +13,14 @@ if TYPE_CHECKING:
 class NotYourButton(app_commands.errors.AppCommandError):
     def __init__(self, reason: str=None) -> None:
         self.reason = reason
+
+
+class PlayerConnectionFailure(commands.errors.CommandError):
+    pass
+
+
+class NoVoiceFound(commands.errors.CommandError):
+    pass
     
 
 # Error handler
@@ -58,6 +66,12 @@ async def on_command_error(ctx: commands.Context, error: commands.CommandError):
     
     if isinstance(error, commands.errors.NoPrivateMessage):
         return await ctx.reply(embed=discord.Embed(title=':warning: No Private Message', description=f'> This command cannot be used in DMs', color=discord.Color.red()))
+    
+    if isinstance(error, NoVoiceFound):
+        return await ctx.reply(embed=discord.Embed(title=':warning: No Voice Found', description=f'> Please join a voice channel first before using this command.', color=discord.Color.red()))
+
+    if isinstance(error, PlayerConnectionFailure):
+        return await ctx.reply(embed=discord.Embed(title=':warning: Player Connection Failure', description=f'> I was unable to join this voice channel. Please try again.', color=discord.Color.red()))
 
     # UNHANDLED ERRORS BELLOW
     # Process the traceback to clean path !

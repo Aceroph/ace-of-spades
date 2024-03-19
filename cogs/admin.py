@@ -245,15 +245,14 @@ class Admin(subclasses.Cog):
         for name in self.bot.extensions.keys():
             extension_clean = extension.casefold() if extension.startswith('cogs.') else 'cogs.' + extension.casefold()
             ratio = difflib.SequenceMatcher(None, extension_clean, name.casefold()).ratio()
-            if ratio >= 0.70:
+            if ratio >= 0.85:
                 module = name
                 break
-        
         # Get cog if any
         cog: commands.Cog = None
         for cg in self.bot.cogs:
             ratio = difflib.SequenceMatcher(None, extension.casefold(), cg.casefold()).ratio()
-            if ratio >= 0.70:
+            if ratio >= 0.85:
                 cog: commands.Cog = self.bot.get_cog(cg)
                 break
         
@@ -280,15 +279,14 @@ class Admin(subclasses.Cog):
         for name in self.bot.extensions.keys():
             extension_clean = extension.casefold() if extension.startswith('cogs.') else 'cogs.' + extension.casefold()
             ratio = difflib.SequenceMatcher(None, extension_clean, name.casefold()).ratio()
-            if ratio >= 0.70:
+            if ratio >= 0.85:
                 module = name
                 break
-        
         # Get cog if any
         cog: commands.Cog = None
         for cg in self.bot.cogs:
             ratio = difflib.SequenceMatcher(None, extension.casefold(), cg.casefold()).ratio()
-            if ratio >= 0.70:
+            if ratio >= 0.85:
                 cog: commands.Cog = self.bot.get_cog(cg)
                 break
         
@@ -315,7 +313,7 @@ class Admin(subclasses.Cog):
         for name in self.bot.extensions.keys():
             extension_clean = extension.casefold() if extension.startswith('cogs.') else 'cogs.' + extension.casefold()
             ratio = difflib.SequenceMatcher(None, extension_clean, name.casefold()).ratio()
-            if ratio >= 0.70:
+            if ratio >= 0.85:
                 module = name
                 break
         
@@ -323,7 +321,7 @@ class Admin(subclasses.Cog):
         cog: commands.Cog = None
         for cg in self.bot.cogs:
             ratio = difflib.SequenceMatcher(None, extension.casefold(), cg.casefold()).ratio()
-            if ratio >= 0.70:
+            if ratio >= 0.85:
                 cog: commands.Cog = self.bot.get_cog(cg)
                 break
         
