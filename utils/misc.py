@@ -25,8 +25,9 @@ class Categories:
 
     @classmethod
     def sort(cls, perms: discord.Permissions, category: str):
-        category = getattr(discord.Permissions, category.split()[0].lower())
-        return [perm[0] for perm in perms if perm[1] and perm in [*category()]]
+        c = getattr(discord.Permissions, category.split()[0].lower())
+        cperms = [p[0] for p in [*c()] if p[1]]
+        return sorted([p for p in perms if p[0] in cperms], key=lambda p: p[1], reverse=True)
 
 
     @classmethod

@@ -1,5 +1,6 @@
 from typing import Optional, Union, TYPE_CHECKING
 from utils import subclasses, sql_querries, misc
+from .errors import NotYourButton
 from discord.ext import commands
 from tabulate import tabulate
 from . import EXTENSIONS
@@ -44,22 +45,23 @@ class Admin(subclasses.Cog):
             old = embed.add_field(name='`[u]` User Info', value=f'{misc.space}preset : {misc.Categories.get_preset(permissions)}\n{misc.space}top role : {target.top_role.mention}')
         
         # Select permissions category
-        categories = [category for category in misc.Categories.categories() if len(misc.Categories.sort(permissions, category)) > 0]
-        options = [discord.SelectOption(label=category) for category in categories]
+        options = [discord.SelectOption(label=category) for category in misc.Categories.categories()]
         options.insert(0, discord.SelectOption(label=f'{"Role" if isinstance(target, discord.Role) else "User"} Info', value='Info'))
-        select_category = discord.ui.Select(placeholder=f'Select a  category ({len(categories)})', options=options)
+        select_category = discord.ui.Select(placeholder=f'Select a category', options=options)
         async def category(interaction: discord.Interaction) -> None:
-            if interaction.user == ctx.author:
-                if select_category.values[0] == 'Info': # If Info is selected
-                    return await interaction.response.edit_message(embed=old)
-                
-                embed = interaction.message.embeds[0] # If any category is selected
-                embed.clear_fields()
-                display_categories = '\n- '.join([p.replace('_', ' ').capitalize() for p in misc.Categories.sort(permissions, select_category.values[0])])
-                embed.add_field(name=f'[p] {select_category.values[0]}', value=f"```\n- {display_categories}```")
-                return await interaction.response.edit_message(embed=embed)
-            else:
-                return await interaction.response.send_message('This is not your instance !', ephemeral=True)
+            if interaction.user != ctx.author:
+                raise NotYourButton
+            
+            if select_category.values[0] == 'Info': # If Info is selected
+                return await interaction.response.edit_message(embed=old)
+            
+            embed = interaction.message.embeds[0] # If any category is selected
+            embed.clear_fields()
+            symbol = lambda b: "\N{WHITE HEAVY CHECK MARK}" if b else "\N{CROSS MARK}"
+            data = [[p[0].replace('_', ' ').capitalize(), symbol(p[1])] for p in misc.Categories.sort(permissions, select_category.values[0])]
+            embed.add_field(name=f'[p] {select_category.values[0]}', value=f"```\n{tabulate(tabular_data=data, tablefmt='outline')}```")
+            return await interaction.response.edit_message(embed=embed)
+    
         select_category.callback = category
 
         # View stuff
@@ -240,7 +242,9 @@ class Admin(subclasses.Cog):
     @commands.is_owner()
     @commands.command(name="reload", aliases=["r"])
     async def module_reload(self, ctx: commands.Context, extension: str):
-        """Reloads the provided module if exists"""
+        """Reloads the provided module if exists
+        Accepts both short and long names, typo-friendly !
+        e.g: `admin` or `cogs.admin`"""
         module: str = None
         # Find module name (eg. cogs.admin)
         for name in EXTENSIONS:
@@ -275,7 +279,9 @@ class Admin(subclasses.Cog):
     @commands.is_owner()
     @commands.command(name="load", aliases=["l"])
     async def module_load(self, ctx: commands.Context, extension: str):
-        """Loads the provided module if exists"""
+        """Loads the provided module if exists
+        Accepts both short and long names, typo-friendly !
+        e.g: `admin` or `cogs.admin`"""
         module: str = None
         # Find module name (eg. cogs.admin)
         for name in EXTENSIONS:
@@ -310,7 +316,9 @@ class Admin(subclasses.Cog):
     @commands.is_owner()
     @commands.command(name="unload", aliases=["u"])
     async def module_unload(self, ctx: commands.Context, extension: str):
-        """Unloads the provided module if exists"""
+        """Unloads the provided module if exists
+        Accepts both short and long names, typo-friendly !
+        e.g: `admin` or `cogs.admin`"""
         module: str = None
         # Find module name (eg. cogs.admin)
         for name in EXTENSIONS:
