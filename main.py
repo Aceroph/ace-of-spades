@@ -6,6 +6,7 @@ import logging.handlers
 import textwrap
 import discord
 import asqlite
+import aiohttp
 import pathlib
 import logging
 import dotenv
@@ -39,9 +40,7 @@ class AceHelp(commands.HelpCommand):
         if self.context.author == interaction.user:
             self.old = interaction.message.embeds[0]
             embed = discord.Embed(color=discord.Color.blurple())
-            embed.set_thumbnail(
-                url="https://upload.wikimedia.org/wikipedia/commons/thumb/3/31/Documents_icon_-_noun_project_5020_-_white.svg/1200px-Documents_icon_-_noun_project_5020_-_white.svg.png"
-            )
+            embed.set_thumbnail(url=misc.docs)
             embed.set_author(
                 name=f"{self.context.author.display_name}: Help",
                 icon_url=self.context.author.avatar.url,
@@ -55,7 +54,15 @@ class AceHelp(commands.HelpCommand):
                 (
                     embed.add_field(
                         name=f"{module.emoji} {name} - {len(cmds)}",
-                        value=" ".join(cmds),
+                        value="\n".join(
+                            textwrap.wrap(
+                                " | ".join(cmds),
+                                width=70,
+                                initial_indent=f"{misc.space}",
+                                subsequent_indent=f"{misc.space}",
+                                break_long_words=False,
+                            )
+                        ),
                         inline=False,
                     )
                     if len(cmds) > 0
@@ -79,11 +86,9 @@ class AceHelp(commands.HelpCommand):
         embed = discord.Embed(
             color=discord.Color.blurple(),
             title="Help Page",
-            description="⤷ Use `b.help command/group` for more info on a command",
+            description=f"> Use `b.help command/group` for more info on a command",
         )
-        embed.set_thumbnail(
-            url="https://upload.wikimedia.org/wikipedia/commons/thumb/3/31/Documents_icon_-_noun_project_5020_-_white.svg/1200px-Documents_icon_-_noun_project_5020_-_white.svg.png"
-        )
+        embed.set_thumbnail(url=misc.docs)
         embed.set_author(
             name=f"{self.context.author.display_name} : Help",
             icon_url=self.context.author.avatar.url,
@@ -92,12 +97,12 @@ class AceHelp(commands.HelpCommand):
         # Syntax
         embed.add_field(
             name="Command Syntax",
-            value="⤷ Regarding command usage, it's best to refer to it's dedicated page",
+            value=f"> Regarding command usage, it's best to refer to it's dedicated page",
             inline=False,
         )
         embed.add_field(
             name="Arguments",
-            value="⤷ `<argument>`: This argument is required\n⤷ `[argument]` : This argument is optional",
+            value=f">>> `<arg>` -> This argument is required\n`[arg]` -> This argument is optional",
             inline=False,
         )
 
@@ -125,9 +130,7 @@ class AceHelp(commands.HelpCommand):
             color=discord.Color.blurple(),
             title=f"{misc.tilde} {self.context.prefix}{command.qualified_name} {command.signature}",
         )
-        embed.set_thumbnail(
-            url="https://upload.wikimedia.org/wikipedia/commons/thumb/3/31/Documents_icon_-_noun_project_5020_-_white.svg/1200px-Documents_icon_-_noun_project_5020_-_white.svg.png"
-        )
+        embed.set_thumbnail(url=misc.docs)
         embed.set_author(
             name=f"{self.context.author.display_name} : Help -> {command.cog.qualified_name}",
             icon_url=self.context.author.avatar.url,
@@ -215,6 +218,9 @@ class AceBot(commands.Bot):
                 )
 
             await conn.commit()
+
+        # HTTP stuff
+        self.session = aiohttp.ClientSession()
 
         # Module stuff
         for extension in EXTENSIONS:

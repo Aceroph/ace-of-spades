@@ -11,6 +11,9 @@ tilde = "<:Tilde:1210003514479083581>"
 curve = "<:curve:1210049217280745502>"
 space = "<:space:1210019090920382464>"
 
+# Images
+docs = "https://upload.wikimedia.org/wikipedia/commons/thumb/3/31/Documents_icon_-_noun_project_5020_-_white.svg/1200px-Documents_icon_-_noun_project_5020_-_white.svg.png"
+
 
 class Categories:
     presets = {
