@@ -1,7 +1,7 @@
+from typing import TYPE_CHECKING, Union
 from utils import subclasses, misc
 from discord import app_commands
 from discord.ext import commands
-from typing import TYPE_CHECKING
 import traceback
 import wavelink
 import discord
@@ -30,32 +30,55 @@ async def on_command_error(ctx: commands.Context, error: commands.CommandError):
         return
     
     if isinstance(error, commands.errors.CommandNotFound):
-        # Find close matches
         command = ctx.message.content.split()[0].strip(ctx.prefix)
 
-        # Check for commands the author can use
-        available_cmds = []
-        for cmd in ctx.bot.walk_commands():
+        # Get closest match for command
+        correct_command: Union[commands.Command, commands.Group] = None
+        ratio: float = 0.5
+        cmd: commands.Command
+        for cmd in ctx.bot.commands:
             try:
                 await cmd.can_run(ctx)
-                available_cmds.append(cmd.qualified_name)
+                r = difflib.SequenceMatcher(None, command, cmd.qualified_name).ratio()
+                if r > ratio:
+                    correct_command = cmd
+                    ratio = r
             except:
                 pass
+        
+        if not correct_command:
+            return
+        
+        # Is commands a group?
+        if hasattr(correct_command, 'commands'):
+            command = ctx.message.content.split()
+            command = ' '.join(command[:2]).strip(ctx.prefix) if len(command) > 1 else command[0].strip(ctx.prefix)
+            ratio: float = 0.75
+            for cmd in correct_command.commands:
+                r = difflib.SequenceMatcher(None, command, cmd.qualified_name).ratio()
+                print(cmd.qualified_name, r)
+                if r > ratio:
+                    correct_command = cmd
+                    ratio = r
+        
 
-        results = [(difflib.SequenceMatcher(None, command, cmd), cmd) for cmd in available_cmds]
-        top_results = sorted(results, reverse=True, key=lambda i : i[0].ratio())[:5]
-        clean_results = []
-        for r in top_results:
-            if r[0].ratio() >= 0.40:
-                _match = r[0].find_longest_match(0, len(command), 0, len(r[1]))
-                longest_match = r[1][_match.b:_match.b + _match.size]
-                clean_results.append(r[1].replace(longest_match, f"**__{longest_match}__**"))
+        # Invoke command
+        async def invoke(interaction: discord.Interaction):
+            args = ctx.message.content.split()[len(correct_command.qualified_name.split()):]
+            r = [await commands.run_converters(ctx, param.converter, args[i], param) for i, param in enumerate(correct_command.params.values()) if i < len(args)]
+            await ctx.invoke(correct_command, *r)
+            await interaction.response.defer()
+            await interaction.message.delete()
 
-        if len(clean_results) >= 1:
-            cmds = '\n'.join(clean_results)
-            embed = discord.Embed(title="Did you mean?", description=f">>> {cmds}", color=discord.Color.blurple())
-            return await ctx.reply(embed=embed, delete_after=15, mention_author=False)
-        return
+        # UI
+        _invoke = discord.ui.Button(style=discord.ButtonStyle.green, label='Yes')
+        _invoke.callback = invoke
+
+        view = subclasses.View()
+        view.add_item(_invoke)
+        view.add_quit(ctx.author)
+        
+        return await ctx.reply(f'Did you mean: `{correct_command.qualified_name}`', mention_author=False, view=view)
 
     
     if isinstance(error, commands.errors.MissingPermissions):
