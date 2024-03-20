@@ -78,7 +78,6 @@ class Paginator:
 
         # Buttons
         self.view = View()
-        self.check_buttons(ctx.author)
     
 
     def add_line(self, line: str = '') -> None:
@@ -95,6 +94,7 @@ class Paginator:
 
     async def start(self):
         self.embed.description = self.pages[self.index]
+        self.update_buttons(self.ctx.author)
         self.embed.set_footer(text=f'Page {self.index+1} of {len(self.pages)}')
         await self.ctx.reply(embed=self.embed, view=self.view, mention_author=False)
 
@@ -104,7 +104,7 @@ class Paginator:
             raise errors.NotYourButton
 
         self.index += 1
-        return self.update(interaction)
+        return await self.update_page(interaction)
 
 
     async def previous_page(self, interaction: discord.Interaction):
@@ -112,7 +112,7 @@ class Paginator:
             raise errors.NotYourButton
 
         self.index -= 1
-        return self.update(interaction)
+        return await self.update_page(interaction)
     
     
     async def first_page(self, interaction: discord.Interaction):
@@ -120,7 +120,7 @@ class Paginator:
             raise errors.NotYourButton
     
         self.index = 0
-        return self.update(interaction)
+        return await self.update_page(interaction)
     
 
     async def last_page(self, interaction: discord.Interaction):
@@ -128,10 +128,10 @@ class Paginator:
             raise errors.NotYourButton
         
         self.index = len(self.pages)-1
-        return self.update(interaction)
+        return await self.update_page(interaction)
     
     
-    async def update(self, interaction: discord.Interaction):
+    def update_buttons(self, user: discord.User):
         # Update buttons
         self.view.clear_items()
 
@@ -143,7 +143,7 @@ class Paginator:
         _previous.callback = self.previous_page
         self.view.add_item(_previous)
 
-        self.view.add_quit(interaction.user)
+        self.view.add_quit(user)
 
         _next = discord.ui.Button(emoji="\N{BLACK RIGHT-POINTING TRIANGLE}", disabled=self.index+1 == len(self.pages))
         _next.callback = self.next_page
@@ -153,7 +153,10 @@ class Paginator:
         _last.callback = self.last_page
         self.view.add_item(_last)
 
-        # Update page
+
+    async def update_page(self, interaction: discord.Interaction):
+        self.update_buttons(interaction.user)
+
         page = self.pages[self.index]
         embed = interaction.message.embeds[0]
         embed.description = page

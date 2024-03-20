@@ -1,8 +1,8 @@
+from .errors import NoVoiceFound, PlayerConnectionFailure
 from typing import TYPE_CHECKING, cast, Union
 from utils import subclasses, misc
 from discord.ext import commands
 from tabulate import tabulate
-from .errors import NoVoiceFound, PlayerConnectionFailure
 import wavelink
 import textwrap
 import discord
