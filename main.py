@@ -1,3 +1,5 @@
+from discord.ext.commands._types import CoroFunc
+from discord.utils import MISSING
 from utils import subclasses, misc
 from discord.ext import commands
 from cogs import EXTENSIONS
@@ -179,10 +181,15 @@ class AceHelp(commands.HelpCommand):
         await self.context.reply(error)
 
 
+def prefix(bot: "AceBot", msg: discord.abc.Messageable):
+    p = dotenv.dotenv_values(".env")["PREFIX"]
+    return [p.lower(), p.upper()]
+
+
 class AceBot(commands.Bot):
     def __init__(self, *args, **kwargs):
         super().__init__(
-            command_prefix=dotenv.dotenv_values(".env")["PREFIX"],
+            command_prefix=prefix,
             help_command=AceHelp(),
             log_handler=None,
             *args,
@@ -190,6 +197,7 @@ class AceBot(commands.Bot):
         )
         self.token = dotenv.dotenv_values(".env")["TOKEN"]
         self.owner_id = 493107597281329185
+        self.case_insensitive = True
         self.boot = time.time()
         self.logger = LOGGER
 
@@ -199,23 +207,23 @@ class AceBot(commands.Bot):
         LOGGER.info("Created connection to database")
 
         async with self.pool.acquire() as conn:
-            tables = [
+            tables = {
+                "economy": "CREATE TABLE economy ( id INTEGER NOT NULL, money INTEGER DEFAULT (0));",
+                "guildConfig": "CREATE TABLE guildConfig ( id INTEGER DEFAULT (0), key TEXT NOT NULL, value BLOB, PRIMARY KEY(id, key));",
+                "statistics": "CREATE TABLE statistics (id INTEGER DEFAULT (0), key TEXT NOT NULL, value INTEGER DEFAULT (0), PRIMARY KEY(id, key));",
+            }
+            existing_tables = [
                 name[0]
                 for name in await conn.fetchall(
-                    "select name from sqlite_master where type='table';"
+                    "SELECT name FROM sqlite_master WHERE type = 'table';"
                 )
             ]
-            if not "economy" in tables:
-                LOGGER.info("economy table missing from database, creating one...")
-                await conn.execute(
-                    "CREATE TABLE economy ( id INTEGER NOT NULL, money INTEGER DEFAULT (0));"
-                )
-
-            if not "guildConfig" in tables:
-                LOGGER.info("guildConfig table missing from database, creating one...")
-                await conn.execute(
-                    "CREATE TABLE guildConfig ( id INTEGER NOT NULL, key TEXT NOT NULL, value INTEGER DEFAULT (0), PRIMARY KEY(id, key) );"
-                )
+            for table, schema in tables.items():
+                if table not in existing_tables:
+                    LOGGER.info(
+                        "%s table missing from database, creating one..." % table
+                    )
+                    await conn.execute(schema)
 
             await conn.commit()
 
@@ -238,6 +246,18 @@ class AceBot(commands.Bot):
     async def on_ready(self):
         LOGGER.info("Connected as %s (ID: %d)", self.user, self.user.id)
 
+    async def log_commands_run(self, ctx: commands.Context):
+        async with self.pool.acquire() as conn:
+            # +1 command ran
+            await conn.execute(
+                "INSERT INTO statistics (id, key, value) VALUES (?, ?, 1) ON CONFLICT(id, key) DO UPDATE SET value = value + 1;",
+                (
+                    ctx.guild.id if ctx.guild else 0,
+                    "CMD_RAN:" + ctx.command.qualified_name,
+                ),
+            )
+            await conn.commit()
+
 
 if __name__ == "__main__":
     # Intents
@@ -246,4 +266,5 @@ if __name__ == "__main__":
     intents.members = True
 
     bot = AceBot(intents=intents)
+    bot.add_listener(bot.log_commands_run, "on_command_completion")
     bot.run(bot.token)

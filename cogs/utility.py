@@ -5,6 +5,7 @@ import unicodedata
 import discord
 import pathlib
 import difflib
+import arrow
 import zlib
 import time
 import io
@@ -51,8 +52,6 @@ class Utility(subclasses.Cog):
         super().__init__()
         self.emoji = "\N{HAMMER AND WRENCH}"
         self.bot = bot
-        self.vcs = {}
-        self.lines = 0
         self.RTFM_PAGES = {
             "stable": "https://discordpy.readthedocs.io/en/stable",
             "python": "https://docs.python.org/3/",
@@ -60,7 +59,7 @@ class Utility(subclasses.Cog):
         }
 
     def cog_load(self):
-        self.bot.add_view(ui.PartyMenu(self.bot, self.vcs))
+        self.bot.add_view(ui.PartyMenu(self.bot, {}))
         self.bot.logger.info(
             "Loaded persistent view %s from %s",
             ui.PartyMenu.__qualname__,
@@ -81,6 +80,9 @@ class Utility(subclasses.Cog):
             )
 
         if party_config:
+            if not hasattr(self, "vcs"):
+                self.vcs = {}
+
             name = member.name + "'s vc"
             if after.channel and after.channel.id in party_config:
                 vc = await member.guild.create_voice_channel(
@@ -159,20 +161,6 @@ class Utility(subclasses.Cog):
         )
         msg = "\n".join(map(fn, characters))
         await ctx.reply(msg)
-
-    @commands.command(aliases=["stats"])
-    async def statistics(self, ctx: commands.Context):
-        if self.lines == 0 or not int(self.bot.boot_time - time.time()) % 600:
-            async with ctx.typing():
-                root = pathlib.Path(__file__).parent.parent
-                for file in pathlib.Path(__file__).parent.parent.glob("**/*"):
-                    if file.name.endswith((".py", ".json")) and not any(
-                        file.is_relative_to(bad) for bad in root.glob("**/.*")
-                    ):
-                        with open(file, "r") as f:
-                            self.lines += len(f.readlines())
-
-        await ctx.reply(f"Total lines : {self.lines}")
 
     def parse_object_inv(
         self, stream: SphinxObjectFileReader, url: str
@@ -304,6 +292,159 @@ class Utility(subclasses.Cog):
         """Read The Fucking Manual
         Will fetch wavelink docs for the specifed object"""
         await self.do_rtfm(ctx, key="wavelink", obj=obj)
+
+    async def refresh_info(self, ctx: commands.Context):
+        async with ctx.typing():
+            self.stats = {}
+            # Total lines of code
+            self.stats["lines"] = 0
+            root = pathlib.Path(__file__).parent.parent
+            for file in pathlib.Path(__file__).parent.parent.glob("**/*"):
+                if file.name.endswith((".py", ".json")) and not any(
+                    file.is_relative_to(bad) for bad in root.glob("**/.*")
+                ):
+                    with open(file, "r") as f:
+                        self.stats["lines"] += len(f.readlines())
+
+            # Number of commands, cogs, members, guilds, latency
+            self.stats["#commands"] = len(self.bot.commands)
+            self.stats["#modules"] = len(self.bot.cogs)
+            self.stats["#guilds"] = len(self.bot.guilds)
+            self.stats["#users"] = len(self.bot.users)
+            self.stats["WS"] = self.bot.latency
+
+    @commands.group(aliases=["stats", "about"], invoke_without_command=True)
+    async def info(self, ctx: commands.Context):
+        """Statistics for nerds"""
+        if not hasattr(self, "stats"):
+            embed = discord.Embed(
+                title="Stats not found",
+                description=">>> Gathering information..\nThis may take a few seconds",
+                color=discord.Color.red(),
+            )
+            await ctx.reply(embed=embed, mention_author=False, delete_after=5)
+            await self.refresh_info(ctx)
+        embed = discord.Embed(
+            title="<:bot:1220186342361661470> " + self.bot.user.display_name,
+            description=f"{misc.curve} is in `{self.stats['#guilds']}` servers, sees `{self.stats['#users']:,}` users",
+            color=discord.Color.blurple(),
+        )
+        embed.set_footer(text="Made by aceroph")
+        embed.set_author(
+            name="View source on github",
+            url=misc.git_source(self.bot),
+            icon_url="https://github.githubassets.com/assets/GitHub-Mark-ea2971cee799.png",
+        )
+        # Basic info
+        basic_info = "\n".join(
+            sorted(
+                [
+                    f"created on: {discord.utils.format_dt(self.bot.user.created_at, 'd')}",
+                    (
+                        f"joined on: {discord.utils.format_dt(ctx.guild.me.joined_at, 'd')}"
+                        if ctx.guild
+                        else ""
+                    ),
+                    f"uptime: `{arrow.get(int(self.bot.boot)).humanize(only_distance=True)}`",
+                ],
+                key=lambda s: len(s),
+                reverse=True,
+            )
+        )
+        embed.add_field(
+            name="About bot",
+            value=f">>> {basic_info}",
+            inline=False,
+        )
+        # Numbers !
+        stats = "\n".join(
+            sorted(
+                [
+                    f"lines of code: `{self.stats['lines']:,}`",
+                    f"commands: `{self.stats['#commands']}`",
+                    f"modules: `{self.stats['#modules']}`",
+                    f"latency: `{self.stats['WS']*1000:.2f}ms`",
+                ],
+                key=lambda s: len(s),
+                reverse=True,
+            )
+        )
+        embed.add_field(
+            name="Statistics",
+            value=f">>> {stats}",
+            inline=False,
+        )
+
+        # UI
+        async def info_show_more(interaction: discord.Interaction):
+            # Fetch more stats if non existant or its been more that 5 minutes
+            if (
+                not "last_updated" in self.stats.keys()
+                or time.time() - self.stats["last_updated"] >= 300
+            ):
+                async with self.bot.pool.acquire() as conn:
+                    self.stats["last_updated"] = time.time()
+                    self.stats["total_cmds_ran"] = (
+                        await conn.fetchone(
+                            "SELECT total(value) FROM statistics WHERE key LIKE 'CMD_RAN:%';"
+                        )
+                    )[0]
+                    self.stats["guild_cmds_ran"] = (
+                        await conn.fetchone(
+                            "SELECT total(value) FROM statistics WHERE key LIKE 'CMD_RAN:%' AND id = ?;",
+                            (interaction.guild_id),
+                        )
+                    )[0]
+                    self.stats["total_songs_played"] = (
+                        await conn.fetchone(
+                            "SELECT total(value) FROM statistics WHERE key = 'SONG_PLAYED';"
+                        )
+                    )[0]
+
+            more_stats = "\n".join(
+                sorted(
+                    [
+                        f"total commands ran: `{self.stats['total_cmds_ran']:.0f}`",
+                        f"commands ran from guild: `{self.stats['guild_cmds_ran']:.0f}`",
+                        f"total songs played: `{self.stats['total_songs_played']:.0f}`",
+                    ],
+                    key=lambda s: len(s),
+                    reverse=True,
+                )
+            )
+            embed = discord.Embed(color=discord.Color.blurple())
+            embed.add_field(name="More statistics", value=f">>> {more_stats}")
+            await interaction.response.send_message(embed=embed, ephemeral=True)
+
+        show_more = discord.ui.Button(
+            label="See more", style=discord.ButtonStyle.blurple
+        )
+        show_more.callback = info_show_more
+
+        view = subclasses.View()
+        view.add_item(show_more)
+        view.add_quit(ctx.author)
+
+        await ctx.reply(embed=embed, mention_author=False, view=view)
+
+    @info.command(name="refresh", aliases=["reload"])
+    @commands.is_owner()
+    async def info_refresh(self, ctx: commands.Context):
+        """Refreshes all stats and information on the bot"""
+        embed = discord.Embed(
+            title="Reloading stats",
+            description=">>> Gathering information..\nThis may take a few seconds",
+            color=discord.Color.blurple(),
+        )
+        msg = await ctx.reply(embed=embed, mention_author=False)
+        timer = time.time()
+        await self.refresh_info(ctx)
+        embed = discord.Embed(
+            title="Done !",
+            description=f">>> Refreshed stats\nTook {time.time()-timer:,.2f}s",
+            color=discord.Color.blurple(),
+        )
+        await msg.edit(embed=embed)
 
 
 async def setup(bot):

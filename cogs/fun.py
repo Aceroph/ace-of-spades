@@ -124,7 +124,7 @@ class CountryGuessing:
             )
             embed = discord.Embed(
                 title="End of game",
-                description=f"{misc.space}duration : `{self.START.humanize().replace(' ago', '')}`\n{misc.space}rounds : `{self.round}`\n{misc.space}region : `{self.region}`",
+                description=f"{misc.space}duration : `{self.START.humanize(only_distance=True)}`\n{misc.space}rounds : `{self.round}`\n{misc.space}region : `{self.region}`",
             )
             if len(scores) > 0:
                 embed.add_field(

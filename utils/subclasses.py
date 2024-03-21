@@ -10,12 +10,6 @@ class Cog(commands.Cog):
     def __init__(self):
         self.emoji: str = "<:sadcowboy:1002608868360208565>"
         self.time: float = time.time()
-        self.cmds = 0
-
-    @commands.Cog.listener()
-    async def on_command_completion(self, command: commands.Command):
-        if hasattr(command.cog, "cmds") and issubclass(type(command.cog), type(self)):
-            command.cog.cmds += 1
 
 
 class View(discord.ui.View):
@@ -50,6 +44,7 @@ class View(discord.ui.View):
         embed = discord.Embed(
             title=f":warning: Unhandled error in item : {item.type}",
             description=f"```py\n{misc.clean_traceback(trace)}```",
+            color=discord.Color.red(),
         )
         embed.set_footer(
             text=f"Caused by {interaction.user.display_name} in {interaction.guild.name if interaction.guild else 'DMs'} ({interaction.guild.id if interaction.guild else 0})",
@@ -66,6 +61,7 @@ class View(discord.ui.View):
         embed = discord.Embed(
             title=f":warning: {type(error).__qualname__}",
             description=f"> {' '.join(error.args)}" if len(error.args) > 0 else None,
+            color=discord.Color.red(),
         )
         return await interaction.response.send_message(embed=embed, view=view)
 

@@ -176,6 +176,7 @@ async def on_command_error(ctx: commands.Context, error: commands.CommandError):
     embed = discord.Embed(
         title=f":warning: {type(error).__qualname__}",
         description=f"> {' '.join(error.args)}" if len(error.args) > 0 else None,
+        color=discord.Color.red(),
     )
     return await ctx.reply(embed=embed, view=view, mention_author=False)
 

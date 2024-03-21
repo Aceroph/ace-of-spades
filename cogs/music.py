@@ -125,6 +125,17 @@ class Music(subclasses.Cog):
     async def on_wavelink_track_start(
         self, payload: wavelink.TrackStartEventPayload
     ) -> None:
+        async with self.pool.acquire() as conn:
+            # +1 song played
+            await conn.execute(
+                "INSERT INTO statistics (id, key, value) VALUES (?, ?, 1) ON CONFLICT(id, key) DO UPDATE SET value = value + 1;",
+                (
+                    payload.player.guild.id,
+                    "SONG_PLAYED",
+                ),
+            )
+            await conn.commit()
+
         return await self.now_playing_logic(payload)
 
     @commands.command()
