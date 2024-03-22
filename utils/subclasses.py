@@ -16,9 +16,13 @@ class View(discord.ui.View):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-    def add_quit(self, author: discord.User, row: int = None):
+    def add_quit(
+        self, author: discord.User, guild: discord.Guild = None, row: int = None
+    ):
         self.author = author
-        button = discord.ui.Button(style=discord.ButtonStyle.red, label="Quit", row=row)
+        button = discord.ui.Button(
+            style=discord.ButtonStyle.red, label="Quit", row=row, disabled=guild
+        )
         button.callback = self.quit_callback
         return self.add_item(button)
 
@@ -57,7 +61,7 @@ class View(discord.ui.View):
         )
 
         view = subclasses.View()
-        view.add_quit(interaction.user)
+        view.add_quit(interaction.user, interaction.guild)
 
         # Owner embed w full traceback
         await interaction.client.get_user(interaction.client.owner_id).send(embed=embed)
@@ -158,7 +162,7 @@ class Paginator:
         _previous.callback = self.previous_page
         self.view.add_item(_previous)
 
-        self.view.add_quit(user)
+        self.view.add_quit(user, self.ctx.guild)
 
         _next = discord.ui.Button(
             emoji="\N{BLACK RIGHT-POINTING TRIANGLE}",

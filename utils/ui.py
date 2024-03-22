@@ -259,7 +259,7 @@ class PartyMenu(subclasses.View):
 class HelpView(subclasses.View):
     def __init__(self, bot: "AceBot", context: commands.Context):
         super().__init__(timeout=None)
-        self.add_quit(author=context.author)
+        self.add_quit(context.author, context.guild)
         self.bot = bot
         self.context = context
         self.old = None

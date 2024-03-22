@@ -423,7 +423,7 @@ class Utility(subclasses.Cog):
 
         view = subclasses.View()
         view.add_item(show_more)
-        view.add_quit(ctx.author)
+        view.add_quit(ctx.author, ctx.guild)
 
         await ctx.reply(embed=embed, mention_author=False, view=view)
 

@@ -95,7 +95,7 @@ class CountryGuessing:
         start = discord.ui.Button(style=discord.ButtonStyle.green, label="Start")
         start.callback = self.game
 
-        cancel = discord.ui.Button(style=discord.ButtonStyle.red, label="Cancel")
+        cancel = discord.ui.Button(style=discord.ButtonStyle.red, label="Cancel", disabled=self.ctx.guild)
         cancel.callback = self.cancel_game
 
         view = subclasses.View()

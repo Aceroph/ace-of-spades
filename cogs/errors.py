@@ -39,6 +39,9 @@ async def on_command_error(ctx: commands.Context, error: commands.CommandError):
             else:
                 return await ctx.send_help()
 
+        if not ctx.guild:
+            return
+
         # Get closest match for command
         correct_command: Union[commands.Command, commands.Group] = None
         ratio: float = 0.5
@@ -99,7 +102,7 @@ async def on_command_error(ctx: commands.Context, error: commands.CommandError):
 
         view = subclasses.View()
         view.add_item(_invoke)
-        view.add_quit(ctx.author)
+        view.add_quit(ctx.author, ctx.guild)
 
         return await ctx.reply(
             f"Did you mean: `{correct_command.qualified_name}`",
@@ -181,7 +184,7 @@ async def on_command_error(ctx: commands.Context, error: commands.CommandError):
     )
 
     view = subclasses.View()
-    view.add_quit(ctx.author)
+    view.add_quit(ctx.author, ctx.guild)
 
     # Owner embed w full traceback
     await ctx.bot.get_user(ctx.bot.owner_id).send(embed=embed)

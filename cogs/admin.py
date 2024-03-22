@@ -120,7 +120,7 @@ class Admin(subclasses.Cog):
         # View stuff
         view = subclasses.View()
         view.add_item(select_category)
-        view.add_quit(author=ctx.author)
+        view.add_quit(ctx.author, ctx.guild)
 
         await ctx.reply(embed=embed, view=view, mention_author=False)
 
@@ -302,7 +302,7 @@ class Admin(subclasses.Cog):
             embed.set_footer(text=f"Took {time.time()-timer:.2f} s")
 
             await ctx.send(
-                embed=embed, view=subclasses.View().add_quit(ctx.author, row=2)
+                embed=embed, view=subclasses.View().add_quit(ctx.author, ctx.guild, row=2)
             )
 
     @commands.guild_only()
@@ -365,7 +365,7 @@ class Admin(subclasses.Cog):
             embed.set_footer(text=f"Took {time.time()-timer:.2f} s")
 
             await ctx.send(
-                embed=embed, view=subclasses.View().add_quit(ctx.author, row=2)
+                embed=embed, view=subclasses.View().add_quit(ctx.author, ctx.guild, row=2)
             )
 
     @commands.is_owner()
@@ -555,7 +555,7 @@ class Admin(subclasses.Cog):
 
             await ctx.reply(
                 embed=r,
-                view=subclasses.View().add_quit(ctx.author),
+                view=subclasses.View().add_quit(ctx.author, ctx.guild),
                 mention_author=False,
             )
 
