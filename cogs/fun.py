@@ -104,7 +104,7 @@ class CountryGuessing:
         await self.ctx.reply(embed=embed, view=view, mention_author=False)
 
     async def end_game(self, origin: discord.TextChannel):
-        games.pop(str(origin.id), None)
+        games.pop(origin.id, None)
 
         if self.playing:
             self.playing = False
@@ -138,8 +138,12 @@ class CountryGuessing:
         if interaction.user != self.gamemaster:
             raise errors.NotYourButton("You are not the gamemaster !")
 
-        games.pop(str(interaction.channel_id), None)
-        await interaction.response.edit_message(view=None)
+        games.pop(interaction.channel_id, None)
+
+        # It's like a super() but much worse
+        v = subclasses.View()
+        v.author = self.gamemaster
+        await v.quit_callback(interaction)
 
     async def react(self, msg: discord.Message, emoji: discord.PartialEmoji):
         await msg.add_reaction(emoji)
@@ -298,10 +302,10 @@ class Fun(subclasses.Cog):
 
     @commands.group(invoke_without_command=True)
     async def country(self, ctx: commands.Context):
-        if games.get(f"{ctx.channel.id}", None):
+        if games.get(ctx.channel.id, None):
             await ctx.reply("An instance of that game is already in play !")
         else:
-            games[str(ctx.channel.id)] = "country"
+            games[ctx.channel.id] = "country"
             game = CountryGuessing(ctx)
             await game.config()
 

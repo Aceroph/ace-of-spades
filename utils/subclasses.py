@@ -26,6 +26,11 @@ class View(discord.ui.View):
         if interaction.user != self.author:
             raise errors.NotYourButton
 
+        reference_id = interaction.message.reference.message_id
+        if reference_id:
+            msg = await interaction.channel.fetch_message(reference_id)
+            await msg.delete()
+
         await interaction.message.delete()
 
     async def on_error(
