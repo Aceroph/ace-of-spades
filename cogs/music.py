@@ -39,12 +39,13 @@ class Music(subclasses.Cog):
             r"[[:punct:]] ",
         ]
         clean: str = track.title
-        for regex in regexes:
-            matches: list[str] = re.findall(
-                pattern=regex, string=clean, flags=re.IGNORECASE
-            )
-            for m in matches:
-                clean = clean.replace(m, "")
+        matches = (
+            re.findall(pattern=regex, string=clean, flags=re.IGNORECASE)
+            for regex in regexes
+        )
+        for x in matches:
+            for y in x:
+                clean = clean.replace(y, "")
 
         return clean
 
@@ -125,7 +126,7 @@ class Music(subclasses.Cog):
     async def on_wavelink_track_start(
         self, payload: wavelink.TrackStartEventPayload
     ) -> None:
-        async with self.pool.acquire() as conn:
+        async with self.bot.pool.acquire() as conn:
             # +1 song played
             await conn.execute(
                 "INSERT INTO statistics (id, key, value) VALUES (?, ?, 1) ON CONFLICT(id, key) DO UPDATE SET value = value + 1;",
