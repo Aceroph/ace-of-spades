@@ -11,15 +11,15 @@ if TYPE_CHECKING:
     from main import AceBot
 
 
-class PlayerConnectionFailure(commands.errors.CommandError):
+class PlayerConnectionFailure(commands.CommandError):
     pass
 
 
-class NoVoiceFound(commands.errors.CommandError):
+class NoVoiceFound(commands.CommandError):
     pass
 
 
-class NotYourButton(app_commands.errors.AppCommandError):
+class NotYourButton(app_commands.AppCommandError):
     def __init__(self, reason: str = None) -> None:
         self.reason = reason
 

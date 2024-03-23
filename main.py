@@ -1,11 +1,6 @@
-from discord.ext.commands._types import CoroFunc
-from discord.utils import MISSING
-from utils import subclasses, misc
 from discord.ext import commands
 from cogs import EXTENSIONS
-from typing import Union
 import logging.handlers
-import textwrap
 import discord
 import asqlite
 import aiohttp
