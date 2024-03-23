@@ -95,14 +95,13 @@ def git_source(bot: commands.Bot, obj: str = None):
             if isinstance(obj, commands.Command)
             else obj.__class__
         )
+        filename = inspect.getsourcefile(src)
+        lines, firstlineno = inspect.getsourcelines(src)
+        location = os.path.relpath(filename).replace("\\", "/")
+
+        return f"{source_url}/blob/master/{location}#L{firstlineno}-L{firstlineno + len(lines) - 1}"
     except:
-        return
-
-    filename = inspect.getsourcefile(src)
-    lines, firstlineno = inspect.getsourcelines(src)
-    location = os.path.relpath(filename).replace("\\", "/")
-
-    return f"{source_url}/blob/master/{location}#L{firstlineno}-L{firstlineno + len(lines) - 1}"
+        pass
 
 
 def clean_traceback(t: str) -> str:
