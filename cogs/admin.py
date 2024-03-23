@@ -302,7 +302,8 @@ class Admin(subclasses.Cog):
             embed.set_footer(text=f"Took {time.time()-timer:.2f} s")
 
             await ctx.send(
-                embed=embed, view=subclasses.View().add_quit(ctx.author, ctx.guild, row=2)
+                embed=embed,
+                view=subclasses.View().add_quit(ctx.author, ctx.guild, row=2),
             )
 
     @commands.guild_only()
@@ -365,7 +366,8 @@ class Admin(subclasses.Cog):
             embed.set_footer(text=f"Took {time.time()-timer:.2f} s")
 
             await ctx.send(
-                embed=embed, view=subclasses.View().add_quit(ctx.author, ctx.guild, row=2)
+                embed=embed,
+                view=subclasses.View().add_quit(ctx.author, ctx.guild, row=2),
             )
 
     @commands.is_owner()
@@ -398,37 +400,51 @@ class Admin(subclasses.Cog):
             embed.set_footer(text=f"Took {(time.time() - timer)*1000:.2f}ms")
             return await ctx.reply(embed=embed, mention_author=False)
 
-        # Get cog and module
-        clean_extension = (
-            extension.casefold().strip("cogs.")
-            if extension.startswith("cogs.")
-            else extension.casefold()
-        )
-        cog: commands.Cog = None
-        for name, cg in self.bot.cogs.items():
+        module: str = None
+        # Find module name (eg. cogs.admin)
+        for name in EXTENSIONS:
+            extension_clean = (
+                extension.casefold()
+                if extension.startswith("cogs.")
+                else "cogs." + extension.casefold()
+            )
             ratio = difflib.SequenceMatcher(
-                None, clean_extension, name.casefold()
+                None, extension_clean, name.casefold()
             ).ratio()
             if ratio >= 0.85:
-                cog = cg
+                module = name
                 break
 
-        if not cog:
+        if not module:
             await ctx.message.add_reaction("\N{DOUBLE EXCLAMATION MARK}")
             embed = discord.Embed(
-                title=":warning: Extension not found",
-                description=f"> Couldn't find module : `{clean_extension}`",
+                title=":warning: ExtensionNotFound",
+                description=f"> Couldn't find module : `{extension}`",
                 color=discord.Color.red(),
             )
             return await ctx.reply(embed=embed, mention_author=False)
 
         timer = time.time()
 
-        await self.bot.reload_extension(cog.__module__)
+        await self.bot.reload_extension(module)
+
+        # Get cog if any
+        cog: commands.Cog = None
+        for cg in self.bot.cogs:
+            ratio = difflib.SequenceMatcher(
+                None, extension.casefold(), cg.casefold()
+            ).ratio()
+            if ratio >= 0.85:
+                cog: commands.Cog = self.bot.get_cog(cg)
+                break
 
         embed = discord.Embed(
             title=":gear: Reloaded Module",
-            description=f">>> {cog.__module__} - `{len(cog.get_commands()) if cog else 0}` commands",
+            description=(
+                f"> {module} - `{len(cog.get_commands())}` commands"
+                if cog
+                else f"> {module}"
+            ),
             color=discord.Color.blurple(),
         )
         embed.set_footer(text=f"Took {(time.time() - timer)*1000:.2f}ms")
@@ -480,7 +496,11 @@ class Admin(subclasses.Cog):
 
         embed = discord.Embed(
             title=":gear: Loaded Module",
-            description=f">>> {module} - `{len(cog.get_commands()) if cog else 0}` commands",
+            description=(
+                f"> {module} - `{len(cog.get_commands())}` commands"
+                if cog
+                else f"> {module}"
+            ),
             color=discord.Color.blurple(),
         )
         embed.set_footer(text=f"Took {(time.time() - timer)*1000:.2f}ms")
@@ -532,7 +552,11 @@ class Admin(subclasses.Cog):
 
         embed = discord.Embed(
             title=":gear: Unloaded Module",
-            description=f">>> {module} - `{len(cog.get_commands()) if cog else 0}` commands",
+            description=(
+                f"> {module} - `{len(cog.get_commands())}` commands"
+                if cog
+                else f"> {module}"
+            ),
             color=discord.Color.blurple(),
         )
         embed.set_footer(text=f"Took {(time.time() - timer)*1000:.2f}ms")

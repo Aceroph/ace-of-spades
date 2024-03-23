@@ -54,7 +54,7 @@ class AceHelp(commands.HelpCommand):
             )
             info.callback = self.show_info
             view.add_item(info)
-            view.add_quit(interaction.user)
+            view.add_quit(interaction.user, interaction.guild)
             return await interaction.response.edit_message(embed=embed, view=view)
         else:
             return await interaction.response.send_message(
@@ -97,7 +97,7 @@ class AceHelp(commands.HelpCommand):
         )
         info.callback = self.show_commands
         view.add_item(info)
-        self.old_view = view.add_quit(self.context.author)
+        self.old_view = view.add_quit(self.context.author, self.context.guild)
 
         await self.context.reply(embed=embed, view=view)
 
@@ -150,7 +150,8 @@ class AceHelp(commands.HelpCommand):
             )
 
         return await self.context.reply(
-            embed=embed, view=subclasses.View().add_quit(self.context.author)
+            embed=embed,
+            view=subclasses.View().add_quit(self.context.author, self.context.guild),
         )
 
     async def send_group_help(self, group: commands.Group):

@@ -21,7 +21,7 @@ class View(discord.ui.View):
     ):
         self.author = author
         button = discord.ui.Button(
-            style=discord.ButtonStyle.red, label="Quit", row=row, disabled=guild
+            style=discord.ButtonStyle.red, label="Quit", row=row, disabled=not guild
         )
         button.callback = self.quit_callback
         return self.add_item(button)
