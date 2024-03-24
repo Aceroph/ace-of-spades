@@ -1,5 +1,6 @@
 from typing import Union, TYPE_CHECKING
 from utils import subclasses, misc
+from discord import app_commands
 from discord.ext import commands
 import textwrap
 import discord
@@ -84,6 +85,11 @@ class AceHelp(commands.HelpCommand):
             value=f">>> `<arg>` -> This argument is required\n`[arg]` -> This argument is optional",
             inline=False,
         )
+        embed.add_field(
+            name="Configuration",
+            value=">>> For server administrators,\nYou can restrict access to certains commands\nthrough the integrations tab within server settings,\nthis will affect both app commands and prefix commands.",
+            inline=False,
+        )
 
         # Side note
         embed.set_footer(text="Do not type in the brackets or any ponctuation !")
@@ -99,15 +105,20 @@ class AceHelp(commands.HelpCommand):
         view.add_item(info)
         self.old_view = view.add_quit(self.context.author, self.context.guild)
 
-        await self.context.reply(embed=embed, view=view)
+        await self.context.reply(embed=embed, view=view, mention_author=False)
 
-    async def send_command_help(self, command: Union[commands.Command, commands.Group]):
+    async def send_command_help(
+        self, command: Union[commands.Command, commands.Group, commands.HybridCommand]
+    ):
+        if command.name == "help":
+            return
+
         if command not in await self.filter_commands(self.context.bot.walk_commands()):
             raise commands.CheckFailure
 
         embed = discord.Embed(
             color=discord.Color.blurple(),
-            title=f"{misc.tilde} {self.context.prefix}{command.qualified_name} {command.signature}",
+            title=f"{command.qualified_name} {command.signature}",
         )
         embed.set_thumbnail(url=misc.docs)
         embed.set_author(
@@ -121,6 +132,29 @@ class AceHelp(commands.HelpCommand):
             name="Documentation",
             value=f">>> {command.help.format(curve=misc.curve) if command.help else failure}",
             inline=False,
+        )
+
+        # Authorization if any
+        if self.context.guild:
+            mentions = ["@everyone"]
+            if isinstance(command, commands.HybridCommand):
+                app_cmds: list[app_commands.AppCommand] = (
+                    await self.context.bot.tree.fetch_commands()
+                )
+                for cmd in app_cmds:
+                    if cmd.name == command.qualified_name:
+                        try:
+                            perms = await cmd.fetch_permissions(self.context.guild)
+                            mentions = [p.target.mention for p in perms.permissions]
+                            break
+                        except discord.NotFound:
+                            break
+        else:
+            mentions = [self.context.author.mention]
+
+        embed.add_field(
+            name="Authorizations",
+            value=misc.curve + f"\n{misc.space}".join(mentions),
         )
 
         # Subcommands if group
@@ -152,14 +186,34 @@ class AceHelp(commands.HelpCommand):
         return await self.context.reply(
             embed=embed,
             view=subclasses.View().add_quit(self.context.author, self.context.guild),
+            mention_author=False,
         )
 
     async def send_group_help(self, group: commands.Group):
         return await self.send_command_help(group)
 
     async def send_error_message(self, error):
-        await self.context.reply(error)
+        await self.context.reply(error, mention_author=False)
 
 
 async def setup(bot: "AceBot"):
     bot.help_command = AceHelp()
+
+    @bot.tree.command(name="help")
+    @app_commands.describe(entity="The command you need help with")
+    async def _help(ctx: commands.Context, entity: str = None):
+        """Perhaps you do not know how to use this bot?"""
+        await ctx.send_help(entity)
+
+    @_help.autocomplete("entity")
+    async def help_autocomplete(interaction: discord.Interaction, current: str):
+        return sorted(
+            [
+                app_commands.Choice(
+                    name=c.qualified_name.capitalize(), value=c.qualified_name
+                )
+                for c in bot.walk_commands()
+                if current.casefold() in c.qualified_name or len(current) == 0
+            ],
+            key=lambda c: c.name,
+        )[:25]

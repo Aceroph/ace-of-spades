@@ -1,4 +1,5 @@
 from discord.ext import commands
+from discord import app_commands
 from . import subclasses, misc
 from cogs import errors
 import traceback
@@ -6,10 +7,39 @@ import discord
 import time
 
 
+async def can_use(ctx: commands.Context):
+    if ctx.guild:
+        if isinstance(ctx.command, commands.HybridCommand):
+            app_cmds: list[app_commands.AppCommand] = (
+                await ctx.bot.tree.fetch_commands()
+            )
+            for cmd in app_cmds:
+                if cmd.name == ctx.command.qualified_name:
+                    try:
+                        perms = await cmd.fetch_permissions(ctx.guild)
+                        targets = [p.target for p in perms.permissions]
+                        return any(
+                            [
+                                ctx.author in targets,
+                                any([r in targets for r in ctx.author.roles]),
+                                ctx.channel in targets,
+                            ]
+                        )
+                    except discord.NotFound:
+                        break
+    return True
+
+
 class Cog(commands.Cog):
     def __init__(self):
         self.emoji: str = "<:sadcowboy:1002608868360208565>"
         self.time: float = time.time()
+
+    async def cog_before_invoke(self, ctx: commands.Context) -> None:
+        if await can_use(ctx) or ctx.author.guild_permissions.administrator:
+            return await super().cog_before_invoke(ctx)
+        else:
+            raise commands.errors.CheckFailure
 
 
 class View(discord.ui.View):
@@ -30,9 +60,9 @@ class View(discord.ui.View):
         if interaction.user != self.author:
             raise errors.NotYourButton
 
-        reference_id = interaction.message.reference.message_id
-        if reference_id:
-            msg = await interaction.channel.fetch_message(reference_id)
+        reference = interaction.message.reference
+        if reference:
+            msg = await interaction.channel.fetch_message(reference.message_id)
             await msg.delete()
 
         await interaction.message.delete()
