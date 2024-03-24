@@ -464,18 +464,6 @@ class Utility(subclasses.Cog):
                         (interaction.guild_id or 0),
                     )
 
-            command_stats = (
-                f"Total ran: `{self.stats['total_cmds_ran']:.0f}`\
-                \n{misc.curve} from {'guild' if interaction.guild else 'DMs'}: `{self.stats['guild_cmds_ran']:.0f}`",
-            )[0]
-
-            music_stats = (
-                f"Total songs played: `{self.stats['total_songs_played']:.0f}`\
-                \n{misc.curve} from guild: `{self.stats['guild_songs_played']:.0f}`\
-                \n\nTotal playtime: `{misc.time_format(self.stats['total_playtime'])}`\
-                \n{misc.curve} from guild: `{misc.time_format(self.stats['guild_playtime'])}`",
-            )[0]
-
             medals = [
                 "\N{FIRST PLACE MEDAL}",
                 "\N{SECOND PLACE MEDAL}",
@@ -493,11 +481,15 @@ class Utility(subclasses.Cog):
             embed = discord.Embed(color=discord.Color.blurple())
             embed.add_field(
                 name="Top commands",
-                value=f"{misc.space}{top_commands}\n\n{misc.space}{command_stats.replace('\n', '\n' + misc.space)}",
+                value=f"{misc.space}{top_commands}\n\n{misc.space}Total ran: `{self.stats['total_cmds_ran']:.0f}`\
+                \n{misc.space}{misc.curve} from {'guild' if interaction.guild else 'DMs'}: `{self.stats['guild_cmds_ran']:.0f}`",
             )
             embed.add_field(
                 name="Music statistics",
-                value=f"{misc.space}{music_stats.replace('\n', '\n' + misc.space)}",
+                value=f"{misc.space}Total songs played: `{self.stats['total_songs_played']:.0f}`\
+                \n{misc.space}{misc.curve} from guild: `{self.stats['guild_songs_played']:.0f}`\
+                \n\n{misc.space}Total playtime: `{misc.time_format(self.stats['total_playtime'])}`\
+                \n{misc.space}{misc.curve} from guild: `{misc.time_format(self.stats['guild_playtime'])}`",
             )
             await interaction.response.send_message(embed=embed, ephemeral=True)
 
