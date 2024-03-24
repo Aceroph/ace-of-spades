@@ -178,7 +178,7 @@ async def on_command_error(ctx: commands.Context, error: commands.CommandError):
     # UNHANDLED ERRORS BELLOW
     # Process the traceback to clean path !
     try:
-        await ctx.message.add_reaction("\N{DOUBLE EXCLAMATION MARK}")
+        await ctx.message.add_reaction(misc.dislike)
     except:
         pass
     trace = "".join(traceback.format_exception(type(error), error, error.__traceback__))

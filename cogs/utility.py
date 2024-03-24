@@ -370,8 +370,8 @@ class Utility(subclasses.Cog):
             await self.refresh_info(ctx)
 
         embed = discord.Embed(
-            title="<:bot:1220186342361661470> " + self.bot.user.display_name,
-            description=f"{misc.curve} is in `{self.stats['#guilds']}` servers, sees `{self.stats['#users']:,}` users",
+            title=self.bot.user.display_name,
+            description=f"{misc.space}{misc.server}servers: `{self.stats['#guilds']}`\n{misc.space}{misc.members}users: `{self.stats['#users']:,}`",
             color=discord.Color.blurple(),
         )
         embed.set_footer(
@@ -397,13 +397,13 @@ class Utility(subclasses.Cog):
         )[0]
 
         embed.add_field(
-            name="\N{CLOCK FACE TEN OCLOCK} Timestamps",
-            value=f">>> {timestamps}",
+            name="Timestamps",
+            value=misc.space + timestamps.replace("\n", "\n" + misc.space),
             inline=False,
         )
         embed.add_field(
-            name=f"{misc.dev} Code statistics",
-            value=f">>> {code}",
+            name=f"Code statistics",
+            value=misc.space + code.replace("\n", "\n" + misc.space),
             inline=False,
         )
 
@@ -479,7 +479,7 @@ class Utility(subclasses.Cog):
                 "\N{SPORTS MEDAL}",
                 "\N{SPORTS MEDAL}",
             ]
-            top_commands = "\n".join(
+            top_commands = f"\n{misc.space}".join(
                 [
                     f"{medals[i]} {cmd[0].split(':')[1]}: `{cmd[1]}`"
                     for i, cmd in enumerate(self.stats["top_guild_commands"])
@@ -488,12 +488,12 @@ class Utility(subclasses.Cog):
 
             embed = discord.Embed(color=discord.Color.blurple())
             embed.add_field(
-                name=f"{misc.dev} Top commands",
-                value=f">>> {top_commands}\n\n{command_stats}",
+                name="Top commands",
+                value=f"{misc.space}{top_commands}\n\n{misc.space}{command_stats.replace('\n', '\n' + misc.space)}",
             )
             embed.add_field(
-                name="\N{MUSICAL NOTE} Music statistics",
-                value=f">>> {music_stats}",
+                name="Music statistics",
+                value=f"{misc.space}{music_stats.replace('\n', '\n' + misc.space)}",
             )
             await interaction.response.send_message(embed=embed, ephemeral=True)
 
