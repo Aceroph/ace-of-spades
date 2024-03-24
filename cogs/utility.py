@@ -7,6 +7,7 @@ import unicodedata
 import discord
 import pathlib
 import difflib
+import psutil
 import zlib
 import time
 import io
@@ -350,19 +351,23 @@ class Utility(subclasses.Cog):
                     with open(file, "r") as f:
                         self.stats["lines"] += len(f.readlines())
 
-            # Number of commands, cogs, members, guilds, latency
             self.stats["#commands"] = len(self.bot.commands)
             self.stats["#modules"] = len(self.bot.cogs)
             self.stats["#guilds"] = len(self.bot.guilds)
             self.stats["#users"] = len(self.bot.users)
-            self.stats["WS"] = self.bot.latency
+
+            process = psutil.Process()
+            self.stats["pid"] = process.pid
+            self.stats["mem"] = process.memory_full_info().rss / 1024**2
+            self.stats["mem%"] = process.memory_percent()
+            self.stats["cpu%"] = process.cpu_percent()
 
     @commands.hybrid_command(aliases=["stats", "about"], invoke_without_command=True)
     async def info(self, ctx: commands.Context):
         """Statistics for nerds"""
         if not hasattr(self, "stats"):
             embed = discord.Embed(
-                title=":x: Stats not found",
+                title=f"{misc.dislike} Stats not found",
                 description=">>> Gathering information..\nThis may take a few seconds",
                 color=discord.Color.red(),
             )
@@ -383,27 +388,26 @@ class Utility(subclasses.Cog):
             url=misc.git_source(self.bot),
             icon_url=misc.github,
         )
-        # Time stuff
-        timestamps = (
-            f"created on: {discord.utils.format_dt(self.bot.user.created_at, 'd')}\
-            \njoined on: {discord.utils.format_dt(ctx.guild.me.joined_at, 'd') if ctx.guild else '`never.`'}\
-            \nuptime: `{misc.time_format(time.time()-self.bot.boot)}`",
-        )[0]
-        # Code stats !
-        code = (
-            f"lines of code: `{self.stats['lines']:,}`\
-            \ncommands: `{self.stats['#commands']}`\
-            \nmodules: `{self.stats['#modules']}`",
-        )[0]
 
         embed.add_field(
             name="Timestamps",
-            value=misc.space + timestamps.replace("\n", "\n" + misc.space),
+            value=f"{misc.space}created on: {discord.utils.format_dt(self.bot.user.created_at, 'd')}\
+            \n{misc.space}joined on: {discord.utils.format_dt(ctx.guild.me.joined_at, 'd') if ctx.guild else '`never.`'}\
+            \n{misc.space}uptime: `{misc.time_format(time.time()-self.bot.boot)}`",
             inline=False,
         )
         embed.add_field(
             name=f"Code statistics",
-            value=misc.space + code.replace("\n", "\n" + misc.space),
+            value=f"{misc.space}lines of code: `{self.stats['lines']:,}`\
+            \n{misc.space}commands: `{self.stats['#commands']}`\
+            \n{misc.space}modules: `{self.stats['#modules']}`",
+            inline=False,
+        )
+        embed.add_field(
+            name="Process",
+            value=f"{misc.space}pid: `{self.stats['pid']}`\
+                    \n{misc.space}cpu: `{self.stats['cpu%']:.1f}%`\
+                    \n{misc.space}mem: `{self.stats['mem']:,.1f}MB` (`{self.stats['mem%']:.1f}%`)",
             inline=False,
         )
 
