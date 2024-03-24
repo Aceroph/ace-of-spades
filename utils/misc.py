@@ -10,9 +10,12 @@ import os
 tilde = "<:Tilde:1210003514479083581>"
 curve = "<:curve:1210049217280745502>"
 space = "<:space:1210019090920382464>"
+dev = "<:dev:1221284499321651210>"
 
 # Images
 docs = "https://upload.wikimedia.org/wikipedia/commons/thumb/3/31/Documents_icon_-_noun_project_5020_-_white.svg/1200px-Documents_icon_-_noun_project_5020_-_white.svg.png"
+python = "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c3/Python-logo-notext.svg/1200px-Python-logo-notext.svg.png"
+github = "https://github.githubassets.com/assets/GitHub-Mark-ea2971cee799.png"
 
 
 class Categories:
@@ -102,6 +105,18 @@ def git_source(bot: commands.Bot, obj: str = None):
         return f"{source_url}/blob/master/{location}#L{firstlineno}-L{firstlineno + len(lines) - 1}"
     except:
         pass
+
+
+def time_format(time: int) -> str:
+    minutes, seconds = divmod(int(time), 60)
+    hours, minutes = divmod(minutes, 60)
+    days, hours = divmod(hours, 24)
+    weeks, days = divmod(days, 7)
+    clean = f"{weeks}w {days}d {hours}h {minutes}m {seconds}s"
+    for _ in range(clean.count("0")):
+        index = clean.index("0")
+        clean = clean[:index] + clean[index + 3 :]
+    return clean or "0s"
 
 
 def clean_traceback(t: str) -> str:

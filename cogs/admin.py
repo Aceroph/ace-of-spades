@@ -1,7 +1,8 @@
-from typing import Optional, Union, TYPE_CHECKING
+from typing import Literal, Optional, Union, TYPE_CHECKING
 from utils import subclasses, misc
 from .errors import NotYourButton
 from discord.ext import commands
+from discord import app_commands
 from tabulate import tabulate
 from . import EXTENSIONS
 import difflib
@@ -441,7 +442,7 @@ class Admin(subclasses.Cog):
         embed = discord.Embed(
             title=":gear: Reloaded Module",
             description=(
-                f"> {module} - `{len(cog.get_commands())}` commands"
+                f"> {module} - `{len(list(cog.walk_commands()))}` commands"
                 if cog
                 else f"> {module}"
             ),
@@ -497,7 +498,7 @@ class Admin(subclasses.Cog):
         embed = discord.Embed(
             title=":gear: Loaded Module",
             description=(
-                f"> {module} - `{len(cog.get_commands())}` commands"
+                f"> {module} - `{len(list(cog.walk_commands()))}` commands"
                 if cog
                 else f"> {module}"
             ),
@@ -553,7 +554,7 @@ class Admin(subclasses.Cog):
         embed = discord.Embed(
             title=":gear: Unloaded Module",
             description=(
-                f"> {module} - `{len(cog.get_commands())}` commands"
+                f"> {module} - `{len(list(cog.walk_commands()))}` commands"
                 if cog
                 else f"> {module}"
             ),
@@ -593,22 +594,105 @@ class Admin(subclasses.Cog):
         )
         await self.bot.close()
 
-    @commands.command(aliases=["src"])
-    async def source(self, ctx: commands.Context, *, obj: str = None) -> None:
+    @app_commands.describe(entity="The module/command you want to steal")
+    @commands.hybrid_command(aliases=["src"])
+    async def source(self, ctx: commands.Context, *, entity: str = None) -> None:
         """Get the source of any command or cog"""
-        url = misc.git_source(self.bot, obj)
+        url = misc.git_source(self.bot, entity)
 
         if not url:  # On error
             await ctx.reply(
-                embed=discord.Embed(title=f"Failed to fetch {obj} :("),
+                embed=discord.Embed(title=f"Failed to fetch {entity} :("),
                 delete_after=10,
                 mention_author=False,
             )
         else:
             await ctx.reply(
-                embed=discord.Embed(title=f'Source for {obj or "Bot"}', url=url),
+                embed=discord.Embed(title=f'Source for {entity or "Bot"}', url=url),
                 mention_author=False,
             )
+
+    @source.autocomplete("entity")
+    async def source_autocomplete(
+        self, interaction: discord.Interaction, current: str
+    ) -> list[app_commands.Choice[str]]:
+        cogs = [
+            app_commands.Choice(name=f"[Cog] {cog}", value=cog)
+            for cog in self.bot.cogs.keys()
+            if current.casefold() in cog
+        ]
+        commands = [
+            app_commands.Choice(
+                name=f"[Cmd] {cmd.qualified_name.capitalize()}",
+                value=cmd.qualified_name,
+            )
+            for cmd in self.bot.walk_commands()
+            if current.casefold() in cmd.qualified_name
+        ]
+        if current.casefold() in "help":
+            commands.append(app_commands.Choice(name="[Cmd] Help", value="help"))
+        choices = sorted(cogs, key=lambda c: c.name, reverse=True) + sorted(
+            commands, key=lambda c: c.name, reverse=True
+        )
+        return choices[:25]
+
+    @commands.command()
+    @commands.is_owner()
+    async def sync(
+        self,
+        ctx: commands.Context,
+        guilds: commands.Greedy[discord.Guild],
+        spec: Literal["list", "global", "*", "all", "local", "~", "^", "clear"] = None,
+    ):
+        if not guilds:
+            match spec:
+                case "list":
+                    synced_globally = await ctx.bot.tree.fetch_commands()
+                    synced_locally = await ctx.bot.tree.fetch_commands(guild=ctx.guild)
+                    embed = discord.Embed(
+                        title="App Commands", color=discord.Color.blurple()
+                    )
+                    embed.add_field(
+                        name=f"Globally",
+                        value="\n".join(
+                            [f"`{c.name}`" for c in synced_globally] or ["`none`"]
+                        ),
+                    )
+                    embed.add_field(
+                        name=f"Locally",
+                        value="\n".join(
+                            [f"`{c.name}`" for c in synced_locally] or ["`none`"]
+                        ),
+                    )
+                    return await ctx.reply(embed=embed, mention_author=False)
+
+                case "~" | "local":
+                    synced = await ctx.bot.tree.sync(guild=ctx.guild)
+                case "*", "all":
+                    ctx.bot.tree.copy_global_to(guild=ctx.guild)
+                    synced = await ctx.bot.tree.sync(guild=ctx.guild)
+                case "^" | "clear":
+                    ctx.bot.tree.clear_commands(guild=ctx.guild)
+                    await ctx.bot.tree.sync(guild=ctx.guild)
+                    synced = []
+                case _:
+                    synced = await ctx.bot.tree.sync()
+
+            await ctx.send(
+                f"Synced {len(synced)} commands {'globally' if spec is None else 'to the current guild.'}"
+            )
+            return
+
+        ret = 0
+        for guild in guilds:
+            try:
+                await ctx.bot.tree.sync(guild=guild)
+            except discord.HTTPException:
+                pass
+            else:
+                ret += 1
+
+        await ctx.send(f"Synced the tree to {ret}/{len(guilds)}.")
 
 
 async def setup(bot):

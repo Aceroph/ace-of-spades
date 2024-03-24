@@ -303,8 +303,9 @@ class Fun(subclasses.Cog):
         self.emoji = "\N{JIGSAW PUZZLE PIECE}"
         self.bot = bot
 
-    @commands.group(invoke_without_command=True)
+    @commands.hybrid_command(invoke_without_command=True)
     async def country(self, ctx: commands.Context):
+        """Starts a game of country guesser"""
         if games.get(ctx.channel.id, None):
             await ctx.reply("An instance of that game is already in play !")
         else:

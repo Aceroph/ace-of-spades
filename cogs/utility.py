@@ -1,11 +1,12 @@
-from typing import Union, Callable, TYPE_CHECKING, Generator
+from typing import Union, TYPE_CHECKING, Generator
 from utils import subclasses, ui, misc
 from discord.ext import commands
+from discord import app_commands
+from cogs import errors
 import unicodedata
 import discord
 import pathlib
 import difflib
-import arrow
 import zlib
 import time
 import io
@@ -152,15 +153,58 @@ class Utility(subclasses.Cog):
                 f"Current channel is {channel.mention if isinstance(channel, discord.VoiceChannel) else None}"
             )
 
-    @commands.command(aliases=["char", "character"])
+    @commands.hybrid_command(aliases=["char", "character"])
+    @app_commands.describe(characters="The characters to get info on")
     async def charinfo(self, ctx: commands.Context, *, characters: str):
-        fn: Callable[[str]] = lambda c: "%s : `%s` -> `\\N{%s}`" % (
-            c,
-            c.encode("unicode-escape"),
-            unicodedata.name(c, "Found nothing"),
+        """Gets information on one or multiple characters
+        Supports discord emojis, emojis, numbers and any other character !
+
+        P.S.
+        {curve} Numbers must be seperated with spaces"""
+        results = []
+        i: int = 0
+        # Process discord-only emojis first
+        discord_emojis: list[str] = re.findall(r"<:\w+:\d+>", characters)
+        for emoji in discord_emojis:
+            characters = characters.replace(emoji, "")
+            results.append([emoji, emoji, emoji.split(":")[1]])
+
+        # Check for numbers to convert
+        numbers: list[int] = re.findall(r"\d+", characters)
+        for num in numbers:
+            characters = characters.replace(num, chr(int(num)))
+
+        for char in characters:
+            name = r"\N{%s}" % unicodedata.name(char, "EXTREMELY RARE ERROR")
+
+            if ord(char) == 32:
+                continue
+
+            # If VARIATION SELECTOR
+            if ord(char) == 65039:
+                results[i - 1][1] += name
+                continue
+
+            unicode = (
+                str(char.encode("unicode-escape")).strip("b'\\u").strip("0").strip("U")
+            )
+            url = f"[\\U{unicode}](https://www.fileformat.info/info/unicode/char/{unicode}/index.htm)"
+            results.append([char, name, url])
+
+            i += 1
+
+        embed = discord.Embed(
+            title=f"Converted {len(results)} character{'s' if len(results) > 1 else ''}",
+            description="\n".join(
+                [
+                    f"[{c[0]}] {c[2]} #{ord(c[0]) if len(c[0]) == 1 else 0}```\n{c[1]}```"
+                    for c in results
+                ]
+            ),
+            color=discord.Color.blurple(),
         )
-        msg = "\n".join(map(fn, characters))
-        await ctx.reply(msg)
+
+        await ctx.reply(embed=embed, mention_author=False)
 
     def parse_object_inv(
         self, stream: SphinxObjectFileReader, url: str
@@ -261,7 +305,7 @@ class Utility(subclasses.Cog):
             colour=discord.Colour.blurple(),
         )
         embed.set_footer(
-            text=f"Query time : {(time.time()-timer)*1000:,.2f}ms",
+            text=f"Query time : {(time.time()-timer):,.2f}s",
             icon_url=ctx.author.avatar.url,
         )
         if len(matches) == 0:
@@ -294,7 +338,7 @@ class Utility(subclasses.Cog):
         await self.do_rtfm(ctx, key="wavelink", obj=obj)
 
     async def refresh_info(self, ctx: commands.Context):
-        async with ctx.typing():
+        async with ctx.channel.typing():
             self.stats = {}
             # Total lines of code
             self.stats["lines"] = 0
@@ -313,65 +357,53 @@ class Utility(subclasses.Cog):
             self.stats["#users"] = len(self.bot.users)
             self.stats["WS"] = self.bot.latency
 
-    @commands.group(aliases=["stats", "about"], invoke_without_command=True)
+    @commands.hybrid_command(aliases=["stats", "about"], invoke_without_command=True)
     async def info(self, ctx: commands.Context):
         """Statistics for nerds"""
         if not hasattr(self, "stats"):
             embed = discord.Embed(
-                title="Stats not found",
+                title=":x: Stats not found",
                 description=">>> Gathering information..\nThis may take a few seconds",
                 color=discord.Color.red(),
             )
             await ctx.reply(embed=embed, mention_author=False, delete_after=5)
             await self.refresh_info(ctx)
+
         embed = discord.Embed(
             title="<:bot:1220186342361661470> " + self.bot.user.display_name,
             description=f"{misc.curve} is in `{self.stats['#guilds']}` servers, sees `{self.stats['#users']:,}` users",
             color=discord.Color.blurple(),
         )
-        embed.set_footer(text="Made by aceroph")
+        embed.set_footer(
+            text=f"Made by aceroph using discord.py v{discord.__version__}",
+            icon_url=misc.python,
+        )
         embed.set_author(
             name="View source on github",
             url=misc.git_source(self.bot),
-            icon_url="https://github.githubassets.com/assets/GitHub-Mark-ea2971cee799.png",
+            icon_url=misc.github,
         )
-        # Basic info
-        basic_info = "\n".join(
-            sorted(
-                [
-                    f"created on: {discord.utils.format_dt(self.bot.user.created_at, 'd')}",
-                    (
-                        f"joined on: {discord.utils.format_dt(ctx.guild.me.joined_at, 'd')}"
-                        if ctx.guild
-                        else ""
-                    ),
-                    f"uptime: `{arrow.get(int(self.bot.boot)).humanize(only_distance=True)}`",
-                ],
-                key=lambda s: len(s),
-                reverse=True,
-            )
-        )
+        # Time stuff
+        timestamps = (
+            f"created on: {discord.utils.format_dt(self.bot.user.created_at, 'd')}\
+            \njoined on: {discord.utils.format_dt(ctx.guild.me.joined_at, 'd') if ctx.guild else '`never.`'}\
+            \nuptime: `{misc.time_format(time.time()-self.bot.boot)}`",
+        )[0]
+        # Code stats !
+        code = (
+            f"lines of code: `{self.stats['lines']:,}`\
+            \ncommands: `{self.stats['#commands']}`\
+            \nmodules: `{self.stats['#modules']}`",
+        )[0]
+
         embed.add_field(
-            name="About bot",
-            value=f">>> {basic_info}",
+            name="\N{CLOCK FACE TEN OCLOCK} Timestamps",
+            value=f">>> {timestamps}",
             inline=False,
         )
-        # Numbers !
-        stats = "\n".join(
-            sorted(
-                [
-                    f"lines of code: `{self.stats['lines']:,}`",
-                    f"commands: `{self.stats['#commands']}`",
-                    f"modules: `{self.stats['#modules']}`",
-                    f"latency: `{self.stats['WS']*1000:.2f}ms`",
-                ],
-                key=lambda s: len(s),
-                reverse=True,
-            )
-        )
         embed.add_field(
-            name="Statistics",
-            value=f">>> {stats}",
+            name=f"{misc.dev} Code statistics",
+            value=f">>> {code}",
             inline=False,
         )
 
@@ -384,6 +416,8 @@ class Utility(subclasses.Cog):
             ):
                 async with self.bot.pool.acquire() as conn:
                     self.stats["last_updated"] = time.time()
+
+                    # COMMANDS STATS
                     self.stats["total_cmds_ran"] = (
                         await conn.fetchone(
                             "SELECT total(value) FROM statistics WHERE key LIKE 'CMD_RAN:%';"
@@ -392,59 +426,109 @@ class Utility(subclasses.Cog):
                     self.stats["guild_cmds_ran"] = (
                         await conn.fetchone(
                             "SELECT total(value) FROM statistics WHERE key LIKE 'CMD_RAN:%' AND id = ?;",
-                            (interaction.guild_id),
+                            (interaction.guild_id or 0),
                         )
                     )[0]
+
+                    # MUSIC STATS
                     self.stats["total_songs_played"] = (
                         await conn.fetchone(
                             "SELECT total(value) FROM statistics WHERE key = 'SONG_PLAYED';"
                         )
                     )[0]
+                    self.stats["guild_songs_played"] = (
+                        await conn.fetchone(
+                            "SELECT total(value) FROM statistics WHERE key = 'SONG_PLAYED' AND id = ?;",
+                            (interaction.guild_id),
+                        )
+                    )[0]
+                    self.stats["total_playtime"] = (
+                        await conn.fetchone(
+                            "SELECT total(value) FROM statistics WHERE key = 'SONG_PLAYTIME';"
+                        )
+                    )[0]
+                    self.stats["guild_playtime"] = (
+                        await conn.fetchone(
+                            "SELECT total(value) FROM statistics WHERE key = 'SONG_PLAYTIME' AND id = ?;",
+                            (interaction.guild_id),
+                        )
+                    )[0]
 
-            more_stats = "\n".join(
-                sorted(
-                    [
-                        f"total commands ran: `{self.stats['total_cmds_ran']:.0f}`",
-                        f"commands ran from guild: `{self.stats['guild_cmds_ran']:.0f}`",
-                        f"total songs played: `{self.stats['total_songs_played']:.0f}`",
-                    ],
-                    key=lambda s: len(s),
-                    reverse=True,
-                )
+                    # TOP COMMANDS
+                    self.stats["top_guild_commands"] = await conn.fetchall(
+                        "SELECT key, value FROM statistics WHERE key LIKE 'CMD_RAN:%' AND id = ? ORDER BY value DESC LIMIT 5;",
+                        (interaction.guild_id or 0),
+                    )
+
+            command_stats = (
+                f"Total ran: `{self.stats['total_cmds_ran']:.0f}`\
+                \n{misc.curve} from {'guild' if interaction.guild else 'DMs'}: `{self.stats['guild_cmds_ran']:.0f}`",
+            )[0]
+
+            music_stats = (
+                f"Total songs played: `{self.stats['total_songs_played']:.0f}`\
+                \n{misc.curve} from guild: `{self.stats['guild_songs_played']:.0f}`\
+                \n\nTotal playtime: `{misc.time_format(self.stats['total_playtime'])}`\
+                \n{misc.curve} from guild: `{misc.time_format(self.stats['guild_playtime'])}`",
+            )[0]
+
+            medals = [
+                "\N{FIRST PLACE MEDAL}",
+                "\N{SECOND PLACE MEDAL}",
+                "\N{THIRD PLACE MEDAL}",
+                "\N{SPORTS MEDAL}",
+                "\N{SPORTS MEDAL}",
+            ]
+            top_commands = "\n".join(
+                [
+                    f"{medals[i]} {cmd[0].split(':')[1]}: `{cmd[1]}`"
+                    for i, cmd in enumerate(self.stats["top_guild_commands"])
+                ]
             )
+
             embed = discord.Embed(color=discord.Color.blurple())
-            embed.add_field(name="More statistics", value=f">>> {more_stats}")
+            embed.add_field(
+                name=f"{misc.dev} Top commands",
+                value=f">>> {top_commands}\n\n{command_stats}",
+            )
+            embed.add_field(
+                name="\N{MUSICAL NOTE} Music statistics",
+                value=f">>> {music_stats}",
+            )
             await interaction.response.send_message(embed=embed, ephemeral=True)
+
+        async def refresh_callback(interaction: discord.Interaction):
+            if interaction.user.id != ctx.bot.owner_id:
+                raise errors.NotYourButton("Only the owner can refresh stats manually")
+
+            embed = discord.Embed(
+                title="\N{ANTICLOCKWISE DOWNWARDS AND UPWARDS OPEN CIRCLE ARROWS} Reloading stats",
+                description=">>> Gathering information..\nThis may take a few seconds",
+                color=discord.Color.blurple(),
+            )
+            await interaction.response.edit_message(
+                embed=embed, view=None, delete_after=5
+            )
+            await self.refresh_info(ctx)
+            await self.info(ctx)
 
         show_more = discord.ui.Button(
             label="See more", style=discord.ButtonStyle.blurple
         )
         show_more.callback = info_show_more
 
+        refresh = discord.ui.Button(label="Refresh")
+        refresh.callback = refresh_callback
+
         view = subclasses.View()
         view.add_item(show_more)
+        view.add_item(refresh)
         view.add_quit(ctx.author, ctx.guild)
 
-        await ctx.reply(embed=embed, mention_author=False, view=view)
-
-    @info.command(name="refresh", aliases=["reload"])
-    @commands.is_owner()
-    async def info_refresh(self, ctx: commands.Context):
-        """Refreshes all stats and information on the bot"""
-        embed = discord.Embed(
-            title="Reloading stats",
-            description=">>> Gathering information..\nThis may take a few seconds",
-            color=discord.Color.blurple(),
-        )
-        msg = await ctx.reply(embed=embed, mention_author=False)
-        timer = time.time()
-        await self.refresh_info(ctx)
-        embed = discord.Embed(
-            title="Done !",
-            description=f">>> Refreshed stats\nTook {time.time()-timer:,.2f}s",
-            color=discord.Color.blurple(),
-        )
-        await msg.edit(embed=embed)
+        if ctx.interaction:
+            await ctx.interaction.channel.send(embed=embed, view=view)
+        else:
+            await ctx.reply(embed=embed, mention_author=False, view=view)
 
 
 async def setup(bot):

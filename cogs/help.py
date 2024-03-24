@@ -135,22 +135,24 @@ class AceHelp(commands.HelpCommand):
         )
 
         # Authorization if any
-        if self.context.guild:
-            mentions = ["@everyone"]
-            if isinstance(command, commands.HybridCommand):
-                app_cmds: list[app_commands.AppCommand] = (
-                    await self.context.bot.tree.fetch_commands()
-                )
-                for cmd in app_cmds:
-                    if cmd.name == command.qualified_name:
+        mentions = [self.context.author.mention]
+        if isinstance(command, commands.HybridCommand):
+            app_cmds: list[app_commands.AppCommand] = (
+                await self.context.bot.tree.fetch_commands()
+            )
+            for cmd in app_cmds:
+                if cmd.name == command.qualified_name:
+                    embed.add_field(
+                        name="App command", value=f"{misc.curve} {cmd.mention}"
+                    )
+                    if self.context.guild:
+                        mentions = ["@everyone"]
                         try:
                             perms = await cmd.fetch_permissions(self.context.guild)
                             mentions = [p.target.mention for p in perms.permissions]
                             break
                         except discord.NotFound:
                             break
-        else:
-            mentions = [self.context.author.mention]
 
         embed.add_field(
             name="Authorizations",
@@ -203,6 +205,9 @@ async def setup(bot: "AceBot"):
     @app_commands.describe(entity="The command you need help with")
     async def _help(ctx: commands.Context, entity: str = None):
         """Perhaps you do not know how to use this bot?"""
+        await ctx.defer()
+        print(entity)
+        ctx = await ctx.from_interaction(ctx.interaction)
         await ctx.send_help(entity)
 
     @_help.autocomplete("entity")

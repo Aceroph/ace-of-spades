@@ -177,7 +177,10 @@ async def on_command_error(ctx: commands.Context, error: commands.CommandError):
 
     # UNHANDLED ERRORS BELLOW
     # Process the traceback to clean path !
-    await ctx.message.add_reaction("\N{DOUBLE EXCLAMATION MARK}")
+    try:
+        await ctx.message.add_reaction("\N{DOUBLE EXCLAMATION MARK}")
+    except:
+        pass
     trace = "".join(traceback.format_exception(type(error), error, error.__traceback__))
     embed = discord.Embed(
         title=f":warning: Unhandled error in command : {ctx.command if hasattr(ctx, 'command') else 'None'}",
