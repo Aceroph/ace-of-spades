@@ -135,6 +135,15 @@ class Music(subclasses.Cog):
                     "SONG_PLAYED",
                 ),
             )
+            # add length of track
+            await conn.execute(
+                "INSERT INTO statistics (id, key, value) VALUES (:id, :key, :value) ON CONFLICT(id, key) DO UPDATE SET value = value + :value;",
+                {
+                    "id": payload.player.guild.id,
+                    "key": "SONG_PLAYTIME",
+                    "value": payload.track.length // 1000,
+                },
+            )
             await conn.commit()
 
         return await self.now_playing_logic(payload)

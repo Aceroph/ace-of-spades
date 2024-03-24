@@ -44,6 +44,7 @@ class AceBot(commands.Bot):
         self.case_insensitive = True
         self.boot = time.time()
         self.logger = LOGGER
+        self.strip_after_prefix = True
 
     async def setup_hook(self):
         # Database stuff
