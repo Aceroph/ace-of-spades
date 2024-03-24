@@ -95,7 +95,7 @@ class CountryGuessing:
         start = discord.ui.Button(style=discord.ButtonStyle.green, label="Start")
         start.callback = self.game
 
-        cancel = discord.ui.Button(style=discord.ButtonStyle.red, label="Cancel", disabled=self.ctx.guild)
+        cancel = discord.ui.Button(style=discord.ButtonStyle.red, label="Cancel")
         cancel.callback = self.cancel_game
 
         view = subclasses.View()
@@ -141,9 +141,12 @@ class CountryGuessing:
         games.pop(interaction.channel_id, None)
 
         # It's like a super() but much worse
-        v = subclasses.View()
-        v.author = self.gamemaster
-        await v.quit_callback(interaction)
+        if interaction.guild:
+            v = subclasses.View()
+            v.author = self.gamemaster
+            await v.quit_callback(interaction)
+        else:
+            await interaction.response.edit_message(view=None)
 
     async def react(self, msg: discord.Message, emoji: discord.PartialEmoji):
         await msg.add_reaction(emoji)
