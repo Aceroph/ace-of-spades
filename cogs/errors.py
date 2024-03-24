@@ -39,9 +39,6 @@ async def on_command_error(ctx: commands.Context, error: commands.CommandError):
             else:
                 return await ctx.send_help()
 
-        if not ctx.guild:
-            return
-
         # Get closest match for command
         correct_command: Union[commands.Command, commands.Group] = None
         ratio: float = 0.5
@@ -70,7 +67,6 @@ async def on_command_error(ctx: commands.Context, error: commands.CommandError):
             ratio: float = 0.75
             for cmd in correct_command.commands:
                 r = difflib.SequenceMatcher(None, command, cmd.qualified_name).ratio()
-                print(cmd.qualified_name, r)
                 if r > ratio:
                     correct_command = cmd
                     ratio = r
@@ -80,6 +76,13 @@ async def on_command_error(ctx: commands.Context, error: commands.CommandError):
             args = ctx.message.content.split()[
                 len(correct_command.qualified_name.split()) :
             ]
+            if interaction.guild:
+                await interaction.message.delete()
+            else:
+                await interaction.response.edit_message(
+                    content="Reinvoked command successfully !", view=None
+                )
+
             # If command is help
             if correct_command.qualified_name == "help":
                 if len(args) >= 1:
@@ -93,8 +96,6 @@ async def on_command_error(ctx: commands.Context, error: commands.CommandError):
                     if i < len(args)
                 ]
                 await ctx.invoke(correct_command, *r)
-            await interaction.response.defer()
-            await interaction.message.delete()
 
         # UI
         _invoke = discord.ui.Button(style=discord.ButtonStyle.green, label="Yes")
@@ -118,6 +119,7 @@ async def on_command_error(ctx: commands.Context, error: commands.CommandError):
                 color=discord.Color.red(),
             ),
             mention_author=False,
+            delete_after=15,
         )
 
     if isinstance(error, commands.errors.MissingRequiredArgument):
@@ -128,6 +130,7 @@ async def on_command_error(ctx: commands.Context, error: commands.CommandError):
                 color=discord.Color.red(),
             ),
             mention_author=False,
+            delete_after=15,
         )
 
     if isinstance(error, commands.errors.NoPrivateMessage):
@@ -138,6 +141,7 @@ async def on_command_error(ctx: commands.Context, error: commands.CommandError):
                 color=discord.Color.red(),
             ),
             mention_author=False,
+            delete_after=15,
         )
 
     if isinstance(error, NoVoiceFound):
@@ -148,6 +152,7 @@ async def on_command_error(ctx: commands.Context, error: commands.CommandError):
                 color=discord.Color.red(),
             ),
             mention_author=False,
+            delete_after=15,
         )
 
     if isinstance(error, PlayerConnectionFailure):
@@ -158,6 +163,7 @@ async def on_command_error(ctx: commands.Context, error: commands.CommandError):
                 color=discord.Color.red(),
             ),
             mention_author=False,
+            delete_after=15,
         )
 
     if isinstance(error, commands.errors.CommandInvokeError):
@@ -195,7 +201,9 @@ async def on_command_error(ctx: commands.Context, error: commands.CommandError):
         description=f"> {' '.join(error.args)}" if len(error.args) > 0 else None,
         color=discord.Color.red(),
     )
-    return await ctx.reply(embed=embed, view=view, mention_author=False)
+    return await ctx.reply(
+        embed=embed, view=view, mention_author=False, delete_after=15
+    )
 
 
 async def setup(bot: "AceBot"):
