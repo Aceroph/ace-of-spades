@@ -47,23 +47,44 @@ class View(discord.ui.View):
         super().__init__(*args, **kwargs)
 
     def add_quit(
-        self, author: discord.User, guild: discord.Guild = None, row: int = None
+        self,
+        author: discord.User,
+        guild: discord.Guild = None,
+        delete_reference: bool = True,
+        **kwargs,
     ):
         self.author = author
-        button = discord.ui.Button(
-            style=discord.ButtonStyle.red, label="Quit", row=row, disabled=not guild
-        )
+        self.delete_reference = delete_reference
+        attributes = {
+            "style": discord.ButtonStyle.red,
+            "label": "Quit",
+            "disabled": not guild,
+        }
+        attributes.update(**kwargs)
+        button = discord.ui.Button(**attributes)
         button.callback = self.quit_callback
         return self.add_item(button)
 
     async def quit_callback(self, interaction: discord.Interaction):
-        if interaction.user != self.author:
+        await self.quit(interaction, self.author, self.delete_reference)
+
+    @classmethod
+    async def quit(
+        cls,
+        interaction: discord.Interaction,
+        author: discord.User = None,
+        delete_reference: bool = True,
+    ):
+        if interaction.user != author:
             raise errors.NotYourButton
 
         reference = interaction.message.reference
-        if reference:
-            msg = await interaction.channel.fetch_message(reference.message_id)
-            await msg.delete()
+        if reference and delete_reference:
+            try:
+                msg = await interaction.channel.fetch_message(reference.message_id)
+                await msg.delete()
+            except:
+                pass
 
         await interaction.message.delete()
 
