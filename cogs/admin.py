@@ -598,7 +598,14 @@ class Admin(subclasses.Cog):
                 mention_author=False,
             )
 
-    @commands.command(aliases=["killyourself", "shutdown"])
+    @commands.command(
+        aliases=[
+            "killyourself",
+            "shutdown",
+            "unalive",
+            "unaliveyourself",
+        ]
+    )
     @commands.is_owner()
     async def kys(self, ctx: commands.Context) -> None:
         """Self-explanatory"""
