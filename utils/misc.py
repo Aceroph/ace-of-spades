@@ -19,7 +19,6 @@ info = "<:info:1221344535754313758>"
 dev = "<:dev:1221284499321651210>"
 
 # Images
-docs = "https://upload.wikimedia.org/wikipedia/commons/thumb/3/31/Documents_icon_-_noun_project_5020_-_white.svg/1200px-Documents_icon_-_noun_project_5020_-_white.svg.png"
 python = "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c3/Python-logo-notext.svg/1200px-Python-logo-notext.svg.png"
 github = "https://github.githubassets.com/assets/GitHub-Mark-ea2971cee799.png"
 

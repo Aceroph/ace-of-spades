@@ -20,7 +20,6 @@ class AceHelp(commands.HelpCommand):
         if self.context.author == interaction.user:
             self.old = interaction.message.embeds[0]
             embed = discord.Embed(color=discord.Color.blurple())
-            embed.set_thumbnail(url=misc.docs)
             embed.set_author(
                 name=f"{self.context.author.display_name}: Help",
                 icon_url=self.context.author.avatar.url,
@@ -68,7 +67,6 @@ class AceHelp(commands.HelpCommand):
             title="Help Page",
             description=f"> Use `b.help command/group` for more info on a command",
         )
-        embed.set_thumbnail(url=misc.docs)
         embed.set_author(
             name=f"{self.context.author.display_name} : Help",
             icon_url=self.context.author.avatar.url,
@@ -120,7 +118,6 @@ class AceHelp(commands.HelpCommand):
             color=discord.Color.blurple(),
             title=f"{command.qualified_name} {command.signature}",
         )
-        embed.set_thumbnail(url=misc.docs)
         embed.set_author(
             name=f"{self.context.author.display_name} : Help -> {command.cog.qualified_name}",
             icon_url=self.context.author.avatar.url,
@@ -135,7 +132,9 @@ class AceHelp(commands.HelpCommand):
         )
 
         # Authorization if any
-        mentions = [self.context.author.mention]
+        mentions = [
+            self.context.author.mention if not self.context.guild else "@everyone"
+        ]
         if isinstance(command, commands.HybridCommand):
             app_cmds: list[app_commands.AppCommand] = (
                 await self.context.bot.tree.fetch_commands()
@@ -146,7 +145,6 @@ class AceHelp(commands.HelpCommand):
                         name="App command", value=f"{misc.curve} {cmd.mention}"
                     )
                     if self.context.guild:
-                        mentions = ["@everyone"]
                         try:
                             perms = await cmd.fetch_permissions(self.context.guild)
                             mentions = [p.target.mention for p in perms.permissions]
@@ -161,19 +159,17 @@ class AceHelp(commands.HelpCommand):
 
         # Subcommands if group
         if isinstance(command, commands.Group):
-            subs = "\n".join(
-                textwrap.wrap(
-                    text=" ".join(
-                        [f"`{command.name}`" for command in command.commands]
-                    ),
-                    width=len(misc.curve) + 35,
-                    initial_indent=misc.curve,
-                    subsequent_indent=misc.space,
-                )
-            )
             embed.add_field(
-                name=f"Sub commands",
-                value=subs,
+                name=f"Subcommands",
+                value=f"{misc.curve}`"
+                + f"`\n{misc.space}`".join(
+                    sorted(
+                        [f"`{command.name}`" for command in command.commands],
+                        key=lambda a: len(a),
+                        reverse=True,
+                    )
+                )
+                + "`",
                 inline=True,
             )
 
@@ -181,7 +177,11 @@ class AceHelp(commands.HelpCommand):
         if command.aliases != []:
             embed.add_field(
                 name=f"Aliases",
-                value=f"{misc.curve} `{'` `'.join(command.aliases)}`",
+                value=f"{misc.curve}`"
+                + f"`\n{misc.space}`".join(
+                    sorted(command.aliases, key=lambda a: len(a), reverse=True)
+                )
+                + "`",
                 inline=True,
             )
 
