@@ -26,9 +26,6 @@ class NotYourButton(app_commands.AppCommandError):
 
 # Error handler
 async def on_command_error(ctx: commands.Context, error: commands.CommandError):
-    if isinstance(error, (commands.errors.CheckFailure, commands.errors.NotOwner)):
-        return
-
     if isinstance(error, commands.errors.CommandNotFound):
         command = ctx.message.content.split()[0].strip(ctx.prefix)
         args = ctx.message.content.split()[1:]
@@ -95,6 +92,7 @@ async def on_command_error(ctx: commands.Context, error: commands.CommandError):
                     for i, param in enumerate(correct_command.params.values())
                     if i < len(args)
                 ]
+                await correct_command.call_before_hooks(ctx)
                 await ctx.invoke(correct_command, *r)
 
         # UI
@@ -143,6 +141,9 @@ async def on_command_error(ctx: commands.Context, error: commands.CommandError):
             mention_author=False,
             delete_after=15,
         )
+
+    if isinstance(error, (commands.errors.CheckFailure, commands.errors.NotOwner)):
+        return
 
     if isinstance(error, NoVoiceFound):
         return await ctx.reply(

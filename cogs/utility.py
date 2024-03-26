@@ -371,7 +371,7 @@ class Utility(subclasses.Cog):
         """Statistics for nerds"""
         if not hasattr(self, "stats"):
             embed = discord.Embed(
-                title=f"{misc.dislike} Stats not found",
+                title="\N{BAR CHART} Stats not found",
                 description=">>> Gathering information..\nThis may take a few seconds",
                 color=discord.Color.red(),
             )

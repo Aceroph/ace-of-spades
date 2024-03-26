@@ -1,4 +1,4 @@
-from .errors import NoVoiceFound, PlayerConnectionFailure
+from cogs.errors import NoVoiceFound, PlayerConnectionFailure
 from typing import TYPE_CHECKING, cast, Union
 from utils import subclasses, misc
 from discord.ext import commands
@@ -53,6 +53,9 @@ class Music(subclasses.Cog):
         self, origin: Union[commands.Context, wavelink.TrackStartEventPayload]
     ):
         player = origin.player
+        if hasattr(player, "silent"):
+            if player.silent:
+                return
 
         # Formatting
         track: wavelink.Playable = (
@@ -94,22 +97,13 @@ class Music(subclasses.Cog):
         else:
             await self.home.send(embed=embed)
 
-    async def cog_before_invoke(self, ctx: commands.Context) -> None:
-        # skip if unrelated to player commands
-        if ctx.command.qualified_name == "lavalink":
-            return await super().cog_before_invoke(ctx)
-
+    async def get_player(self, ctx: commands.Context) -> None:
         if not self.home:
             self.home = ctx.channel
 
         player: wavelink.Player = cast(wavelink.Player, ctx.voice_client)
         if not player:
-            try:
-                player = await ctx.author.voice.channel.connect(cls=wavelink.Player)  # type: ignore
-            except AttributeError:
-                raise NoVoiceFound
-            except discord.ClientException:
-                raise PlayerConnectionFailure
+            raise NoVoiceFound
 
         ctx.player = player
         return await super().cog_before_invoke(ctx)
@@ -165,7 +159,9 @@ class Music(subclasses.Cog):
         msg = f"```\nstatus: {node.status}\n\njvm: {info.jvm}\nlavaplayer: {info.lavaplayer}\n\nsources:{sources}\n\nplugins: {plugins if len(info.plugins) > 0 else 'none'}```"
         await ctx.reply(msg, mention_author=False)
 
+    @commands.guild_only()
     @commands.command(aliases=["np", "now"])
+    @commands.before_invoke(get_player)
     async def nowplaying(self, ctx: commands.Context) -> None:
         return await self.now_playing_logic(ctx)
 
@@ -173,6 +169,13 @@ class Music(subclasses.Cog):
     @commands.guild_only()
     async def play(self, ctx: commands.Context, *, query: str) -> None:
         """Play a song with the given query."""
+        if not hasattr(ctx, "player"):
+            try:
+                ctx.player = await ctx.author.voice.channel.connect(cls=wavelink.Player)  # type: ignore
+            except AttributeError:
+                raise NoVoiceFound
+            except discord.ClientException:
+                raise PlayerConnectionFailure()
 
         # Autoplay
         ctx.player.autoplay = wavelink.AutoPlayMode.enabled
@@ -184,6 +187,9 @@ class Music(subclasses.Cog):
                 mention_author=False,
             )
             return
+
+        # Where the bot sends announcements
+        self.home = ctx.channel
 
         if isinstance(tracks, wavelink.Playlist):
             # Add requested user to tracks
@@ -224,6 +230,7 @@ class Music(subclasses.Cog):
 
     @commands.command()
     @commands.guild_only()
+    @commands.before_invoke(get_player)
     async def queue(self, ctx: commands.Context):
         """Lists the next titles and position in the queue"""
 
@@ -266,6 +273,7 @@ class Music(subclasses.Cog):
 
     @commands.command()
     @commands.guild_only()
+    @commands.before_invoke(get_player)
     async def shuffle(self, ctx: commands.Context):
         """Shuffles the current player's queue"""
 
@@ -287,6 +295,7 @@ class Music(subclasses.Cog):
 
     @commands.command()
     @commands.guild_only()
+    @commands.before_invoke(get_player)
     async def pause(self, ctx: commands.Context):
         """Pauses or resumes activity"""
 
@@ -306,21 +315,40 @@ class Music(subclasses.Cog):
 
         await ctx.reply(embed=embed, mention_author=False)
 
-    @commands.command(aliases=["next"])
     @commands.guild_only()
+    @commands.command(aliases=["next"])
+    @commands.before_invoke(get_player)
     async def skip(self, ctx: commands.Context):
         """Skips the current song"""
 
         await ctx.player.skip()
         await ctx.reply("Skipped song", mention_author=False)
 
-    @commands.command(aliases=["quit"])
     @commands.guild_only()
+    @commands.command(aliases=["quit"])
+    @commands.before_invoke(get_player)
     async def stop(self, ctx: commands.Context):
         """Stops playing music and disconnects the player"""
 
         await ctx.player.disconnect()
         await ctx.reply("Stopped playing music", mention_author=False)
+
+    @commands.before_invoke(get_player)
+    @commands.command(aliases=["hush", "shush", "stfu", "silence"])
+    async def shutup(self, ctx: commands.Context):
+        """Makes the bot stop announcing every song
+        Preferably use `nowplaying` to see what the bot is singing"""
+        if hasattr(ctx.player, "silent"):
+            ctx.player.silent = not ctx.player.silent
+        else:
+            ctx.player.silent = True
+
+        if ctx.player.silent:
+            await ctx.message.add_reaction("\N{FACE WITH FINGER COVERING CLOSED LIPS}")
+        else:
+            await ctx.message.add_reaction(
+                "\N{SPEAKING HEAD IN SILHOUETTE}\N{VARIATION SELECTOR-16}"
+            )
 
 
 async def setup(bot: "AceBot"):

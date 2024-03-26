@@ -1,7 +1,7 @@
+from cogs.errors import NoVoiceFound, NotYourButton
 from discord.ext import commands
 from discord import app_commands
 from . import subclasses, misc
-from cogs import errors
 import traceback
 import discord
 import time
@@ -76,7 +76,7 @@ class View(discord.ui.View):
         delete_reference: bool = True,
     ):
         if interaction.user != author:
-            raise errors.NotYourButton
+            raise NotYourButton
 
         reference = interaction.message.reference
         if reference and delete_reference:
@@ -91,9 +91,19 @@ class View(discord.ui.View):
     async def on_error(
         self, interaction: discord.Interaction, error: Exception, item: discord.ui.Item
     ):
-        if isinstance(error, errors.NotYourButton):
+        if isinstance(error, NotYourButton):
             return await interaction.response.send_message(
                 error.reason or "This is not your button !", ephemeral=True
+            )
+
+        if error.__class__.__qualname__ == NoVoiceFound.__qualname__:
+            return await interaction.response.send_message(
+                embed=discord.Embed(
+                    title=":musical_note: No Voice Found",
+                    description=f"> Please join a voice channel first before using this command.",
+                    color=discord.Color.red(),
+                ),
+                delete_after=15,
             )
 
         # UNHANDLED ERRORS BELLOW
@@ -170,28 +180,28 @@ class Paginator:
 
     async def next_page(self, interaction: discord.Interaction):
         if interaction.user != self.ctx.author:
-            raise errors.NotYourButton
+            raise NotYourButton
 
         self.index += 1
         return await self.update_page(interaction)
 
     async def previous_page(self, interaction: discord.Interaction):
         if interaction.user != self.ctx.author:
-            raise errors.NotYourButton
+            raise NotYourButton
 
         self.index -= 1
         return await self.update_page(interaction)
 
     async def first_page(self, interaction: discord.Interaction):
         if interaction.user != self.ctx.author:
-            raise errors.NotYourButton
+            raise NotYourButton
 
         self.index = 0
         return await self.update_page(interaction)
 
     async def last_page(self, interaction: discord.Interaction):
         if interaction.user != self.ctx.author:
-            raise errors.NotYourButton
+            raise NotYourButton
 
         self.index = len(self.pages) - 1
         return await self.update_page(interaction)
