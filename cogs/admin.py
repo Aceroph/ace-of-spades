@@ -304,7 +304,14 @@ class Admin(subclasses.Cog):
 
             await ctx.send(
                 embed=embed,
-                view=subclasses.View().add_quit(ctx.author, ctx.guild, row=2),
+                view=subclasses.View().add_quit(
+                    author=ctx.author,
+                    guild=ctx.guild,
+                    delete_reference=False,
+                    label=None,
+                    style=discord.ButtonStyle.gray,
+                    emoji=misc.delete,
+                ),
             )
 
     @commands.guild_only()
@@ -368,7 +375,14 @@ class Admin(subclasses.Cog):
 
             await ctx.send(
                 embed=embed,
-                view=subclasses.View().add_quit(ctx.author, ctx.guild, row=2),
+                view=subclasses.View().add_quit(
+                    author=ctx.author,
+                    guild=ctx.guild,
+                    delete_reference=False,
+                    label=None,
+                    style=discord.ButtonStyle.gray,
+                    emoji=misc.delete,
+                ),
             )
 
     @commands.is_owner()

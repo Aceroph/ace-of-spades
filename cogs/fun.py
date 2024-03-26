@@ -142,9 +142,7 @@ class CountryGuessing:
 
         # It's like a super() but much worse
         if interaction.guild:
-            v = subclasses.View()
-            v.author = self.gamemaster
-            await v.quit_callback(interaction)
+            await subclasses.View.quit(interaction, interaction.user)
         else:
             await interaction.response.edit_message(view=None)
 

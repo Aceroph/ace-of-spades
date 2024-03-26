@@ -7,10 +7,11 @@ import re
 import os
 
 # Emojis
-dislike = "<:dislike:1221344532621164655>"
+yes = "<:yes:1221652590153171045>"
+no = "<:no:1221652589112721458>"
 members = "<:members:1221344536714809385>"
-delete = "<:delete:1221344534760525824>"
 server = "<:server:1221346764574031922>"
+delete = "<:delete:1221344534760525824>"
 curve = "<:curve:1210049217280745502>"
 space = "<:space:1210019090920382464>"
 tilde = "<:Tilde:1210003514479083581>"
