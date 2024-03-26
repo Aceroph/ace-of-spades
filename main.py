@@ -110,6 +110,6 @@ if __name__ == "__main__":
     intents.message_content = True
     intents.members = True
 
-    bot = AceBot(intents=intents)
+    bot = AceBot(intents=intents, help_command=None)
     bot.add_listener(bot.log_commands_run, "on_command_completion")
     bot.run(bot.token)
