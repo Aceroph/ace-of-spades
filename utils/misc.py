@@ -117,11 +117,11 @@ def time_format(time: int) -> str:
     hours, minutes = divmod(minutes, 60)
     days, hours = divmod(hours, 24)
     weeks, days = divmod(days, 7)
-    clean = f"{weeks}w {days}d {hours}h {minutes}m {seconds}s"
-    for _ in range(clean.count("0")):
-        index = clean.index("0")
-        clean = clean[:index] + clean[index + 3 :]
-    return clean or "0s"
+    clean = f" {weeks}w {days}d {hours}h {minutes}m {seconds}s"
+    for _ in range(clean.count(" 0")):
+        index = clean.index(" 0")
+        clean = clean[: index + 1] + clean[index + 4 :]
+    return clean.strip() or "0s"
 
 
 def clean_traceback(t: str) -> str:
