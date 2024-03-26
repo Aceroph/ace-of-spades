@@ -103,7 +103,7 @@ async def on_command_error(ctx: commands.Context, error: commands.CommandError):
 
         view = subclasses.View()
         view.add_item(_invoke)
-        view.add_quit(ctx.author, ctx.guild)
+        view.add_quit(ctx.author, ctx.guild, label="Nah")
 
         return await ctx.reply(
             f"Did you mean: `{correct_command.qualified_name}`",
