@@ -1,9 +1,13 @@
+import asyncio
 from typing import Union, TYPE_CHECKING, Generator
 from utils import subclasses, ui, misc
+from contextlib import redirect_stdout
 from discord.ext import commands
 from discord import app_commands
 from cogs import errors
 import unicodedata
+import traceback
+import textwrap
 import discord
 import pathlib
 import difflib
@@ -525,6 +529,159 @@ class Utility(subclasses.Cog):
             await ctx.interaction.channel.send(embed=embed, view=view)
         else:
             await ctx.reply(embed=embed, mention_author=False, view=view)
+
+    @commands.command(aliases=["py"])
+    @commands.is_owner()
+    async def python(self, ctx: commands.Context, *, body: str = None):
+        """Evaluates code"""
+
+        env = {
+            "bot": self.bot,
+            "ctx": ctx,
+            "channel": ctx.channel,
+            "author": ctx.author,
+            "guild": ctx.guild,
+            "msg": ctx.message,
+            "_": getattr(self, "_last_result", None),
+        }
+
+        env.update(globals())
+
+        # If no body, use reference, else cry ab it
+        if not body:
+            try:
+                if ctx.message.reference:
+                    pos = ctx.message.reference.resolved.content.find(ctx.invoked_with)
+                    body = ctx.message.reference.resolved.content[pos + 3 :]
+            except Exception as err:
+                await ctx.message.add_reaction(misc.no)
+                return await ctx.reply(
+                    f"Failed to find any executable : {err}",
+                    mention_author=False,
+                    delete_after=10,
+                )
+
+        # Get rid of codeblocks
+        if body.lstrip().startswith("```") and body.lstrip().endswith("```"):
+            body = "\n".join(body.split("\n")[1:-1])
+
+        stdout = io.StringIO()
+
+        # Make function
+        to_compile = f"async def func():\n"
+        for line in body.split("\n"):
+            if len(line.strip()) == 0:
+                continue
+
+            # Always return value
+            if line == body.split("\n")[-1]:
+                if not line.lstrip(" ").startswith(("return", "print")):
+                    indent = len(line) - len(line.lstrip(" "))
+                    to_compile += " " * (indent + 2) + "return " + line + "\n"
+                    break
+
+            to_compile += " " * 2 + line + "\n"
+
+        # Add function to globals
+        try:
+            exec(to_compile, env)
+        except Exception:
+            try:
+                await ctx.message.add_reaction(misc.no)
+            except:
+                pass
+
+            # If user reacts, send error
+            try:
+                await self.bot.wait_for(
+                    "reaction_add",
+                    check=lambda _, u: u == ctx.author,
+                    timeout=30,
+                )
+
+                embed = discord.Embed(
+                    title=":warning: Failed to compile",
+                    description=f"```py\n{misc.clean_traceback(traceback.format_exc())}```",
+                    color=discord.Color.red(),
+                )
+                embed.set_author(
+                    name=ctx.author.display_name, icon_url=ctx.author.avatar.url
+                )
+                view = subclasses.View()
+                view.add_quit(
+                    style=discord.ButtonStyle.gray,
+                    delete_reference=False,
+                    author=ctx.author,
+                    emoji=misc.delete,
+                    guild=ctx.guild,
+                    label=None,
+                )
+                return await ctx.reply(embed=embed, mention_author=False, view=view)
+            except asyncio.TimeoutError:
+                return
+
+        func = env["func"]
+
+        try:
+            with redirect_stdout(stdout):
+                ret = await func()
+        except Exception:
+            try:
+                await ctx.message.add_reaction(misc.no)
+            except:
+                pass
+
+            # If user reacts, send error
+            try:
+                await self.bot.wait_for(
+                    "reaction_add",
+                    check=lambda _, u: u == ctx.author,
+                    timeout=30,
+                )
+                value = stdout.getvalue()
+                embed = discord.Embed(
+                    title=f":warning: Failed to evaluate",
+                    description=f"```py\n{value}{misc.clean_traceback(traceback.format_exc())}```",
+                    color=discord.Color.red(),
+                )
+                view = subclasses.View()
+                view.add_quit(
+                    style=discord.ButtonStyle.gray,
+                    delete_reference=False,
+                    author=ctx.author,
+                    emoji=misc.delete,
+                    guild=ctx.guild,
+                    label=None,
+                )
+                return await ctx.reply(embed=embed, mention_author=False, view=view)
+            except asyncio.TimeoutError:
+                return
+
+        value = stdout.getvalue()
+        try:
+            await ctx.message.add_reaction(misc.yes)
+        except:
+            pass
+
+        # Buttons
+        view = subclasses.View()
+        view.add_quit(
+            style=discord.ButtonStyle.gray,
+            delete_reference=False,
+            author=ctx.author,
+            emoji=misc.delete,
+            guild=ctx.guild,
+            label=None,
+        )
+
+        if ret is None:
+            if value:
+                await ctx.reply(f"```py\n{value}\n```", mention_author=False, view=view)
+        else:
+            self._last_result = ret
+            await ctx.reply(
+                f"```py\n{value}{ret}\n```", mention_author=False, view=view
+            )
 
 
 async def setup(bot):
