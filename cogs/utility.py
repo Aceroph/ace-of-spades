@@ -610,7 +610,6 @@ class Utility(subclasses.Cog):
 
             to_compile += " " * 2 + line + "\n"
 
-
         self._last_eval = ctx
 
         # Add function to globals
@@ -676,7 +675,7 @@ class Utility(subclasses.Cog):
 
             embed = discord.Embed(
                 title=f":warning: Failed to evaluate",
-                description=f"```py\n{misc.clean_traceback("".join(traceback.format_exception(type(error), error, error.__traceback__)))}```",
+                description=f"```py\n{misc.clean_traceback(''.join(traceback.format_exception(type(error), error, error.__traceback__)))}```",
                 color=discord.Color.red(),
             )
             view = subclasses.View()
