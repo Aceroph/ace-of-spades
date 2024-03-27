@@ -22,7 +22,11 @@ class Music(subclasses.Cog):
 
     async def connection(self):
         nodes = [
-            wavelink.Node(uri="http://192.168.0.7:2333", password="youshallnotpass")
+            wavelink.Node(
+                uri="http://192.168.0.7:2333",
+                password="youshallnotpass",
+                inactive_player_timeout=180,
+            )
         ]
         self.nodes = await wavelink.Pool.connect(
             nodes=nodes, client=self.bot, cache_capacity=100
@@ -117,9 +121,22 @@ class Music(subclasses.Cog):
         )
 
     @subclasses.Cog.listener()
+    async def on_wavelink_inactive_player(self, player: wavelink.Player) -> None:
+        if self.home:
+            await self.home.send(
+                f"The player has been inactive for `{player.inactive_timeout}` seconds."
+            )
+        await player.disconnect()
+
+    @subclasses.Cog.listener()
     async def on_wavelink_track_start(
         self, payload: wavelink.TrackStartEventPayload
     ) -> None:
+        player = payload.player.silent
+        if hasattr(player, "silent"):
+            if player.silent:
+                return
+
         async with self.bot.pool.acquire() as conn:
             # +1 song played
             await conn.execute(
@@ -160,13 +177,14 @@ class Music(subclasses.Cog):
         await ctx.reply(msg, mention_author=False)
 
     @commands.guild_only()
-    @commands.command(aliases=["np", "now"])
     @commands.before_invoke(get_player)
+    @commands.command(aliases=["np", "now"])
     async def nowplaying(self, ctx: commands.Context) -> None:
         return await self.now_playing_logic(ctx)
 
-    @commands.command(aliases=["p"])
     @commands.guild_only()
+    @commands.command(aliases=["p"])
+    @commands.before_invoke(get_player)
     async def play(self, ctx: commands.Context, *, query: str) -> None:
         """Play a song with the given query."""
         if not hasattr(ctx, "player"):
@@ -174,7 +192,7 @@ class Music(subclasses.Cog):
                 ctx.player = await ctx.author.voice.channel.connect(cls=wavelink.Player)  # type: ignore
             except AttributeError:
                 raise NoVoiceFound
-            except discord.ClientException:
+            except discord.ClientException as err:
                 raise PlayerConnectionFailure()
 
         # Autoplay
