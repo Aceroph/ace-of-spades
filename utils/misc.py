@@ -92,10 +92,7 @@ def git_source(bot: commands.Bot, obj: str = None):
     if obj is None:
         return source_url
 
-    if obj == "help":
-        obj = bot.help_command
-    else:
-        obj = bot.get_command(obj.lower()) or bot.get_cog(obj.capitalize())
+    obj = bot.get_command(obj.lower()) or bot.get_cog(obj.capitalize())
 
     try:
         src = (
@@ -128,3 +125,16 @@ def clean_traceback(t: str) -> str:
     for r in re.finditer(re.escape(os.getcwd()), t, flags=re.IGNORECASE):
         t = t.replace(r.group(), f"~{os.sep}ace-of-spades")
     return t
+
+
+def clean_codeblock(codeblock: str, ctx: commands.Context = None) -> str:
+    clean: str = None
+    # Get rid of the prefix and command name
+    if ctx:
+        clean = codeblock.lstrip(ctx.prefix + ctx.command.qualified_name).strip()
+
+    # Remove those ```
+    if codeblock.startswith("```") and codeblock.endswith("```"):
+        clean = "\n".join(clean.split("\n")[1:-1])
+
+    return clean or codeblock

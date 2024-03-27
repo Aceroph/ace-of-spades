@@ -1,7 +1,7 @@
-from typing import Union, TYPE_CHECKING
 from utils import subclasses, misc
 from discord import app_commands
 from discord.ext import commands
+from typing import TYPE_CHECKING
 import textwrap
 import discord
 
@@ -10,42 +10,44 @@ if TYPE_CHECKING:
 
 
 async def filter_commands(
-    ctx: commands.Context, commands: list[commands.Command]
+    ctx: commands.Context, commands: list[commands.Command], show_hidden: bool = False
 ) -> list[commands.Command]:
     filtered_commands = []
     for cmd in commands:
         try:
-            if await cmd.can_run(ctx):
+            if await cmd.can_run(ctx) and (not cmd.hidden or show_hidden):
                 filtered_commands.append(cmd)
         except:
             pass
     return filtered_commands
 
 
-async def setup(bot: "AceBot"):
-    @bot.hybrid_command(name="help", aliases=["h"])
+class Help(subclasses.Cog):
+    def __init__(self, bot: "AceBot"):
+        self.bot = bot
+
+    @commands.hybrid_command(name="help", aliases=["h"], hidden=True)
     @app_commands.describe(entity="The command you need help with")
-    async def _help(ctx: commands.Context, entity: str = None):
+    async def _help(self, ctx: commands.Context, entity: str = None):
         """Perhaps you do not know how to use this bot?"""
         ctx.old = None
         ctx.old_view = None
 
         if entity:
-            command = bot.get_command(entity)
+            command = self.bot.get_command(entity)
             if not command:
                 return await ctx.reply(
                     f"No command called {entity}", mention_author=False
                 )
 
-            if command.name == "help":
-                return
-
-            if command not in await filter_commands(ctx, bot.walk_commands()):
+            if command not in await filter_commands(
+                ctx, self.bot.walk_commands(), show_hidden=True
+            ):
                 raise commands.CheckFailure
 
             embed = discord.Embed(
                 color=discord.Color.blurple(),
-                title=f"{command.qualified_name} {command.signature}",
+                title=f"{misc.info} {command.qualified_name} {command.signature}",
             )
             embed.set_author(
                 name=f"{ctx.author.display_name} : Help -> {command.cog.qualified_name}",
@@ -64,7 +66,7 @@ async def setup(bot: "AceBot"):
             mentions = [ctx.author.mention if not ctx.guild else "@everyone"]
             if isinstance(command, commands.HybridCommand):
                 app_cmds: list[app_commands.AppCommand] = (
-                    await bot.tree.fetch_commands()
+                    await self.bot.tree.fetch_commands()
                 )
                 for cmd in app_cmds:
                     if cmd.name == command.qualified_name:
@@ -131,7 +133,7 @@ async def setup(bot: "AceBot"):
                 )
 
                 # Modules & Commands
-                for name, module in bot.cogs.items():
+                for name, module in self.bot.cogs.items():
                     # Filter commands
                     filtered_commands = await filter_commands(
                         ctx, module.get_commands()
@@ -216,14 +218,18 @@ async def setup(bot: "AceBot"):
             await ctx.reply(embed=embed, view=view, mention_author=False)
 
     @_help.autocomplete("entity")
-    async def help_autocomplete(interaction: discord.Interaction, current: str):
+    async def help_autocomplete(self, interaction: discord.Interaction, current: str):
         return sorted(
             [
                 app_commands.Choice(
                     name=c.qualified_name.capitalize(), value=c.qualified_name
                 )
-                for c in bot.walk_commands()
+                for c in self.bot.walk_commands()
                 if current.casefold() in c.qualified_name or len(current) == 0
             ],
             key=lambda c: c.name,
         )[:25]
+
+
+async def setup(bot: "AceBot"):
+    await bot.add_cog(Help(bot))

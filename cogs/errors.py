@@ -28,13 +28,6 @@ class NotYourButton(app_commands.AppCommandError):
 async def on_command_error(ctx: commands.Context, error: commands.CommandError):
     if isinstance(error, commands.errors.CommandNotFound):
         command = ctx.message.content.split()[0].strip(ctx.prefix)
-        args = ctx.message.content.split()[1:]
-        # Help command alias
-        if command.casefold() == "h":
-            if args != []:
-                return await ctx.send_help(" ".join(args))
-            else:
-                return await ctx.send_help()
 
         # Get closest match for command
         correct_command: Union[commands.Command, commands.Group] = None
