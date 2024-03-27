@@ -184,9 +184,9 @@ class Music(subclasses.Cog):
 
     @commands.guild_only()
     @commands.command(aliases=["p"])
-    @commands.before_invoke(get_player)
     async def play(self, ctx: commands.Context, *, query: str) -> None:
         """Play a song with the given query."""
+        ctx.player = cast(wavelink.Player, ctx.voice_client)
         if not hasattr(ctx, "player"):
             try:
                 ctx.player = await ctx.author.voice.channel.connect(cls=wavelink.Player)  # type: ignore
