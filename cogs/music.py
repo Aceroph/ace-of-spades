@@ -192,7 +192,7 @@ class Music(subclasses.Cog):
                 ctx.player = await ctx.author.voice.channel.connect(cls=wavelink.Player)  # type: ignore
             except AttributeError:
                 raise NoVoiceFound
-            except discord.ClientException as err:
+            except discord.ClientException:
                 raise PlayerConnectionFailure()
 
         # Autoplay
