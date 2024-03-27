@@ -26,6 +26,10 @@ class NotYourButton(app_commands.AppCommandError):
 
 # Error handler
 async def on_command_error(ctx: commands.Context, error: commands.CommandError):
+    # Ignore all errors coming from the eval command
+    if ctx.command.qualified_name == "python":
+        return
+
     if isinstance(error, commands.errors.CommandNotFound):
         command = ctx.message.content.split()[0].strip(ctx.prefix)
 

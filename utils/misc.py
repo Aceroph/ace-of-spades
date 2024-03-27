@@ -128,13 +128,16 @@ def clean_traceback(t: str) -> str:
 
 
 def clean_codeblock(codeblock: str, ctx: commands.Context = None) -> str:
-    clean: str = None
-    # Get rid of the prefix and command name
-    if ctx:
-        clean = codeblock.lstrip(ctx.prefix + ctx.command.qualified_name).strip()
+    clean: str = codeblock
+    try:
+        # Get rid of the prefix and command name
+        if ctx:
+            clean = codeblock.lstrip(ctx.prefix + ctx.command.qualified_name).strip()
 
-    # Remove those ```
-    if codeblock.startswith("```") and codeblock.endswith("```"):
-        clean = "\n".join(clean.split("\n")[1:-1])
+        # Remove those ```
+        if codeblock.startswith("```") and codeblock.endswith("```"):
+            clean = "\n".join(clean.split("\n")[1:-1])
+    except:
+        pass
 
     return clean or codeblock

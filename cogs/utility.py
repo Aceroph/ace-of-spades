@@ -530,6 +530,36 @@ class Utility(subclasses.Cog):
         else:
             await ctx.reply(embed=embed, mention_author=False, view=view)
 
+    @commands.Cog.listener()
+    async def on_message_edit(self, old: discord.Message, new: discord.Message) -> None:
+        last: commands.Context = getattr(self, "_last_eval", None)
+        if not last or last.message.id != new.id:
+            return
+
+        await new.add_reaction(
+            "\N{CLOCKWISE RIGHTWARDS AND LEFTWARDS OPEN CIRCLE ARROWS}"
+        )
+
+        # If user reacts, re-run code
+        try:
+            await self.bot.wait_for(
+                "reaction_add",
+                check=lambda r, u: r.emoji
+                == "\N{CLOCKWISE RIGHTWARDS AND LEFTWARDS OPEN CIRCLE ARROWS}"
+                and u == new.author,
+                timeout=25,
+            )
+            try:
+                await new.clear_reactions()
+            except:
+                pass
+
+            body = misc.clean_codeblock(new.content, last)
+            await last.command.call_before_hooks(last)
+            return await last.invoke(last.command, body=body)
+        except asyncio.TimeoutError:
+            return
+
     @commands.command(aliases=["py"])
     @commands.is_owner()
     async def python(self, ctx: commands.Context, *, body: str = None):
@@ -556,7 +586,6 @@ class Utility(subclasses.Cog):
             "author": ctx.author,
             "guild": ctx.guild,
             "msg": ctx.message,
-            "_": getattr(self, "_last_result", None),
         }
 
         env.update(globals())
@@ -581,142 +610,87 @@ class Utility(subclasses.Cog):
 
             to_compile += " " * 2 + line + "\n"
 
+
+        self._last_eval = ctx
+
         # Add function to globals
+        exec(to_compile, env)
+
+        func = env["func"]
+
+        with redirect_stdout(stdout):
+            ret = await func()
+
+        value = stdout.getvalue()
         try:
-            exec(to_compile, env)
-        except Exception:
+            await ctx.message.add_reaction(misc.yes)
+        except:
+            pass
+
+        # Buttons
+        view = subclasses.View()
+        view.add_quit(
+            style=discord.ButtonStyle.gray,
+            delete_reference=False,
+            author=ctx.author,
+            emoji=misc.delete,
+            guild=ctx.guild,
+            label=None,
+        )
+
+        if ret is None:
+            if value:
+                await ctx.reply(f"```py\n{value}\n```", mention_author=False, view=view)
+        else:
             try:
-                await ctx.message.add_reaction(misc.no)
+                await ctx.reply(
+                    f"```py\n{value}{ret}\n```", mention_author=False, view=view
+                )
+            except discord.HTTPException:
+                embed = discord.Embed(title="Output")
+                paginator = subclasses.Paginator(
+                    ctx, embed, prefix="```py", suffix="```"
+                )
+                for line in textwrap.wrap(str(ret), width=70, break_long_words=False):
+                    paginator.add_line(line)
+                await paginator.start()
+
+    @python.error
+    async def eval_error(self, ctx: commands.Context, error: Exception):
+        try:
+            await ctx.message.add_reaction(misc.no)
+        except:
+            pass
+
+        # If user reacts, send error
+        try:
+            await self.bot.wait_for(
+                "reaction_add",
+                check=lambda r, u: u == ctx.author and str(r.emoji) == misc.no,
+                timeout=30,
+            )
+            try:
+                await ctx.message.clear_reactions()
             except:
                 pass
 
-            # If user reacts, send error
-            try:
-                await self.bot.wait_for(
-                    "reaction_add",
-                    check=lambda r, u: u == ctx.author and r.emoji == misc.no,
-                    timeout=30,
-                )
-                await ctx.message.remove_reaction(misc.no, ctx.author)
-
-                embed = discord.Embed(
-                    title=":warning: Failed to compile",
-                    description=f"```py\n{misc.clean_traceback(traceback.format_exc())}```",
-                    color=discord.Color.red(),
-                )
-                embed.set_author(
-                    name=ctx.author.display_name, icon_url=ctx.author.avatar.url
-                )
-                view = subclasses.View()
-                view.add_quit(
-                    style=discord.ButtonStyle.gray,
-                    delete_reference=False,
-                    author=ctx.author,
-                    emoji=misc.delete,
-                    guild=ctx.guild,
-                    label=None,
-                )
-                await ctx.reply(embed=embed, mention_author=False, view=view)
-            except asyncio.TimeoutError:
-                pass
-
-        func = env.get("func", None)
-
-        if func:
-            try:
-                with redirect_stdout(stdout):
-                    ret = await func()
-
-                value = stdout.getvalue()
-                try:
-                    await ctx.message.add_reaction(misc.yes)
-                except:
-                    pass
-
-                # Buttons
-                view = subclasses.View()
-                view.add_quit(
-                    style=discord.ButtonStyle.gray,
-                    delete_reference=False,
-                    author=ctx.author,
-                    emoji=misc.delete,
-                    guild=ctx.guild,
-                    label=None,
-                )
-
-                if ret is None:
-                    if value:
-                        await ctx.reply(
-                            f"```py\n{value}\n```", mention_author=False, view=view
-                        )
-                else:
-                    self._last_result = ret
-                    await ctx.reply(
-                        f"```py\n{value}{ret}\n```", mention_author=False, view=view
-                    )
-
-            except Exception:
-                try:
-                    await ctx.message.add_reaction(misc.no)
-                except:
-                    pass
-
-                # If user reacts, send error
-                try:
-                    await self.bot.wait_for(
-                        "reaction_add",
-                        check=lambda r, u: u == ctx.author and r.emoji == misc.no,
-                        timeout=30,
-                    )
-                    await ctx.message.remove_reaction(misc.no, ctx.author)
-
-                    value = stdout.getvalue()
-                    embed = discord.Embed(
-                        title=f":warning: Failed to evaluate",
-                        description=f"```py\n{value}{misc.clean_traceback(traceback.format_exc())}```",
-                        color=discord.Color.red(),
-                    )
-                    view = subclasses.View()
-                    view.add_quit(
-                        style=discord.ButtonStyle.gray,
-                        delete_reference=False,
-                        author=ctx.author,
-                        emoji=misc.delete,
-                        guild=ctx.guild,
-                        label=None,
-                    )
-                    await ctx.reply(embed=embed, mention_author=False, view=view)
-                except asyncio.TimeoutError:
-                    pass
-
-        # Re-run code on edit
-        try:
-            _, new = await self.bot.wait_for(
-                "message_edit",
-                check=lambda old, _: old.id == ctx.message.id
-                and old.author == ctx.author,
-                timeout=45,
+            embed = discord.Embed(
+                title=f":warning: Failed to evaluate",
+                description=f"```py\n{misc.clean_traceback("".join(traceback.format_exception(type(error), error, error.__traceback__)))}```",
+                color=discord.Color.red(),
             )
-            await new.add_reaction(
-                "\N{CLOCKWISE RIGHTWARDS AND LEFTWARDS OPEN CIRCLE ARROWS}"
+            view = subclasses.View()
+            view.add_quit(
+                style=discord.ButtonStyle.gray,
+                delete_reference=False,
+                author=ctx.author,
+                emoji=misc.delete,
+                guild=ctx.guild,
+                label=None,
             )
-
-            # If user reacts, re-run code
-            await self.bot.wait_for(
-                "reaction_add",
-                check=lambda r, u: r.emoji
-                == "\N{CLOCKWISE RIGHTWARDS AND LEFTWARDS OPEN CIRCLE ARROWS}"
-                and u == ctx.author,
-                timeout=25,
-            )
-            await ctx.message.remove_reaction(
-                "\N{CLOCKWISE RIGHTWARDS AND LEFTWARDS OPEN CIRCLE ARROWS}", ctx.author
-            )
-            body = misc.clean_codeblock(new.content, ctx)
-            await ctx.command.call_before_hooks(ctx)
-            return await ctx.invoke(ctx.command, body=body)
+            await ctx.reply(embed=embed, mention_author=False, view=view)
         except asyncio.TimeoutError:
-            return
+            pass
 
 
 async def setup(bot):

@@ -144,7 +144,7 @@ class Paginator:
         self,
         ctx: commands.Context,
         embed: discord.Embed,
-        max_lines: int = 25,
+        max_lines: int = None,
         prefix: str = None,
         suffix: str = None,
     ) -> None:
@@ -163,14 +163,26 @@ class Paginator:
         self.view = View()
 
     def add_line(self, line: str = "") -> None:
-        self.current_page.append(line)
+        if self.max_lines:
+            self.current_page.append(line)
 
-        if len(self.current_page) == self.max_lines - 1:
-            self.pages.append(self.prefix + "\n".join(self.current_page) + self.suffix)
-            self.current_page = []
+            if len(self.current_page) == self.max_lines - 1:
+                self.add_page("\n".join(self.current_page))
+        else:
+            if len("\n".join(self.current_page)) + len(line) >= 2000:
+                self.add_page()
+                self.current_page.append(line)
+            else:
+                self.current_page.append(line)
 
-    def add_page(self, page: str) -> None:
-        self.pages.append(self.prefix + page + self.suffix)
+            if len("\n".join(self.current_page)) == 2000:
+                self.add_page()
+
+    def add_page(self, page: str = None) -> None:
+        self.pages.append(
+            self.prefix + (page or "\n".join(self.current_page)) + self.suffix
+        )
+        self.current_page = []
 
     async def start(self):
         self.embed.description = self.pages[self.index]
