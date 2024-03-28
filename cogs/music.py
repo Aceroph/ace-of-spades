@@ -1,3 +1,4 @@
+import traceback
 from cogs.errors import NoVoiceFound, PlayerConnectionFailure
 from typing import TYPE_CHECKING, cast, Union
 from utils import subclasses, misc
@@ -26,6 +27,7 @@ class Music(subclasses.Cog):
                 uri="http://192.168.0.7:2333",
                 password="youshallnotpass",
                 inactive_player_timeout=180,
+                resume_timeout=300,
             )
         ]
         self.nodes = await wavelink.Pool.connect(
@@ -129,15 +131,21 @@ class Music(subclasses.Cog):
         await player.disconnect()
 
     @subclasses.Cog.listener()
+    async def on_wavelink_track_exception(
+        self, payload: wavelink.TrackExceptionEventPayload
+    ) -> None:
+        print(payload.exception)
+
+    @subclasses.Cog.listener()
     async def on_wavelink_track_start(
         self, payload: wavelink.TrackStartEventPayload
     ) -> None:
-        player = payload.player.silent
-        if hasattr(player, "silent"):
-            if player.silent:
-                return
-
         async with self.bot.pool.acquire() as conn:
+            is_silent: bool = await conn.fetchone(
+                "SELECT value FROM guildConfig WHERE id = ? AND key = 'silent';",
+                (payload.player.guild.id),
+            )
+
             # +1 song played
             await conn.execute(
                 "INSERT INTO statistics (id, key, value) VALUES (?, ?, 1) ON CONFLICT(id, key) DO UPDATE SET value = value + 1;",
@@ -157,7 +165,8 @@ class Music(subclasses.Cog):
             )
             await conn.commit()
 
-        return await self.now_playing_logic(payload)
+        if not is_silent:
+            return await self.now_playing_logic(payload)
 
     @commands.command()
     @commands.is_owner()
@@ -186,17 +195,20 @@ class Music(subclasses.Cog):
     @commands.command(aliases=["p"])
     async def play(self, ctx: commands.Context, *, query: str) -> None:
         """Play a song with the given query."""
-        ctx.player = cast(wavelink.Player, ctx.voice_client)
-        if not hasattr(ctx, "player"):
+        player = cast(wavelink.Player, ctx.voice_client)
+        if not player:
             try:
-                ctx.player = await ctx.author.voice.channel.connect(cls=wavelink.Player)  # type: ignore
+                player = await ctx.author.voice.channel.connect(cls=wavelink.Player)  # type: ignore
             except AttributeError:
                 raise NoVoiceFound
             except discord.ClientException:
                 raise PlayerConnectionFailure()
 
+        if not hasattr(ctx, "player"):
+            ctx.player = player
+
         # Autoplay
-        ctx.player.autoplay = wavelink.AutoPlayMode.enabled
+        player.autoplay = wavelink.AutoPlayMode.enabled
 
         tracks: wavelink.Search = await wavelink.Playable.search(query)
         if not tracks:
@@ -217,7 +229,7 @@ class Music(subclasses.Cog):
                     "icon_url": ctx.author.display_avatar.url,
                 }
 
-            added: int = await ctx.player.queue.put_wait(tracks)
+            added: int = await player.queue.put_wait(tracks)
 
             length = sum([t.length // 1000 for t in tracks.tracks])
             length_fmt = f"{length//3600}h{format(length//60 % 60, '02d')}m{format(length % 60, '02d')}s"
@@ -236,15 +248,15 @@ class Music(subclasses.Cog):
                 "icon_url": ctx.author.display_avatar.url,
             }
 
-            await ctx.player.queue.put_wait(track)
+            await player.queue.put_wait(track)
             embed = discord.Embed(
                 title="Added song to queue",
                 description=f"\N{MUSICAL SYMBOL EIGHTH NOTE} {self.clean_title(track)}\n{misc.curve} by `{track.author}`",
             )
             await ctx.reply(embed=embed, mention_author=False)
 
-        if not ctx.player.playing:
-            await ctx.player.play(ctx.player.queue.get(), volume=30)
+        if not player.playing:
+            await player.play(player.queue.get(), volume=30)
 
     @commands.command()
     @commands.guild_only()
@@ -351,17 +363,27 @@ class Music(subclasses.Cog):
         await ctx.player.disconnect()
         await ctx.reply("Stopped playing music", mention_author=False)
 
-    @commands.before_invoke(get_player)
     @commands.command(aliases=["hush", "shush", "stfu", "silence"])
     async def shutup(self, ctx: commands.Context):
         """Makes the bot stop announcing every song
         Preferably use `nowplaying` to see what the bot is singing"""
-        if hasattr(ctx.player, "silent"):
-            ctx.player.silent = not ctx.player.silent
-        else:
-            ctx.player.silent = True
+        async with self.bot.pool.acquire() as conn:
+            is_silent = await conn.fetchone(
+                "SELECT value FROM guildConfig WHERE id = ? AND key = 'silent';",
+                (ctx.guild.id),
+            )
 
-        if ctx.player.silent:
+            if is_silent:
+                await conn.execute("DELETE FROM guildConfig WHERE key = 'silent';")
+            else:
+                await conn.execute(
+                    "INSERT INTO guildConfig (id, key, value) VALUES (:id, 'silent', :value);",
+                    {"id": ctx.guild.id, "value": True},
+                )
+
+            await conn.commit()
+
+        if not is_silent:
             await ctx.message.add_reaction("\N{FACE WITH FINGER COVERING CLOSED LIPS}")
         else:
             await ctx.message.add_reaction(
