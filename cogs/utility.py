@@ -1,5 +1,5 @@
 import asyncio
-from typing import Callable, Union, TYPE_CHECKING, Generator
+from typing import Callable, Literal, Optional, Union, TYPE_CHECKING, Generator
 from utils import subclasses, ui, misc
 from contextlib import redirect_stdout
 from discord.ext import commands
@@ -690,6 +690,13 @@ class Utility(subclasses.Cog):
             await ctx.reply(embed=embed, mention_author=False, view=view)
         except asyncio.TimeoutError:
             pass
+    
+    @commands.command()
+    @commands.is_owner()
+    async def test(
+        self, ctx: commands.Context, source: Optional[Literal["py", "wl"]] = "d.py", *, rest: str
+    ) -> None:
+        await ctx.send(f"uh source : `{source}`\n-> {rest}")
 
 
 async def setup(bot):

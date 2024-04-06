@@ -6,8 +6,8 @@ import asqlite
 import aiohttp
 import pathlib
 import logging
-import dotenv
 import time
+import json
 
 # FILE MANAGEMENT
 directory = pathlib.Path(__file__).parent
@@ -27,7 +27,7 @@ LOGGER.addHandler(handler)
 
 
 def prefix(bot: "AceBot", msg: discord.abc.Messageable):
-    p = dotenv.dotenv_values(".env")["PREFIX"]
+    p = bot.config["prefix"]
     return [p.lower(), p.upper()]
 
 
@@ -39,7 +39,9 @@ class AceBot(commands.Bot):
             *args,
             **kwargs,
         )
-        self.token = dotenv.dotenv_values(".env")["TOKEN"]
+        with open("config.json", "r") as cfg:
+            self.config: dict = json.load(cfg)
+
         self.owner_id = 493107597281329185
         self.case_insensitive = True
         self.boot = time.time()
@@ -112,4 +114,4 @@ if __name__ == "__main__":
 
     bot = AceBot(intents=intents, help_command=None)
     bot.add_listener(bot.log_commands_run, "on_command_completion")
-    bot.run(bot.token)
+    bot.run(bot.config["token"])

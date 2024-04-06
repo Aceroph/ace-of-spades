@@ -20,14 +20,16 @@ class Music(subclasses.Cog):
         self.emoji = "\N{MUSICAL NOTE}"
         self.home: discord.TextChannel = None
         self.nodes: dict[str, wavelink.Node] = None
+        self.config = bot.config["wavelink"]
 
     async def connection(self):
         nodes = [
             wavelink.Node(
-                uri="http://192.168.0.7:2333",
-                password="youshallnotpass",
+                uri=self.config["uri"],
+                password=self.config["passwd"],
                 inactive_player_timeout=180,
                 resume_timeout=300,
+                retries=5,
             )
         ]
         self.nodes = await wavelink.Pool.connect(
@@ -168,7 +170,7 @@ class Music(subclasses.Cog):
         if not is_silent:
             return await self.now_playing_logic(payload)
 
-    @commands.command()
+    @commands.group()
     @commands.is_owner()
     async def lavalink(self, ctx: commands.Context) -> None:
         node = (
@@ -182,7 +184,7 @@ class Music(subclasses.Cog):
         plugins = "\n - " + "\n - ".join(
             [f"{plg.name} ({plg.version})" for plg in info.plugins]
         )
-        msg = f"```\nstatus: {node.status}\n\njvm: {info.jvm}\nlavaplayer: {info.lavaplayer}\n\nsources:{sources}\n\nplugins: {plugins if len(info.plugins) > 0 else 'none'}```"
+        msg = f"```\nstatus: {node.status}\n\njvm: {info.jvm}\nlavaplayer: {info.lavaplayer}\nwavelink: {wavelink.__version__}\n\nsources:{sources}\n\nplugins: {plugins if len(info.plugins) > 0 else 'none'}```"
         await ctx.reply(msg, mention_author=False)
 
     @commands.guild_only()

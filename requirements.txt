@@ -1,6 +1,5 @@
 asqlite @ git+https://github.com/Rapptz/asqlite@fcd8ce0672562e440f99eb4b7a56eba16f6abf4e
 discord.py[voice]
-python-dotenv
 requests
 tabulate
 wavelink
