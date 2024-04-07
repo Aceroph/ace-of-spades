@@ -1,5 +1,6 @@
+from typing import Optional, Literal
 from discord.ext import commands
-from typing import Optional
+import requests
 import datetime
 import inspect
 import discord
@@ -17,6 +18,8 @@ space = "<:space:1210019090920382464>"
 tilde = "<:Tilde:1210003514479083581>"
 info = "<:info:1221344535754313758>"
 dev = "<:dev:1221284499321651210>"
+blueline = "<:blueline:1224902075226390638>"
+whiteline = "<:whiteline:1224902073980682272>"
 
 # Images
 python = "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c3/Python-logo-notext.svg/1200px-Python-logo-notext.svg.png"
@@ -135,9 +138,22 @@ def clean_codeblock(codeblock: str, ctx: commands.Context = None) -> str:
             clean = codeblock.lstrip(ctx.prefix + ctx.command.qualified_name).strip()
 
         # Remove those ```
-        if codeblock.startswith("```") and codeblock.endswith("```"):
-            clean = "\n".join(clean.split("\n")[1:-1])
+        clean = clean.strip("`")
     except:
         pass
 
     return clean or codeblock
+
+
+runtimes: dict = requests.get("https://emkc.org/api/v2/piston/runtimes").json()
+
+
+class RuntimeType(commands.Converter):
+    async def convert(self, context: commands.Context, language: str) -> dict:
+        for r in runtimes:
+            if (
+                language.casefold() == r["language"]
+                or language.casefold() in r["aliases"]
+            ):
+                return r
+        return None

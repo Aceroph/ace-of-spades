@@ -1,6 +1,5 @@
-import asyncio
 from typing import Callable, Literal, Optional, Union, TYPE_CHECKING, Generator
-from utils import subclasses, ui, misc
+from utils import subclasses, ui, misc, paginator
 from contextlib import redirect_stdout
 from discord.ext import commands
 from discord import app_commands
@@ -10,9 +9,11 @@ import traceback
 import textwrap
 import discord
 import pathlib
+import asyncio
 import difflib
 import psutil
 import zlib
+import json
 import time
 import io
 import re
@@ -64,7 +65,7 @@ class Utility(subclasses.Cog):
             "wavelink": "https://wavelink.dev/en/latest/",
         }
 
-    def cog_load(self):
+    async def cog_load(self):
         self.bot.add_view(ui.PartyMenu(self.bot, {}))
         self.bot.logger.info(
             "Loaded persistent view %s from %s",
@@ -199,7 +200,6 @@ class Utility(subclasses.Cog):
             i += 1
 
         embed = discord.Embed(
-            title=f"Converted {len(results)} character{'s' if len(results) > 1 else ''}",
             description="\n".join(
                 [
                     f"[{c[0]}] {c[2]} #{ord(c[0]) if len(c[0]) == 1 else 0}```\n{c[1]}```"
@@ -325,7 +325,7 @@ class Utility(subclasses.Cog):
         await ctx.reply(embed=embed, mention_author=False)
 
     @commands.group(invoke_without_command=True, aliases=["rtfd"])
-    async def rtfm(self, ctx: commands.Context, obj: str = None):
+    async def rtfm(self, ctx: commands.Context, source: str = None, obj: str = None):
         """Read The Fucking Manual
         Will fetch discord.py docs for the specifed object"""
         await self.do_rtfm(ctx, obj=obj)
@@ -560,141 +560,97 @@ class Utility(subclasses.Cog):
         except asyncio.TimeoutError:
             return
 
-    @commands.command(aliases=["py"])
-    @commands.is_owner()
-    async def python(self, ctx: commands.Context, *, body: str = None):
-        """Evaluates code"""
-        # If no body, use reference, else cry ab it
-        if not body:
-            try:
-                if ctx.message.reference:
-                    body = misc.clean_codeblock(
-                        ctx.message.reference.resolved.content, ctx
-                    )
-            except Exception as err:
-                await ctx.message.add_reaction(misc.no)
-                return await ctx.reply(
-                    f"Failed to find any executable : {err}",
-                    mention_author=False,
-                    delete_after=10,
-                )
-
-        env = {
-            "bot": self.bot,
-            "ctx": ctx,
-            "channel": ctx.channel,
-            "author": ctx.author,
-            "guild": ctx.guild,
-            "msg": ctx.message,
-        }
-
-        env.update(globals())
+    @commands.hybrid_command(name="eval")
+    @app_commands.describe(
+        language="The language to run the code with", body="The code to run"
+    )
+    async def _eval(
+        self,
+        ctx: commands.Context,
+        language: Optional[misc.RuntimeType] = None,
+        *,
+        body: str,
+    ):
+        """Runs code in the specified language, aliases work too !"""
 
         # Clean body
         body = misc.clean_codeblock(body)
 
-        stdout = io.StringIO()
+        # Defaults to python
+        if not language:
+            language = await misc.RuntimeType().convert(context=ctx, language="python")
 
-        # Make function
-        to_compile = f"async def func():\n"
-        for line in body.split("\n"):
-            if len(line.strip()) == 0:
-                continue
+        # Format code if python
+        if language["language"] == "python":
+            code = ""
+            for line in body.split("\n"):
+                if len(line.strip()) == 0:
+                    continue
 
-            # Always return value
-            if line == body.split("\n")[-1]:
-                if not line.lstrip(" ").startswith(("return", "print")):
-                    indent = len(line) - len(line.lstrip(" "))
-                    to_compile += " " * (indent + 2) + "return " + line + "\n"
-                    break
+                # Always return value
+                if line == body.split("\n")[-1]:
+                    if not line.lstrip(" ").startswith(("return", "print")):
+                        indent = len(line) - len(line.lstrip(" "))
+                        code += " " * (indent) + f"print({line})"
+                        break
 
-            to_compile += " " * 2 + line + "\n"
+                code += line + "\n"
+            body = code
 
-        self._last_eval = ctx
+        payload = {
+            "language": language["language"],
+            "version": language["version"],
+            "files": [{"content": body}],
+        }
+        response = await (
+            await self.bot.session.post(
+                "https://emkc.org/api/v2/piston/execute", data=json.dumps(payload)
+            )
+        ).json()
 
-        # Add function to globals
-        exec(to_compile, env)
+        output = response["run"]["output"] or "No output"
+        if len(output.split("\n")) > 20:
+            output = "\n".join(output.split("\n")[:20]) + "\n..."
 
-        func = env["func"]
-
-        with redirect_stdout(stdout):
-            ret = await func()
-
-        value = stdout.getvalue()
-        try:
-            await ctx.message.add_reaction(misc.yes)
-        except:
-            pass
-
-        # Buttons
         view = subclasses.View()
         view.add_quit(
+            ctx.author,
+            ctx.guild,
+            False,
             style=discord.ButtonStyle.gray,
-            delete_reference=False,
-            author=ctx.author,
             emoji=misc.delete,
-            guild=ctx.guild,
-            label=None,
+            label="Delete",
         )
 
-        if ret is None:
-            if value:
-                await ctx.reply(f"```py\n{value}\n```", mention_author=False, view=view)
+        msg = await ctx.reply(f"```py\n{output}```", mention_author=False, view=view)
+
+        origin = ctx.message if not ctx.interaction else msg
+        if response["run"]["code"] != 0:
+            await origin.add_reaction(misc.no)
         else:
-            try:
-                await ctx.reply(
-                    f"```py\n{value}{ret}\n```", mention_author=False, view=view
-                )
-            except discord.HTTPException:
-                embed = discord.Embed(title="Output")
-                paginator = subclasses.Paginator(
-                    ctx, embed, prefix="```py", suffix="```"
-                )
-                for line in textwrap.wrap(str(ret), width=70, break_long_words=False):
-                    paginator.add_line(line)
-                await paginator.start()
+            await origin.add_reaction(misc.yes)
 
-    @python.error
-    async def eval_error(self, ctx: commands.Context, error: Exception):
-        try:
-            await ctx.message.add_reaction(misc.no)
-        except:
-            pass
+    @_eval.autocomplete("language")
+    async def help_autocomplete(self, interaction: discord.Interaction, current: str):
+        # Avoid repetition
+        names = set(
+            r["language"]
+            for r in misc.runtimes
+            if current.casefold() in r["language"] or len(current) == 0
+        )
+        return sorted(
+            [app_commands.Choice(name=n.capitalize(), value=n) for n in names],
+            key=lambda c: c.name,
+        )[:25]
 
-        # If user reacts, send error
-        try:
-            await self.bot.wait_for(
-                "reaction_add",
-                check=lambda r, u: u == ctx.author and str(r.emoji) == misc.no,
-                timeout=30,
-            )
-            try:
-                await ctx.message.clear_reactions()
-            except:
-                pass
-
-            embed = discord.Embed(
-                title=f":warning: Failed to evaluate",
-                description=f"```py\n{misc.clean_traceback(''.join(traceback.format_exception(type(error), error, error.__traceback__)))}```",
-                color=discord.Color.red(),
-            )
-            view = subclasses.View()
-            view.add_quit(
-                style=discord.ButtonStyle.gray,
-                delete_reference=False,
-                author=ctx.author,
-                emoji=misc.delete,
-                guild=ctx.guild,
-                label=None,
-            )
-            await ctx.reply(embed=embed, mention_author=False, view=view)
-        except asyncio.TimeoutError:
-            pass
-    
     @commands.command()
     @commands.is_owner()
     async def test(
-        self, ctx: commands.Context, source: Optional[Literal["py", "wl"]] = "d.py", *, rest: str
+        self,
+        ctx: commands.Context,
+        source: Optional[Literal["py", "wl"]] = "d.py",
+        *,
+        rest: str,
     ) -> None:
         await ctx.send(f"uh source : `{source}`\n-> {rest}")
 
