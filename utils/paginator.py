@@ -51,6 +51,8 @@ class Paginator:
 
     async def start(self):
         self.update_buttons(self.ctx.author)
+        self.add_page()
+
         if self.embed:
             self.embed.description = self.pages[self.index]
             self.embed.set_footer(text=f"Page {self.index+1} of {len(self.pages)}")

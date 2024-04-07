@@ -91,7 +91,7 @@ class View(discord.ui.View):
     async def on_error(
         self, interaction: discord.Interaction, error: Exception, item: discord.ui.Item
     ):
-        if isinstance(error, NotYourButton):
+        if error.__class__.__qualname__ == NotYourButton.__qualname__:
             return await interaction.response.send_message(
                 error.reason or "This is not your button !", ephemeral=True
             )

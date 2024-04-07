@@ -1,9 +1,10 @@
-import traceback
 from cogs.errors import NoVoiceFound, PlayerConnectionFailure
 from typing import TYPE_CHECKING, cast, Union
-from utils import subclasses, misc
+from utils import subclasses, misc, paginator
 from discord.ext import commands
+from discord import app_commands
 from tabulate import tabulate
+import traceback
 import wavelink
 import textwrap
 import discord
@@ -39,24 +40,6 @@ class Music(subclasses.Cog):
     async def cog_load(self):
         await self.connection()
 
-    def clean_title(self, track: wavelink.Playable):
-        regexes = [
-            r"[\[\(][A-z0-9\s]*[\]\)]",
-            r"[^a-zA-Z0-9\s\\\/]",
-            track.author,
-            r"[[:punct:]] ",
-        ]
-        clean: str = track.title
-        matches = (
-            re.findall(pattern=regex, string=clean, flags=re.IGNORECASE)
-            for regex in regexes
-        )
-        for x in matches:
-            for y in x:
-                clean = clean.replace(y, "")
-
-        return clean
-
     async def now_playing_logic(
         self, origin: Union[commands.Context, wavelink.TrackStartEventPayload]
     ):
@@ -69,23 +52,21 @@ class Music(subclasses.Cog):
         track: wavelink.Playable = (
             origin.original if hasattr(origin, "original") else player.current
         )
-        clean_title = self.clean_title(track)
 
         length = f"{track.length//60000}:{format(track.length//1000 % 60, '02d')}"
         current_time = (
             f"{player.position//60000}:{format(player.position//1000 % 60, '02d')}"
         )
-        bar_length = max(int(len(clean_title) // 1.5) - 6, 20)
-        fraction = int(player.position / track.length * bar_length)
+        fraction = int(player.position / track.length * 10)
 
         progress_bar = (
-            f"\n\n```\n{current_time} [{fraction * '='}{(bar_length - fraction) * '-'}] {length}```"
+            f"\n\n{current_time} {fraction * misc.blueline}{(10 - fraction) * misc.whiteline} {length}"
             if isinstance(origin, commands.Context)
             else ""
         )
         embed = discord.Embed(
             title="Now Playing",
-            description=f"\N{MUSICAL SYMBOL EIGHTH NOTE} {clean_title}\n{misc.curve} by `{track.author}`"
+            description=f"\N{OPTICAL DISC} [`{track.title}`]({track.uri})\n{misc.curve} *by:* {track.author}"
             + progress_bar,
             color=discord.Color.blurple(),
         )
@@ -128,7 +109,7 @@ class Music(subclasses.Cog):
     async def on_wavelink_inactive_player(self, player: wavelink.Player) -> None:
         if self.home:
             await self.home.send(
-                f"The player has been inactive for `{player.inactive_timeout}` seconds."
+                f"The player has been inactive for `{player.inactive_timeout//60}` minutes."
             )
         await player.disconnect()
 
@@ -189,12 +170,14 @@ class Music(subclasses.Cog):
 
     @commands.guild_only()
     @commands.before_invoke(get_player)
-    @commands.command(aliases=["np", "now"])
+    @commands.hybrid_command(aliases=["np", "now"])
     async def nowplaying(self, ctx: commands.Context) -> None:
+        """Shows the current playing song"""
         return await self.now_playing_logic(ctx)
 
     @commands.guild_only()
-    @commands.command(aliases=["p"])
+    @commands.hybrid_command(aliases=["p"])
+    @app_commands.describe(query="The song or link to search for")
     async def play(self, ctx: commands.Context, *, query: str) -> None:
         """Play a song with the given query."""
         player = cast(wavelink.Player, ctx.voice_client)
@@ -238,7 +221,7 @@ class Music(subclasses.Cog):
 
             embed = discord.Embed(
                 title="Added playlist to queue",
-                description=f"\N{MUSICAL SYMBOL EIGHTH NOTE} loaded `{added}` songs from `{tracks.name}`\n{misc.curve}total length: {length_fmt}",
+                description=f"\N{OPTICAL DISC} loaded `{added}` songs from [`{tracks.name}`]({query})\n{misc.curve}total length: {length_fmt}",
             )
             await ctx.reply(embed=embed, mention_author=False)
 
@@ -253,30 +236,28 @@ class Music(subclasses.Cog):
             await player.queue.put_wait(track)
             embed = discord.Embed(
                 title="Added song to queue",
-                description=f"\N{MUSICAL SYMBOL EIGHTH NOTE} {self.clean_title(track)}\n{misc.curve} by `{track.author}`",
+                description=f"\N{OPTICAL DISC} [`{track.title}`]({track.uri})\n{misc.curve} by `{track.author}`",
             )
             await ctx.reply(embed=embed, mention_author=False)
 
         if not player.playing:
             await player.play(player.queue.get(), volume=30)
 
-    @commands.command()
     @commands.guild_only()
     @commands.before_invoke(get_player)
+    @commands.hybrid_group(aliases=["q"], fallback="show", invoke_without_command=True)
     async def queue(self, ctx: commands.Context):
         """Lists the next titles and position in the queue"""
 
         length = len(ctx.player.queue._items)
         if length > 0:
-            paginator = subclasses.Paginator(
+            p = paginator.Paginator(
                 ctx=ctx,
                 embed=discord.Embed(
                     title=f"Queue ({str(length) + ' songs' if length > 1 else str(length) + ' song'})",
                     color=discord.Color.blurple(),
                 ),
                 max_lines=20,
-                prefix="```",
-                suffix="```",
             )
             items = [
                 [
@@ -284,27 +265,27 @@ class Music(subclasses.Cog):
                     textwrap.shorten(
                         track.title, 45, break_long_words=False, placeholder="..."
                     ),
+                    track.uri,
                 ]
                 for i, track in enumerate(ctx.player.queue._items)
             ]
-            pages = [items[p : p + 20] for p in range(0, len(items), 20)]
+            for item in items:
+                p.add_line(f"`{item[0]}` | [`{item[1]}`]({item[2]})")
 
-            for page in pages:
-                table = tabulate(
-                    headers=["No#", "Track"],
-                    tabular_data=page,
-                    tablefmt="outline",
-                    stralign="left",
-                    numalign="left",
-                )
-                paginator.add_page(table)
-
-            await paginator.start()
+            await p.start()
         else:
             await ctx.reply("Queue empty !", mention_author=False)
 
-    @commands.command()
+    @queue.command(name="clear")
+    @commands.before_invoke(get_player)
+    async def queue_clear(self, ctx: commands.Context):
+        """Clears the queue and stops the music"""
+        ctx.player.queue.clear()
+        ctx.player.playing = False
+        await ctx.reply("Cleared queue", mention_author=False)
+
     @commands.guild_only()
+    @commands.hybrid_command()
     @commands.before_invoke(get_player)
     async def shuffle(self, ctx: commands.Context):
         """Shuffles the current player's queue"""
@@ -325,9 +306,9 @@ class Music(subclasses.Cog):
 
         await ctx.reply(embed=embed, mention_author=False)
 
-    @commands.command()
     @commands.guild_only()
     @commands.before_invoke(get_player)
+    @commands.hybrid_command(aliases=["unpause"])
     async def pause(self, ctx: commands.Context):
         """Pauses or resumes activity"""
 
@@ -348,8 +329,8 @@ class Music(subclasses.Cog):
         await ctx.reply(embed=embed, mention_author=False)
 
     @commands.guild_only()
-    @commands.command(aliases=["next"])
     @commands.before_invoke(get_player)
+    @commands.hybrid_command(aliases=["next"])
     async def skip(self, ctx: commands.Context):
         """Skips the current song"""
 
@@ -357,15 +338,16 @@ class Music(subclasses.Cog):
         await ctx.reply("Skipped song", mention_author=False)
 
     @commands.guild_only()
-    @commands.command(aliases=["quit"])
     @commands.before_invoke(get_player)
+    @commands.hybrid_command(aliases=["quit"])
     async def stop(self, ctx: commands.Context):
         """Stops playing music and disconnects the player"""
 
         await ctx.player.disconnect()
         await ctx.reply("Stopped playing music", mention_author=False)
 
-    @commands.command(aliases=["hush", "shush", "stfu", "silence"])
+    @commands.guild_only()
+    @commands.hybrid_command(aliases=["hush", "shush", "stfu", "silence"])
     async def shutup(self, ctx: commands.Context):
         """Makes the bot stop announcing every song
         Preferably use `nowplaying` to see what the bot is singing"""
@@ -385,12 +367,22 @@ class Music(subclasses.Cog):
 
             await conn.commit()
 
-        if not is_silent:
-            await ctx.message.add_reaction("\N{FACE WITH FINGER COVERING CLOSED LIPS}")
+        if not ctx.interaction:
+            if not is_silent:
+                await ctx.message.add_reaction(
+                    "\N{FACE WITH FINGER COVERING CLOSED LIPS}"
+                )
+            else:
+                await ctx.message.add_reaction(
+                    "\N{SPEAKING HEAD IN SILHOUETTE}\N{VARIATION SELECTOR-16}"
+                )
         else:
-            await ctx.message.add_reaction(
-                "\N{SPEAKING HEAD IN SILHOUETTE}\N{VARIATION SELECTOR-16}"
-            )
+            if not is_silent:
+                await ctx.reply("\N{FACE WITH FINGER COVERING CLOSED LIPS}")
+            else:
+                await ctx.reply(
+                    "\N{SPEAKING HEAD IN SILHOUETTE}\N{VARIATION SELECTOR-16}"
+                )
 
 
 async def setup(bot: "AceBot"):
