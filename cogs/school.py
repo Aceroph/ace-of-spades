@@ -9,9 +9,12 @@ import json
 if TYPE_CHECKING:
     from main import AceBot
 
-schooldata = json.load(
-    open(pathlib.Path(__file__).parent.parent / "utils" / "schoolday.json", "r")
-)
+try:
+    schooldata = json.load(
+        open(pathlib.Path(__file__).parent.parent / "utils" / "schoolday.json", "r")
+    )
+except FileNotFoundError:
+    schooldata = None
 
 
 class School(subclasses.Cog):
@@ -84,5 +87,8 @@ class School(subclasses.Cog):
         await ctx.reply(embed=embed)
 
 
-async def setup(bot):
-    await bot.add_cog(School(bot))
+async def setup(bot: "AceBot"):
+    if schooldata:
+        await bot.add_cog(School(bot))
+    else:
+        bot.logger.info("Did not find school data")
