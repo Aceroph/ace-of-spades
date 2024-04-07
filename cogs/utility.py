@@ -375,7 +375,7 @@ class Utility(subclasses.Cog):
                 description=">>> Gathering information..\nThis may take a few seconds",
                 color=discord.Color.red(),
             )
-            await ctx.reply(embed=embed, mention_author=False, delete_after=5)
+            await ctx.channel.send(embed=embed, delete_after=5)
             await self.refresh_info(ctx)
 
         embed = discord.Embed(
