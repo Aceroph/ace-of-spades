@@ -131,29 +131,39 @@ def clean_traceback(t: str) -> str:
 
 
 def clean_codeblock(codeblock: str, ctx: commands.Context = None) -> str:
-    clean: str = codeblock
-    try:
-        # Get rid of the prefix and command name
-        if ctx:
-            clean = codeblock.lstrip(ctx.prefix + ctx.command.qualified_name).strip()
+    clean = rf"{codeblock}"
 
-        # Remove those ```
-        clean = clean.strip("`")
-    except:
-        pass
+    # Get rid of the prefix and command name
+    if ctx:
+        clean = codeblock.lstrip(ctx.prefix + ctx.command.qualified_name).strip()
 
-    return clean or codeblock
+    # Remove those ```
+    if clean.startswith("```"):
+        clean = "\n".join(clean.split("\n")[1:])
+
+    if clean.endswith("```"):
+        clean = clean.rstrip("`")
+
+    return clean
 
 
-runtimes: dict = requests.get("https://emkc.org/api/v2/piston/runtimes").json()
+runtimes: list[dict] = requests.get("https://emkc.org/api/v2/piston/runtimes").json()
+literal_runtimes = set()
+for r in runtimes:
+    literal_runtimes.add(r["language"])
+    for alias in r["aliases"]:
+        literal_runtimes.add(alias)
 
 
-class RuntimeType(commands.Converter):
-    async def convert(self, context: commands.Context, language: str) -> dict:
-        for r in runtimes:
-            if (
-                language.casefold() == r["language"]
-                or language.casefold() in r["aliases"]
-            ):
-                return r
-        return None
+RTFM_PAGES = {
+    ("stable"): "https://discordpy.readthedocs.io/en/stable",
+    ("python", "py"): "https://docs.python.org/3/",
+    ("wavelink", "wl"): "https://wavelink.dev/en/latest/",
+}
+
+literal_rtfm = set()
+for src in RTFM_PAGES.keys():
+    if isinstance(src, str):
+        literal_rtfm.add(src)
+    else:
+        literal_rtfm.update(src)
