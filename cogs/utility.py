@@ -59,11 +59,6 @@ class Utility(subclasses.Cog):
         super().__init__()
         self.emoji = "\N{HAMMER AND WRENCH}"
         self.bot = bot
-        self.RTFM_PAGES = {
-            "stable": "https://discordpy.readthedocs.io/en/stable",
-            "python": "https://docs.python.org/3/",
-            "wavelink": "https://wavelink.dev/en/latest/",
-        }
 
     async def cog_load(self):
         self.bot.add_view(ui.PartyMenu(self.bot, {}))
@@ -163,10 +158,11 @@ class Utility(subclasses.Cog):
     @app_commands.describe(characters="The characters to get info on")
     async def charinfo(self, ctx: commands.Context, *, characters: str):
         """Gets information on one or multiple characters
-        Supports discord emojis, emojis, numbers and any other character !
+        Supports discord emojis, emojis, numbers and any special character !
 
         P.S.
         {curve} Numbers must be seperated with spaces"""
+
         results = []
         i: int = 0
         # Process discord-only emojis first
@@ -178,9 +174,14 @@ class Utility(subclasses.Cog):
         # Check for numbers to convert
         numbers: list[int] = re.findall(r"\d+", characters)
         for num in numbers:
-            characters = characters.replace(num, chr(int(num)))
+            characters = characters.replace(
+                num, chr(int(num)) if int(num) >= 161 and int(num) <= 55291 else ""
+            )
 
         for char in characters:
+            if char in string.ascii_letters:
+                continue
+
             name = r"\N{%s}" % unicodedata.name(char, "EXTREMELY RARE ERROR")
 
             if ord(char) == 32:
@@ -205,7 +206,8 @@ class Utility(subclasses.Cog):
                     f"[{c[0]}] {c[2]} #{ord(c[0]) if len(c[0]) == 1 else 0}```\n{c[1]}```"
                     for c in results
                 ]
-            ),
+            )
+            or "Nothing to convert",
             color=discord.Color.blurple(),
         )
 
@@ -268,7 +270,7 @@ class Utility(subclasses.Cog):
     async def build_rtfm_table(self):
         # Build cache
         cache: dict[str, dict[str, dict[str, str]]] = {}
-        for key, page in self.RTFM_PAGES.items():
+        for key, page in misc.RTFM_PAGES.items():
             cache[key] = {}
             # Get objects.inv from docs
             async with self.bot.session.get(page + "/objects.inv") as resp:
@@ -280,11 +282,9 @@ class Utility(subclasses.Cog):
 
         self._rtfm_cache = cache
 
-    async def do_rtfm(
-        self, ctx: commands.Context, key: str = "stable", obj: str = None
-    ):
+    async def do_rtfm(self, ctx: commands.Context, key: tuple, obj: str = None):
         if obj is None:
-            await ctx.send(self.RTFM_PAGES[key])
+            await ctx.send(misc.RTFM_PAGES[key])
             return
 
         timer = time.time()
@@ -303,10 +303,10 @@ class Utility(subclasses.Cog):
             cache,
             key=lambda c: difflib.SequenceMatcher(None, obj, c[0]).ratio(),
             reverse=True,
-        )[:5]
+        )[:8]
 
         embed = discord.Embed(
-            title=f"RTFM - {'Discord.py' if key == 'stable' else key.capitalize()}",
+            title=f"RTFM - {'Discord.py' if key == ('stable') else key[0].capitalize()}",
             colour=discord.Colour.blurple(),
         )
         embed.set_footer(
@@ -324,23 +324,30 @@ class Utility(subclasses.Cog):
         embed.description = "\n".join(results)
         await ctx.reply(embed=embed, mention_author=False)
 
-    @commands.group(invoke_without_command=True, aliases=["rtfd"])
-    async def rtfm(self, ctx: commands.Context, source: str = None, obj: str = None):
+    @commands.hybrid_command(aliases=["rtfd"])
+    @app_commands.describe(source="From where to gather docs", obj="What to search for")
+    async def rtfm(
+        self,
+        ctx: commands.Context,
+        source: Optional[Literal[tuple(misc.literal_rtfm)]] = ("stable"),
+        obj: str = None,
+    ):
         """Read The Fucking Manual
         Will fetch discord.py docs for the specifed object"""
-        await self.do_rtfm(ctx, obj=obj)
+        for src, _ in misc.RTFM_PAGES.items():
+            if source in src:
+                await self.do_rtfm(ctx, key=src, obj=obj)
 
-    @rtfm.command(name="py", aliases=["python"])
-    async def rtfm_py(self, ctx: commands.Context, obj: str = None):
-        """Read The Fucking Manual
-        Will fetch python docs for the specifed object"""
-        await self.do_rtfm(ctx, key="python", obj=obj)
-
-    @rtfm.command(name="wavelink", aliases=["wl"])
-    async def rtfm_wavelink(self, ctx: commands.Context, obj: str = None):
-        """Read The Fucking Manual
-        Will fetch wavelink docs for the specifed object"""
-        await self.do_rtfm(ctx, key="wavelink", obj=obj)
+    @rtfm.autocomplete("source")
+    async def rtfm_autocomplete(self, interaction: discord.Interaction, current: str):
+        return sorted(
+            [
+                app_commands.Choice(name=source[0].capitalize(), value=source)
+                for source, _ in misc.RTFM_PAGES.items()
+                if current.casefold() in source or len(current) == 0
+            ],
+            key=lambda c: c.name,
+        )[:25]
 
     async def refresh_info(self, ctx: commands.Context):
         async with ctx.channel.typing():
@@ -530,36 +537,6 @@ class Utility(subclasses.Cog):
         else:
             await ctx.reply(embed=embed, mention_author=False, view=view)
 
-    @commands.Cog.listener()
-    async def on_message_edit(self, old: discord.Message, new: discord.Message) -> None:
-        last: commands.Context = getattr(self, "_last_eval", None)
-        if not last or last.message.id != new.id:
-            return
-
-        await new.add_reaction(
-            "\N{CLOCKWISE RIGHTWARDS AND LEFTWARDS OPEN CIRCLE ARROWS}"
-        )
-
-        # If user reacts, re-run code
-        try:
-            await self.bot.wait_for(
-                "reaction_add",
-                check=lambda r, u: r.emoji
-                == "\N{CLOCKWISE RIGHTWARDS AND LEFTWARDS OPEN CIRCLE ARROWS}"
-                and u == new.author,
-                timeout=25,
-            )
-            try:
-                await new.clear_reactions()
-            except:
-                pass
-
-            body = misc.clean_codeblock(new.content, last)
-            await last.command.call_before_hooks(last)
-            return await last.invoke(last.command, body=body)
-        except asyncio.TimeoutError:
-            return
-
     @commands.hybrid_command(name="eval")
     @app_commands.describe(
         language="The language to run the code with", body="The code to run"
@@ -567,7 +544,7 @@ class Utility(subclasses.Cog):
     async def _eval(
         self,
         ctx: commands.Context,
-        language: Optional[misc.RuntimeType] = None,
+        language: Optional[Literal[tuple(misc.literal_runtimes)]] = "python",
         *,
         body: str,
     ):
@@ -576,9 +553,14 @@ class Utility(subclasses.Cog):
         # Clean body
         body = misc.clean_codeblock(body)
 
-        # Defaults to python
-        if not language:
-            language = await misc.RuntimeType().convert(context=ctx, language="python")
+        # Convert language
+        for r in misc.runtimes:
+            if (
+                language.casefold() == r["language"]
+                or language.casefold() in r["aliases"]
+            ):
+                language = r
+                break
 
         # Format code if python
         if language["language"] == "python":
