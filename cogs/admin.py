@@ -668,22 +668,32 @@ class Admin(subclasses.Cog):
         if not guilds:
             match spec:
                 case "list":
-                    synced_globally = await ctx.bot.tree.fetch_commands()
-                    synced_locally = await ctx.bot.tree.fetch_commands(guild=ctx.guild)
+
+                    async def mentions(guild: int = None):
+                        mentions = set()
+                        for cmd in await self.bot.tree.fetch_commands(guild=guild):
+                            if len(cmd.options) > 0 and isinstance(
+                                cmd.options[0], app_commands.AppCommandGroup
+                            ):
+                                for sub in cmd.options:
+                                    mentions.add(sub.mention)
+                            else:
+                                mentions.add(cmd.mention)
+                        return mentions
+
+                    global_mentions = await mentions()
+                    local_mentions = await mentions(guild=ctx.guild)
+
                     embed = discord.Embed(
                         title="App Commands", color=discord.Color.blurple()
                     )
                     embed.add_field(
                         name=f"Globally",
-                        value="\n".join(
-                            [f"`{c.name}`" for c in synced_globally] or ["`none`"]
-                        ),
+                        value="\n".join(global_mentions) or "`None`",
                     )
                     embed.add_field(
                         name=f"Locally",
-                        value="\n".join(
-                            [f"`{c.name}`" for c in synced_locally] or ["`none`"]
-                        ),
+                        value="\n".join(local_mentions) or "`None`",
                     )
                     return await ctx.reply(embed=embed, mention_author=False)
 
