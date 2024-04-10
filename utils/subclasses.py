@@ -101,7 +101,6 @@ class View(discord.ui.View):
                 embed=discord.Embed(
                     title=":musical_note: No Voice Found",
                     description=f"> Please join a voice channel first before using this command.",
-                    color=discord.Color.red(),
                 ),
                 delete_after=15,
             )
@@ -114,7 +113,6 @@ class View(discord.ui.View):
         embed = discord.Embed(
             title=f":warning: Unhandled error in item : {item.type}",
             description=f"```py\n{misc.clean_traceback(trace)}```",
-            color=discord.Color.red(),
         )
         embed.set_footer(
             text=f"Caused by {interaction.user.display_name} in {interaction.guild.name if interaction.guild else 'DMs'} ({interaction.guild.id if interaction.guild else 0})",
@@ -131,7 +129,6 @@ class View(discord.ui.View):
         embed = discord.Embed(
             title=f":warning: {type(error).__qualname__}",
             description=f"> {' '.join(error.args)}" if len(error.args) > 0 else None,
-            color=discord.Color.red(),
         )
         return await interaction.response.send_message(embed=embed, view=view)
 
