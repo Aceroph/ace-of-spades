@@ -544,7 +544,7 @@ class Utility(subclasses.Cog):
     async def _eval(
         self,
         ctx: commands.Context,
-        language: Optional[Literal[tuple(misc.literal_runtimes)]] = "python",
+        language: Optional[str] = None,
         *,
         body: str,
     ):
@@ -552,6 +552,11 @@ class Utility(subclasses.Cog):
 
         # Clean body
         body = misc.clean_codeblock(body)
+
+        # Get language
+        if not language in misc.literal_runtimes:
+            language = "python"
+            body = language + " " + body
 
         # Convert language
         for r in misc.runtimes:
@@ -613,7 +618,7 @@ class Utility(subclasses.Cog):
             await origin.add_reaction(misc.yes)
 
     @_eval.autocomplete("language")
-    async def help_autocomplete(self, interaction: discord.Interaction, current: str):
+    async def eval_autocomplete(self, interaction: discord.Interaction, current: str):
         # Avoid repetition
         names = set(
             r["language"]
@@ -624,17 +629,6 @@ class Utility(subclasses.Cog):
             [app_commands.Choice(name=n.capitalize(), value=n) for n in names],
             key=lambda c: c.name,
         )[:25]
-
-    @commands.command()
-    @commands.is_owner()
-    async def test(
-        self,
-        ctx: commands.Context,
-        source: Optional[Literal["py", "wl"]] = "d.py",
-        *,
-        rest: str,
-    ) -> None:
-        await ctx.send(f"uh source : `{source}`\n-> {rest}")
 
 
 async def setup(bot):
