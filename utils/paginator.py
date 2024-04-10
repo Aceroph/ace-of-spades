@@ -97,29 +97,27 @@ class Paginator:
         self.view.clear_items()
 
         _first = discord.ui.Button(
-            emoji="\N{BLACK LEFT-POINTING DOUBLE TRIANGLE WITH VERTICAL BAR}",
+            label="<<",
             disabled=self.index == 0,
         )
         _first.callback = self.first_page
         self.view.add_item(_first)
 
-        _previous = discord.ui.Button(
-            emoji="\N{BLACK LEFT-POINTING TRIANGLE}", disabled=self.index == 0
-        )
+        _previous = discord.ui.Button(label="<", disabled=self.index == 0)
         _previous.callback = self.previous_page
         self.view.add_item(_previous)
 
         self.view.add_quit(user, self.ctx.guild)
 
         _next = discord.ui.Button(
-            emoji="\N{BLACK RIGHT-POINTING TRIANGLE}",
+            label=">",
             disabled=self.index + 1 == len(self.pages),
         )
         _next.callback = self.next_page
         self.view.add_item(_next)
 
         _last = discord.ui.Button(
-            emoji="\N{BLACK RIGHT-POINTING DOUBLE TRIANGLE WITH VERTICAL BAR}",
+            label=">>",
             disabled=self.index + 1 == len(self.pages),
         )
         _last.callback = self.last_page

@@ -1,9 +1,9 @@
-from cogs.errors import NoVoiceFound, PlayerConnectionFailure
 from typing import TYPE_CHECKING, cast, Union
 from utils import subclasses, misc, paginator
 from discord.ext import commands
 from discord import app_commands
 from tabulate import tabulate
+from cogs import errors
 import traceback
 import wavelink
 import textwrap
@@ -43,10 +43,7 @@ class Music(subclasses.Cog):
     async def now_playing_logic(
         self, origin: Union[commands.Context, wavelink.TrackStartEventPayload]
     ):
-        player = origin.player
-        if hasattr(player, "silent"):
-            if player.silent:
-                return
+        player = getattr(origin, "voice_client", getattr(origin, "player", None))
 
         # Formatting
         track: wavelink.Playable = (
@@ -86,16 +83,21 @@ class Music(subclasses.Cog):
         else:
             await self.home.send(embed=embed)
 
-    async def get_player(self, ctx: commands.Context) -> None:
+    async def cog_before_invoke(self, ctx: commands.Context) -> None:
         if not self.home:
             self.home = ctx.channel
 
-        player: wavelink.Player = cast(wavelink.Player, ctx.voice_client)
-        if not player:
-            raise NoVoiceFound
-
-        ctx.player = player
         return await super().cog_before_invoke(ctx)
+
+    async def isvoicemember(self, ctx: commands.Context) -> None:
+        if ctx.voice_client:
+            if (
+                ctx.author.guild_permissions.administrator
+                or ctx.author in ctx.voice_client.channel.members
+            ):
+                return await super().cog_before_invoke(ctx)
+            else:
+                raise errors.NotVoiceMember(channel=ctx.voice_client.channel)
 
     @subclasses.Cog.listener()
     async def on_wavelink_node_ready(
@@ -169,13 +171,23 @@ class Music(subclasses.Cog):
         await ctx.reply(msg, mention_author=False)
 
     @commands.guild_only()
-    @commands.before_invoke(get_player)
     @commands.hybrid_command(aliases=["np", "now"])
     async def nowplaying(self, ctx: commands.Context) -> None:
         """Shows the current playing song"""
-        return await self.now_playing_logic(ctx)
+        if ctx.voice_client.current:
+            return await self.now_playing_logic(ctx)
+        else:
+            return await ctx.reply(
+                embed=discord.Embed(
+                    title=":eyes: Nothing is playing",
+                    description=f">>> Play something using `play`",
+                ),
+                mention_author=False,
+                delete_after=15,
+            )
 
     @commands.guild_only()
+    @commands.before_invoke(isvoicemember)
     @commands.hybrid_command(aliases=["p"])
     @app_commands.describe(query="The song or link to search for")
     async def play(self, ctx: commands.Context, *, query: str) -> None:
@@ -185,26 +197,34 @@ class Music(subclasses.Cog):
             try:
                 player = await ctx.author.voice.channel.connect(cls=wavelink.Player)  # type: ignore
             except AttributeError:
-                raise NoVoiceFound
+                raise errors.NoVoiceFound
             except discord.ClientException:
-                raise PlayerConnectionFailure()
-
-        if not hasattr(ctx, "player"):
-            ctx.player = player
+                raise errors.PlayerConnectionFailure
 
         # Autoplay
         player.autoplay = wavelink.AutoPlayMode.enabled
 
-        tracks: wavelink.Search = await wavelink.Playable.search(query)
+        # If multiple songs are parsed
+        if len(query.split(",")) > 1:
+            tracks = []
+            for q in query.split(",")[:5]:
+                track = (await wavelink.Playable.search(q))[0]
+                track.extras = {
+                    "name": ctx.author.display_name,
+                    "icon_url": ctx.author.display_avatar.url,
+                }
+                tracks.append(track)
+
+            await player.queue.put_wait(tracks)
+        else:
+            tracks: wavelink.Search = await wavelink.Playable.search(query)
+
         if not tracks:
             await ctx.reply(
                 f"{ctx.author.mention} - Could not find any tracks with that query. Please try again.",
                 mention_author=False,
             )
             return
-
-        # Where the bot sends announcements
-        self.home = ctx.channel
 
         if isinstance(tracks, wavelink.Playlist):
             # Add requested user to tracks
@@ -216,13 +236,26 @@ class Music(subclasses.Cog):
 
             added: int = await player.queue.put_wait(tracks)
 
-            length = sum([t.length // 1000 for t in tracks.tracks])
-            length_fmt = f"{length//3600}h{format(length//60 % 60, '02d')}m{format(length % 60, '02d')}s"
+            length = misc.time_format(sum([t.length // 1000 for t in tracks.tracks]))
 
             embed = discord.Embed(
                 title="Added playlist to queue",
-                description=f"\N{OPTICAL DISC} loaded `{added}` songs from [`{tracks.name}`]({query})\n{misc.curve}total length: {length_fmt}",
+                description=f"\N{OPTICAL DISC} loaded `{added}` songs from [`{tracks.name}`]({query})\n{misc.curve} total length: {length}",
             )
+            await ctx.reply(embed=embed, mention_author=False)
+
+        elif isinstance(tracks, list):
+            length = misc.time_format(sum([t.length // 1000 for t in tracks]))
+            embed = discord.Embed(
+                title="\N{OPTICAL DISC} Added songs to queue",
+                description="\n".join(
+                    [
+                        f"`{i+1:02d}` | [`{track.title}`]({track.uri}) *by:* `{track.author}`"
+                        for i, track in enumerate(tracks)
+                    ]
+                ),
+            )
+            embed.set_footer(text="Total length: " + length)
             await ctx.reply(embed=embed, mention_author=False)
 
         else:
@@ -244,12 +277,14 @@ class Music(subclasses.Cog):
             await player.play(player.queue.get(), volume=30)
 
     @commands.guild_only()
-    @commands.before_invoke(get_player)
+    @commands.before_invoke(isvoicemember)
     @commands.hybrid_group(aliases=["q"], fallback="show", invoke_without_command=True)
     async def queue(self, ctx: commands.Context):
         """Lists the next titles and position in the queue"""
+        if not ctx.voice_client:
+            raise errors.NoVoiceFound
 
-        length = len(ctx.player.queue._items)
+        length = len(ctx.voice_client.queue._items)
         if length > 0:
             p = paginator.Paginator(
                 ctx=ctx,
@@ -267,7 +302,7 @@ class Music(subclasses.Cog):
                     ),
                     track.uri,
                 ]
-                for i, track in enumerate(ctx.player.queue._items)
+                for i, track in enumerate(ctx.voice_client.queue._items)
             ]
             for item in items:
                 p.add_line(f"`{item[0]}` | [`{item[1]}`]({item[2]})")
@@ -276,23 +311,29 @@ class Music(subclasses.Cog):
         else:
             await ctx.reply("Queue empty !", mention_author=False)
 
+    @commands.guild_only()
+    @commands.before_invoke(isvoicemember)
     @queue.command(name="clear")
-    @commands.before_invoke(get_player)
     async def queue_clear(self, ctx: commands.Context):
         """Clears the queue and stops the music"""
-        ctx.player.queue.clear()
-        ctx.player.playing = False
+        if not ctx.voice_client:
+            raise errors.NoVoiceFound
+
+        ctx.voice_client.queue.clear()
+        ctx.voice_client.playing = False
         await ctx.reply("Cleared queue", mention_author=False)
 
     @commands.guild_only()
+    @commands.before_invoke(isvoicemember)
     @commands.hybrid_command()
-    @commands.before_invoke(get_player)
     async def shuffle(self, ctx: commands.Context):
         """Shuffles the current player's queue"""
+        if not ctx.voice_client:
+            raise errors.NoVoiceFound
 
-        length = len(ctx.player.queue._items)
+        length = len(ctx.voice_client.queue._items)
         if length > 1:
-            ctx.player.queue.shuffle()
+            ctx.voice_client.queue.shuffle()
             embed = discord.Embed(
                 title="\N{ANTICLOCKWISE DOWNWARDS AND UPWARDS OPEN CIRCLE ARROWS} Shuffled queue",
                 description=f">>> reordered {length} items",
@@ -307,13 +348,15 @@ class Music(subclasses.Cog):
         await ctx.reply(embed=embed, mention_author=False)
 
     @commands.guild_only()
-    @commands.before_invoke(get_player)
+    @commands.before_invoke(isvoicemember)
     @commands.hybrid_command(aliases=["unpause"])
     async def pause(self, ctx: commands.Context):
         """Pauses or resumes activity"""
+        if not ctx.voice_client:
+            raise errors.NoVoiceFound
 
-        await ctx.player.pause(not ctx.player.paused)
-        if not ctx.player.paused:
+        await ctx.voice_client.pause(not ctx.voice_client.paused)
+        if not ctx.voice_client.paused:
             embed = discord.Embed(
                 title="\N{BLACK RIGHT-POINTING TRIANGLE}\N{VARIATION SELECTOR-16} Resumed player",
                 description=f"{misc.curve} to pause, run the command again",
@@ -329,24 +372,29 @@ class Music(subclasses.Cog):
         await ctx.reply(embed=embed, mention_author=False)
 
     @commands.guild_only()
-    @commands.before_invoke(get_player)
+    @commands.before_invoke(isvoicemember)
     @commands.hybrid_command(aliases=["next"])
     async def skip(self, ctx: commands.Context):
         """Skips the current song"""
+        if not ctx.voice_client:
+            raise errors.NoVoiceFound
 
-        await ctx.player.skip()
+        await ctx.voice_client.skip()
         await ctx.reply("Skipped song", mention_author=False)
 
     @commands.guild_only()
-    @commands.before_invoke(get_player)
+    @commands.before_invoke(isvoicemember)
     @commands.hybrid_command(aliases=["quit"])
     async def stop(self, ctx: commands.Context):
         """Stops playing music and disconnects the player"""
+        if not ctx.voice_client:
+            raise errors.NoVoiceFound
 
-        await ctx.player.disconnect()
+        await ctx.voice_client.disconnect()
         await ctx.reply("Stopped playing music", mention_author=False)
 
     @commands.guild_only()
+    @commands.before_invoke(isvoicemember)
     @commands.hybrid_command(aliases=["hush", "shush", "stfu", "silence"])
     async def shutup(self, ctx: commands.Context):
         """Makes the bot stop announcing every song
