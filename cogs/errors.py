@@ -11,6 +11,18 @@ if TYPE_CHECKING:
     from main import AceBot
 
 
+def iserror(error: Exception, kind) -> bool:
+    if isinstance(kind, (tuple, set, list)):
+        return any([error.__class__.__qualname__ == k.__qualname__ for k in kind])
+
+    return error.__class__.__qualname__ == kind.__qualname__
+
+
+class NotVoiceMember(commands.CommandError):
+    def __init__(self, channel: discord.VoiceChannel) -> None:
+        self.channel = channel
+
+
 class PlayerConnectionFailure(commands.CommandError):
     pass
 
@@ -26,11 +38,7 @@ class NotYourButton(app_commands.AppCommandError):
 
 # Error handler
 async def on_command_error(ctx: commands.Context, error: commands.CommandError):
-    # Ignore all errors coming from the eval command
-    if ctx.command.qualified_name == "python":
-        return
-
-    if isinstance(error, commands.errors.CommandNotFound):
+    if iserror(error, commands.errors.CommandNotFound):
         command = ctx.message.content.split()[0].strip(ctx.prefix)
 
         # Get closest match for command
@@ -106,70 +114,77 @@ async def on_command_error(ctx: commands.Context, error: commands.CommandError):
             view=view,
         )
 
-    if isinstance(error, commands.errors.MissingPermissions):
+    if iserror(error, commands.errors.MissingPermissions):
         return await ctx.reply(
             embed=discord.Embed(
                 title=":warning: Missing permissions",
                 description=f"> `{'` `'.join(error.missing_permissions)}`",
-                color=discord.Color.red(),
             ),
             mention_author=False,
             delete_after=15,
         )
 
-    if isinstance(error, commands.errors.MissingRequiredArgument):
+    if iserror(error, commands.errors.MissingRequiredArgument):
+        correction = f"{ctx.command} {ctx.command.signature}"
+        missing_arg = error.args[0].split()[0]
+        startPos = correction.find(missing_arg)
         return await ctx.reply(
             embed=discord.Embed(
-                title=":warning: Missing Required Argument",
-                description=f"> {' '.join(error.args)}",
-                color=discord.Color.red(),
+                title=":warning: Missing required argument",
+                description=f">>> ```\n{correction}\n{' '*(len(correction)-(len(missing_arg)+1)) + '^'*len(missing_arg)}```",
             ),
             mention_author=False,
             delete_after=15,
         )
 
-    if isinstance(error, commands.errors.NoPrivateMessage):
+    if iserror(error, commands.errors.NoPrivateMessage):
         return await ctx.reply(
             embed=discord.Embed(
-                title=":warning: No Private Message",
-                description=f"> This command cannot be used in DMs",
-                color=discord.Color.red(),
+                title=":warning: Guild-only command",
+                description="> This command cannot be used in DMs",
             ),
             mention_author=False,
             delete_after=15,
         )
 
-    if isinstance(error, (commands.errors.CheckFailure, commands.errors.NotOwner)):
+    if iserror(error, NotVoiceMember):
+        return await ctx.reply(
+            embed=discord.Embed(
+                title=":warning: Cannot use command",
+                description=f"> You are not connected to {error.channel.mention}",
+            ),
+            mention_author=False,
+            delete_after=15,
+        )
+
+    if iserror(error, (commands.errors.CheckFailure, commands.errors.NotOwner)):
         return
 
-    if isinstance(error, NoVoiceFound):
+    if iserror(error, NoVoiceFound):
         return await ctx.reply(
             embed=discord.Embed(
                 title=":musical_note: No Voice Found",
                 description=f"> Please join a voice channel first before using this command.",
-                color=discord.Color.red(),
             ),
             mention_author=False,
             delete_after=15,
         )
 
-    if isinstance(error, PlayerConnectionFailure):
+    if iserror(error, PlayerConnectionFailure):
         return await ctx.reply(
             embed=discord.Embed(
                 title=":musical_note: Player Connection Failure",
                 description=f"> I was unable to join this voice channel. Please try again.",
-                color=discord.Color.red(),
             ),
             mention_author=False,
             delete_after=15,
         )
 
-    if isinstance(error, commands.errors.CommandInvokeError):
+    if iserror(error, commands.errors.CommandInvokeError):
         if isinstance(error.original, wavelink.LavalinkLoadException):
             embed = discord.Embed(
                 title=":musical_note: Failed to load track",
                 description=f">>> {error.original.error}",
-                color=discord.Color.red(),
             )
             return await ctx.reply(embed=embed, delete_after=15, mention_author=False)
 
@@ -181,9 +196,8 @@ async def on_command_error(ctx: commands.Context, error: commands.CommandError):
         pass
     trace = "".join(traceback.format_exception(type(error), error, error.__traceback__))
     embed = discord.Embed(
-        title=f":warning: Unhandled error in command : {ctx.command if hasattr(ctx, 'command') else 'None'}",
-        description=f"```py\n{misc.clean_traceback(trace)}```",
-        color=discord.Color.red(),
+        title=f":warning: Unhandled error in command",
+        description=f"Command:\n```\n{ctx.message.content}```\nTraceback:\n```py\n{misc.clean_traceback(trace)}```",
     )
     embed.set_footer(
         text=f"Caused by {ctx.author.display_name} in {ctx.guild.name if ctx.guild else 'DMs'} ({ctx.guild.id if ctx.guild else 0})",
@@ -200,7 +214,6 @@ async def on_command_error(ctx: commands.Context, error: commands.CommandError):
     embed = discord.Embed(
         title=f":warning: {type(error).__qualname__}",
         description=f"> {' '.join(error.args)}" if len(error.args) > 0 else None,
-        color=discord.Color.red(),
     )
     return await ctx.reply(
         embed=embed, view=view, mention_author=False, delete_after=15

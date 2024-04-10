@@ -1,4 +1,4 @@
-from cogs.errors import NoVoiceFound, NotYourButton
+from cogs.errors import NoVoiceFound, NotYourButton, iserror
 from discord.ext import commands
 from discord import app_commands
 from . import subclasses, misc
@@ -91,12 +91,12 @@ class View(discord.ui.View):
     async def on_error(
         self, interaction: discord.Interaction, error: Exception, item: discord.ui.Item
     ):
-        if error.__class__.__qualname__ == NotYourButton.__qualname__:
+        if iserror(error, NotYourButton):
             return await interaction.response.send_message(
                 error.reason or "This is not your button !", ephemeral=True
             )
 
-        if error.__class__.__qualname__ == NoVoiceFound.__qualname__:
+        if iserror(error, NoVoiceFound):
             return await interaction.response.send_message(
                 embed=discord.Embed(
                     title=":musical_note: No Voice Found",
