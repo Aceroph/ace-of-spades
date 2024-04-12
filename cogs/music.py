@@ -1,5 +1,5 @@
-from typing import TYPE_CHECKING, cast, Union
-from utils import subclasses, misc, paginator
+from utils import subclasses, misc, paginator, images
+from typing import TYPE_CHECKING, cast, Union, List
 from discord.ext import commands
 from discord import app_commands
 from tabulate import tabulate
@@ -190,7 +190,7 @@ class Music(subclasses.Cog):
     @commands.before_invoke(isvoicemember)
     @commands.hybrid_command(aliases=["p"])
     @app_commands.describe(query="The song or link to search for")
-    async def play(self, ctx: commands.Context, *, query: str) -> None:
+    async def play(self, ctx: commands.Context, *, query: str = None) -> None:
         """Play a song with the given query."""
         player = cast(wavelink.Player, ctx.voice_client)
         if not player:
@@ -204,6 +204,14 @@ class Music(subclasses.Cog):
         # Autoplay
         player.autoplay = wavelink.AutoPlayMode.enabled
 
+        # If paused, play
+        if player.paused and not query:
+            return await ctx.invoke(self.bot.get_command("pause"))
+        elif not query:
+            raise commands.errors.MissingRequiredArgument(
+                param=ctx.command.clean_params["query"]
+            )
+
         # If multiple songs are parsed
         if len(query.split(",")) > 1:
             tracks = []
@@ -216,35 +224,6 @@ class Music(subclasses.Cog):
                 tracks.append(track)
 
             await player.queue.put_wait(tracks)
-        else:
-            tracks: wavelink.Search = await wavelink.Playable.search(query)
-
-        if not tracks:
-            await ctx.reply(
-                f"{ctx.author.mention} - Could not find any tracks with that query. Please try again.",
-                mention_author=False,
-            )
-            return
-
-        if isinstance(tracks, wavelink.Playlist):
-            # Add requested user to tracks
-            for track in tracks.tracks:
-                track.extras = {
-                    "name": ctx.author.display_name,
-                    "icon_url": ctx.author.display_avatar.url,
-                }
-
-            added: int = await player.queue.put_wait(tracks)
-
-            length = misc.time_format(sum([t.length // 1000 for t in tracks.tracks]))
-
-            embed = discord.Embed(
-                title="Added playlist to queue",
-                description=f"\N{OPTICAL DISC} loaded `{added}` songs from [`{tracks.name}`]({query})\n{misc.curve} total length: {length}",
-            )
-            await ctx.reply(embed=embed, mention_author=False)
-
-        elif isinstance(tracks, list):
             length = misc.time_format(sum([t.length // 1000 for t in tracks]))
             embed = discord.Embed(
                 title="\N{OPTICAL DISC} Added songs to queue",
@@ -257,21 +236,50 @@ class Music(subclasses.Cog):
             )
             embed.set_footer(text="Total length: " + length)
             await ctx.reply(embed=embed, mention_author=False)
-
         else:
-            # Add requested user to track
-            track: wavelink.Playable = tracks[0]
-            track.extras = {
-                "name": ctx.author.display_name,
-                "icon_url": ctx.author.display_avatar.url,
-            }
+            tracks: wavelink.Search = (await wavelink.Playable.search(query))[0]
 
-            await player.queue.put_wait(track)
-            embed = discord.Embed(
-                title="Added song to queue",
-                description=f"\N{OPTICAL DISC} [`{track.title}`]({track.uri})\n{misc.curve} by `{track.author}`",
+            if isinstance(tracks, wavelink.Playlist):
+                # Add requested user to tracks
+                for track in tracks.tracks:
+                    track.extras = {
+                        "name": ctx.author.display_name,
+                        "icon_url": ctx.author.display_avatar.url,
+                    }
+
+                added: int = await player.queue.put_wait(tracks)
+
+                length = misc.time_format(
+                    sum([t.length // 1000 for t in tracks.tracks])
+                )
+
+                embed = discord.Embed(
+                    title="Added playlist to queue",
+                    description=f"\N{OPTICAL DISC} loaded `{added}` songs from [`{tracks.name}`]({query})\n{misc.curve} total length: {length}",
+                )
+                await ctx.reply(embed=embed, mention_author=False)
+
+            else:
+                # Add requested user to track
+                track: wavelink.Playable = tracks
+                track.extras = {
+                    "name": ctx.author.display_name,
+                    "icon_url": ctx.author.display_avatar.url,
+                }
+
+                await player.queue.put_wait(track)
+                embed = discord.Embed(
+                    title="Added song to queue",
+                    description=f"\N{OPTICAL DISC} [`{track.title}`]({track.uri})\n{misc.curve} by `{track.author}`",
+                )
+                await ctx.reply(embed=embed, mention_author=False)
+
+        if not tracks:
+            await ctx.reply(
+                f"{ctx.author.mention} - Could not find any tracks with that query. Please try again.",
+                mention_author=False,
             )
-            await ctx.reply(embed=embed, mention_author=False)
+            return
 
         if not player.playing:
             await player.play(player.queue.get(), volume=30)
@@ -320,7 +328,7 @@ class Music(subclasses.Cog):
             raise errors.NoVoiceFound
 
         ctx.voice_client.queue.clear()
-        ctx.voice_client.playing = False
+        await ctx.voice_client.pause(True)
         await ctx.reply("Cleared queue", mention_author=False)
 
     @commands.guild_only()
@@ -359,13 +367,13 @@ class Music(subclasses.Cog):
         if not ctx.voice_client.paused:
             embed = discord.Embed(
                 title="\N{BLACK RIGHT-POINTING TRIANGLE}\N{VARIATION SELECTOR-16} Resumed player",
-                description=f"{misc.curve} to pause, run the command again",
+                description=f"{misc.curve} to pause, run `pause`",
                 color=discord.Color.blurple(),
             )
         else:
             embed = discord.Embed(
                 title="\N{DOUBLE VERTICAL BAR}\N{VARIATION SELECTOR-16} Paused player",
-                description=f"{misc.curve} to resume, run the command again",
+                description=f"{misc.curve} to resume, run `play` or `unpause`",
                 color=discord.Color.blurple(),
             )
 
