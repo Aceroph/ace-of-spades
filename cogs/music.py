@@ -1,5 +1,5 @@
-from utils import subclasses, misc, paginator, images
 from typing import TYPE_CHECKING, cast, Union, List
+from utils import subclasses, misc, paginator
 from discord.ext import commands
 from discord import app_commands
 from tabulate import tabulate
