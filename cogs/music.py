@@ -84,7 +84,7 @@ class Music(subclasses.Cog):
                 await player.home.send(embed=embed)
 
     async def cog_before_invoke(self, ctx: commands.Context) -> None:
-        if not hasattr(ctx.voice_client, "home"):
+        if ctx.voice_client and not hasattr(ctx.voice_client, "home"):
             ctx.voice_client.home = ctx.channel
 
         return await super().cog_before_invoke(ctx)
@@ -212,6 +212,9 @@ class Music(subclasses.Cog):
                 param=ctx.command.clean_params["query"]
             )
 
+        if ctx.interaction:
+            await ctx.interaction.response.defer()
+
         # If multiple songs are parsed
         if len(query.split(",")) > 1:
             tracks = []
@@ -240,7 +243,7 @@ class Music(subclasses.Cog):
             )
             await ctx.reply(embed=embed, mention_author=False)
         else:
-            tracks: wavelink.Search = (await wavelink.Playable.search(query))[0]
+            tracks: wavelink.Search = await wavelink.Playable.search(query)
 
             if isinstance(tracks, wavelink.Playlist):
                 # Add requested user to tracks
@@ -284,6 +287,7 @@ class Music(subclasses.Cog):
                 await ctx.reply(embed=embed, mention_author=False)
 
         if not tracks:
+            print("error")
             await ctx.reply(
                 f"{ctx.author.mention} - Could not find any tracks with that query. Please try again.",
                 mention_author=False,
@@ -337,7 +341,8 @@ class Music(subclasses.Cog):
             raise errors.NoVoiceFound
 
         ctx.voice_client.queue.clear()
-        await ctx.voice_client.pause(True)
+        ctx.voice_client.autoplay = wavelink.AutoPlayMode.disabled
+        await ctx.voice_client.skip()
         await ctx.reply("Cleared queue", mention_author=False)
 
     @commands.guild_only()
