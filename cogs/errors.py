@@ -38,6 +38,10 @@ class NotYourButton(app_commands.AppCommandError):
 
 # Error handler
 async def on_command_error(ctx: commands.Context, error: commands.CommandError):
+    # Defer if interaction
+    if ctx.interaction:
+        await ctx.interaction.response.defer()
+
     if iserror(error, commands.errors.CommandNotFound):
         command = ctx.message.content.split()[0].strip(ctx.prefix)
 
@@ -197,7 +201,7 @@ async def on_command_error(ctx: commands.Context, error: commands.CommandError):
     trace = "".join(traceback.format_exception(type(error), error, error.__traceback__))
     embed = discord.Embed(
         title=f":warning: Unhandled error in command",
-        description=f"Command:\n```\n{ctx.message.content}```\nTraceback:\n```py\n{misc.clean_traceback(trace)}```",
+        description=f"Command:\n```\n{ctx.message.content or 'None'}```\nTraceback:\n```py\n{misc.clean_traceback(trace)}```",
     )
     embed.set_footer(
         text=f"Caused by {ctx.author.display_name} in {ctx.guild.name if ctx.guild else 'DMs'} ({ctx.guild.id if ctx.guild else 0})",
