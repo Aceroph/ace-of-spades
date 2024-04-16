@@ -19,7 +19,6 @@ class Music(subclasses.Cog):
         super().__init__()
         self.bot = bot
         self.emoji = "\N{MUSICAL NOTE}"
-        self.home: discord.TextChannel = None
         self.nodes: dict[str, wavelink.Node] = None
         self.config = bot.config["wavelink"]
 
@@ -81,11 +80,12 @@ class Music(subclasses.Cog):
         if isinstance(origin, commands.Context):
             await origin.reply(embed=embed, mention_author=False)
         else:
-            await self.home.send(embed=embed)
+            if hasattr(player, 'home'):
+                await player.home.send(embed=embed)
 
     async def cog_before_invoke(self, ctx: commands.Context) -> None:
-        if not self.home:
-            self.home = ctx.channel
+        if not hasattr(ctx.voice_client, 'home'):
+            ctx.voice_client.home = ctx.channel
 
         return await super().cog_before_invoke(ctx)
 
@@ -109,8 +109,8 @@ class Music(subclasses.Cog):
 
     @subclasses.Cog.listener()
     async def on_wavelink_inactive_player(self, player: wavelink.Player) -> None:
-        if self.home:
-            await self.home.send(
+        if hasattr(player, 'home'):
+            await player.home.send(
                 f"The player has been inactive for `{player.inactive_timeout//60}` minutes."
             )
         await player.disconnect()
