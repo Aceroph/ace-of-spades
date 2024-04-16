@@ -75,16 +75,16 @@ class Music(subclasses.Cog):
                 icon_url=track.extras.icon_url or None,
             )
 
-        embed.set_thumbnail(url=track.artwork or track.album.url)
+        embed.set_image(url=track.artwork or track.album.url)
 
         if isinstance(origin, commands.Context):
             await origin.reply(embed=embed, mention_author=False)
         else:
-            if hasattr(player, 'home'):
+            if hasattr(player, "home"):
                 await player.home.send(embed=embed)
 
     async def cog_before_invoke(self, ctx: commands.Context) -> None:
-        if not hasattr(ctx.voice_client, 'home'):
+        if not hasattr(ctx.voice_client, "home"):
             ctx.voice_client.home = ctx.channel
 
         return await super().cog_before_invoke(ctx)
@@ -109,7 +109,7 @@ class Music(subclasses.Cog):
 
     @subclasses.Cog.listener()
     async def on_wavelink_inactive_player(self, player: wavelink.Player) -> None:
-        if hasattr(player, 'home'):
+        if hasattr(player, "home"):
             await player.home.send(
                 f"The player has been inactive for `{player.inactive_timeout//60}` minutes."
             )
@@ -235,6 +235,9 @@ class Music(subclasses.Cog):
                 ),
             )
             embed.set_footer(text="Total length: " + length)
+            embed.set_author(
+                name=ctx.author.display_name, icon_url=ctx.author.display_avatar.url
+            )
             await ctx.reply(embed=embed, mention_author=False)
         else:
             tracks: wavelink.Search = (await wavelink.Playable.search(query))[0]
@@ -257,6 +260,9 @@ class Music(subclasses.Cog):
                     title="Added playlist to queue",
                     description=f"\N{OPTICAL DISC} loaded `{added}` songs from [`{tracks.name}`]({query})\n{misc.curve} total length: {length}",
                 )
+                embed.set_author(
+                    name=ctx.author.display_name, icon_url=ctx.author.display_avatar.url
+                )
                 await ctx.reply(embed=embed, mention_author=False)
 
             else:
@@ -271,6 +277,9 @@ class Music(subclasses.Cog):
                 embed = discord.Embed(
                     title="Added song to queue",
                     description=f"\N{OPTICAL DISC} [`{track.title}`]({track.uri})\n{misc.curve} by `{track.author}`",
+                )
+                embed.set_author(
+                    name=ctx.author.display_name, icon_url=ctx.author.display_avatar.url
                 )
                 await ctx.reply(embed=embed, mention_author=False)
 
