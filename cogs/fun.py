@@ -200,9 +200,8 @@ class CountryGuessing:
         if len(scores) > 0:
             embed.add_field(
                 name=f"{misc.space}\nScoreboard",
-                value=f"```\n{tabulate([x for x in iter(scoreboard)], headers=['name', 'answers', 'accuracy'], colalign=('left', 'center', 'decimal'))}```",
+                value=f"```\n{tabulate([x for x in iter(scoreboard)], headers=['name', 'answers', 'acc %'], colalign=('left', 'center', 'decimal'), tablefmt='rounded_outline')}```",
             )
-
         await origin.send(embed=embed)
 
     async def cancel_game(self, interaction: discord.Interaction):
@@ -221,7 +220,7 @@ class CountryGuessing:
         await msg.add_reaction(emoji)
 
     async def track_stats(self, user: discord.User, accuracy: int) -> None:
-        async with self.bot.pool.acquire() as conn:
+        async with self.ctx.bot.pool.acquire() as conn:
             await conn.execute(
                 "INSERT INTO statistics (id, key, value) VALUES (?, ?, 1) ON CONFLICT(id, key) DO UPDATE SET value = value + 1;",
                 (
@@ -277,8 +276,9 @@ class CountryGuessing:
 
             # Set answer
             self.country: dict = next(self.random_country())
-            while self.country in self.countries:
+            while self.country["cca3"] in self.countries:
                 self.country: dict = next(self.random_country())
+            self.countries.append(self.country["cca3"])
 
             self.country_names: list[str] = [
                 n for n in self.country["name"].values() if type(n) != dict
@@ -333,9 +333,10 @@ class CountryGuessing:
                 title=f"\N{PARTY POPPER} {self.country['name']['common']} \N{PARTY POPPER}",
                 description=f"{misc.space}{misc.curve}next in `10s`",
                 color=(
-                    msg.author.top_role.color
-                    if msg.author.top_role.color.value != 0
-                    else None
+                    discord.Color.green()
+                    if not hasattr(msg.author, "top_role")
+                    or msg.author.top_role.color.value == 0
+                    else msg.author.top_role.color
                 ),
             )
             if self.winner:
