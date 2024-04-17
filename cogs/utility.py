@@ -1,16 +1,13 @@
-from typing import Callable, Literal, Optional, Union, TYPE_CHECKING, Generator
-from utils import subclasses, ui, misc, paginator
-from contextlib import redirect_stdout
+from typing import Literal, Optional, Union, TYPE_CHECKING, Generator
+from utils import subclasses, ui, misc
 from discord.ext import commands
 from discord import app_commands
 from cogs import errors
 import unicodedata
-import traceback
-import textwrap
 import discord
 import pathlib
-import asyncio
 import difflib
+import string
 import psutil
 import zlib
 import json
@@ -329,7 +326,7 @@ class Utility(subclasses.Cog):
     async def rtfm(
         self,
         ctx: commands.Context,
-        source: Optional[Literal[tuple(misc.literal_rtfm)]] = ("stable"),
+        source: Optional[Literal[tuple(misc.literal_rtfm)]] = ("stable"),  # type: ignore
         obj: str = None,
     ):
         """Read The Fucking Manual
