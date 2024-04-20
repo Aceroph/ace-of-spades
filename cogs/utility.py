@@ -529,10 +529,7 @@ class Utility(subclasses.Cog):
         view.add_item(refresh)
         view.add_quit(ctx.author, ctx.guild)
 
-        if ctx.interaction:
-            await ctx.interaction.channel.send(embed=embed, view=view)
-        else:
-            await ctx.reply(embed=embed, mention_author=False, view=view)
+        await ctx.reply(embed=embed, mention_author=False, view=view)
 
     @commands.hybrid_command(name="eval")
     @app_commands.describe(
@@ -573,9 +570,14 @@ class Utility(subclasses.Cog):
             for i, line in enumerate(body.split("\n")):
                 if len(line.strip()) == 0:
                     continue
-                
+
                 if i == len(body.split("\n")) - 1:
-                    if not line.strip().startswith(('print', 'raise', 'import', 'return')) and line.count("=") != 1:
+                    if (
+                        not line.strip().startswith(
+                            ("print", "raise", "import", "return")
+                        )
+                        and line.count("=") != 1
+                    ):
                         code += " " * 2 + "return " + line + "\n"
                         continue
 
