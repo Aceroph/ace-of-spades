@@ -131,20 +131,11 @@ def clean_traceback(t: str) -> str:
 
 
 def clean_codeblock(codeblock: str, ctx: commands.Context = None) -> str:
-    clean = rf"{codeblock}"
+    clean = re.match(r"`{3}[a-zA-Z]*[ \n](.*)\n?`{3}", repr(codeblock))
+    if clean:
+        return clean.group()
 
-    # Get rid of the prefix and command name
-    if ctx:
-        clean = codeblock.lstrip(ctx.prefix + ctx.command.qualified_name).strip()
-
-    # Remove those ```
-    if clean.startswith("```"):
-        clean = "\n".join(clean.split("\n")[1:])
-
-    if clean.endswith("```"):
-        clean = clean.rstrip("`")
-
-    return clean
+    return codeblock
 
 
 runtimes: list[dict] = requests.get("https://emkc.org/api/v2/piston/runtimes").json()

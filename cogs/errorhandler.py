@@ -174,24 +174,25 @@ async def on_command_error(ctx: context.Context, error: commands.CommandError):
     except:
         pass
     trace = "".join(traceback.format_exception(type(error), error, error.__traceback__))
-    description = f"Command:\n```\n{ctx.message.content or 'None'}```\nTraceback:\n```py\n{misc.clean_traceback(trace)}```"
+
+    command_used = (
+        "```\n" + ctx.message.content.replace("`", "'") + "```"
+        if ctx.message.content
+        else f"{misc.curve} </{ctx.interaction.command.qualified_name}:{int(ctx.interaction.data['id'])}>"
+        or None
+    )
 
     embed = discord.Embed(
         title=f":warning: Unhandled error in command",
-        description=f"Command:\n```\n{ctx.message.content or 'None'}```",
+        description=f"By: `{ctx.author.display_name}` (ID: {ctx.author.id})\nIn: `{ctx.guild.name if ctx.guild else 'DMs'}` {f'(ID: {ctx.guild.id})' if ctx.guild else ''}",
     )
-    embed.set_footer(
-        text=f"Caused by {ctx.author.display_name} in {ctx.guild.name if ctx.guild else 'DMs'} ({ctx.guild.id if ctx.guild else 0})",
-        icon_url=ctx.author.avatar.url,
-    )
+    embed.add_field(name="Command", value=command_used, inline=False)
 
     # Paginate if too long
-    if len(description) > 4080:
+    prefix = f"```py\n"
+    if len(prefix + trace) > 1024:
         p = paginator.Paginator(
-            ctx,
-            embed=embed,
-            prefix=f"Traceback:\n```py",
-            suffix="```",
+            ctx, embed=embed, prefix=prefix, suffix="```", subtitle="Traceback"
         )
         for line in misc.clean_traceback(trace).split("\n"):
             p.add_line(line)
@@ -199,7 +200,7 @@ async def on_command_error(ctx: context.Context, error: commands.CommandError):
         # Send full traceback to owner
         await p.start(destination=ctx.bot.get_user(ctx.bot.owner_id))
     else:
-        embed.description = description
+        embed.add_field(name="Traceback", value=prefix + trace + "```")
         await ctx.bot.get_user(ctx.bot.owner_id).send(embed=embed)
 
     view = subclasses.View()

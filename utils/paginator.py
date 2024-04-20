@@ -2,6 +2,7 @@ from .errors import NotYourButton
 from discord.ext import commands
 from .subclasses import View
 from typing import Optional
+from . import misc
 import discord
 
 
@@ -10,9 +11,10 @@ class Paginator:
         self,
         ctx: commands.Context,
         embed: discord.Embed = None,
-        max_lines: int = None,
-        prefix: str = None,
-        suffix: str = None,
+        subtitle: str = misc.space,
+        max_lines: int = 2048,
+        prefix: str = "",
+        suffix: str = "",
     ) -> None:
         self.embed = embed
         self.index: int = 0
@@ -22,27 +24,29 @@ class Paginator:
         self.pages = []
         self.current_page = []
 
-        self.prefix = prefix + "\n" if prefix else ""
-        self.suffix = suffix if suffix else ""
+        self.subtitle = subtitle
+        self.prefix = prefix
+        self.suffix = suffix
 
         # Buttons
         self.view = View()
 
     def add_line(self, line: str = "") -> None:
-        if self.max_lines:
-            self.current_page.append(line)
-
-            if len(self.current_page) == self.max_lines - 1:
-                self.add_page("\n".join(self.current_page))
+        # Establish max
+        if self.embed.description:
+            MAX = 1024
         else:
-            if len("\n".join(self.current_page)) + len(line) >= 2000:
-                self.add_page()
-                self.current_page.append(line)
-            else:
-                self.current_page.append(line)
+            MAX = 2048
 
-            if len("\n".join(self.current_page)) == 2000:
-                self.add_page()
+        # If too many lines or too many characters, add page
+        if (
+            len("\n".join(self.current_page)) + len(self.prefix + line + self.suffix)
+            > MAX
+            or len(self.current_page) + 1 > self.max_lines
+        ):
+            self.add_page("\n".join(self.current_page))
+
+        self.current_page.append(line)
 
     def add_page(self, page: str = None) -> None:
         self.pages.append(
@@ -54,8 +58,8 @@ class Paginator:
         self,
         destination: Optional[discord.abc.Messageable] = None,
     ):
-        self.update_buttons(self.ctx.author)
         self.add_page()
+        self.update_buttons(self.ctx.author)
 
         if not destination:
             destination = self.ctx.channel
@@ -64,10 +68,15 @@ class Paginator:
             if self.embed.description:
                 if getattr(self, "_added_field", False):
                     self.embed.set_field_at(
-                        index=len(self.embed.fields) - 1, value=self.pages[self.index]
+                        index=len(self.embed.fields) - 1,
+                        name=self.subtitle,
+                        value=self.pages[self.index],
                     )
                 else:
-                    self.embed.add_field(value=self.pages[self.index])
+                    self.embed.add_field(
+                        name=self.subtitle, value=self.pages[self.index]
+                    )
+                    self._added_field = True
             else:
                 self.embed.description = self.pages[self.index]
 
@@ -144,7 +153,19 @@ class Paginator:
 
         if self.embed:
             embed = interaction.message.embeds[0]
-            embed.description = self.pages[self.index]
+            if embed.description:
+                if getattr(self, "_added_field", False):
+                    embed.set_field_at(
+                        index=len(embed.fields) - 1,
+                        name=self.subtitle,
+                        value=self.pages[self.index],
+                    )
+                else:
+                    embed.add_field(name=self.subtitle, value=self.pages[self.index])
+                    self._added_field = True
+            else:
+                embed.description = self.pages[self.index]
+
             embed.set_footer(text=f"Page {self.index+1} of {len(self.pages)}")
             return await interaction.response.edit_message(embed=embed, view=self.view)
         else:

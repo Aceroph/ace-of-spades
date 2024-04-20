@@ -2,7 +2,7 @@ from typing import Literal, Optional, Union, TYPE_CHECKING, Generator
 from utils import subclasses, ui, misc
 from discord.ext import commands
 from discord import app_commands
-from cogs import errors
+from utils import errors
 import unicodedata
 import discord
 import pathlib
@@ -547,13 +547,16 @@ class Utility(subclasses.Cog):
     ):
         """Runs code in the specified language, aliases work too !"""
 
-        # Clean body
-        body = misc.clean_codeblock(body)
-
         # Get language
         if not language in misc.literal_runtimes:
+            language = (
+                language + " " if language else ""
+            )  # Fix language being none in some cases
+            body = language + body
             language = "python"
-            body = language + " " + body
+
+        # Clean body
+        body = misc.clean_codeblock(body)
 
         # Convert language
         for r in misc.runtimes:
@@ -566,20 +569,19 @@ class Utility(subclasses.Cog):
 
         # Format code if python
         if language["language"] == "python":
-            code = ""
-            for line in body.split("\n"):
+            code = "import asyncio\nasync def func():\n"
+            for i, line in enumerate(body.split("\n")):
                 if len(line.strip()) == 0:
                     continue
+                
+                if i == len(body.split("\n")) - 1:
+                    if not line.strip().startswith(('print', 'raise', 'import', 'return')) and line.count("=") != 1:
+                        code += " " * 2 + "return " + line + "\n"
+                        continue
 
-                # Always return value
-                if line == body.split("\n")[-1]:
-                    if not line.lstrip(" ").startswith(("return", "print")):
-                        indent = len(line) - len(line.lstrip(" "))
-                        code += " " * (indent) + f"print({line})"
-                        break
+                code += " " * 2 + line + "\n"
 
-                code += line + "\n"
-            body = code
+            body = code + "print(asyncio.run(func()))"
 
         payload = {
             "language": language["language"],
@@ -593,7 +595,13 @@ class Utility(subclasses.Cog):
         ).json()
 
         output = response["run"]["output"] or "No output"
-        if len(output.split("\n")) > 20:
+
+        # Truncate in need
+        if (
+            len(output.split("\n")) > 100
+            if isinstance(ctx.channel, discord.DMChannel)
+            else 20
+        ):
             output = "\n".join(output.split("\n")[:20]) + "\n..."
 
         view = subclasses.View()
@@ -606,13 +614,13 @@ class Utility(subclasses.Cog):
             label="Delete",
         )
 
-        msg = await ctx.reply(f"```py\n{output}```", mention_author=False, view=view)
+        await ctx.reply(f"```py\n{output}```", mention_author=False, view=view)
 
-        origin = ctx.message if not ctx.interaction else msg
-        if response["run"]["code"] != 0:
-            await origin.add_reaction(misc.no)
-        else:
-            await origin.add_reaction(misc.yes)
+        if not ctx.interaction:
+            if response["run"]["code"] != 0:
+                await ctx.message.add_reaction(misc.no)
+            else:
+                await ctx.message.add_reaction(misc.yes)
 
     @_eval.autocomplete("language")
     async def eval_autocomplete(self, interaction: discord.Interaction, current: str):
