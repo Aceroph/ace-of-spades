@@ -1,14 +1,10 @@
-from typing import TYPE_CHECKING, cast, Union, List
-from utils import subclasses, misc, paginator
+from utils import subclasses, misc, paginator, errors
+from typing import TYPE_CHECKING, cast, Union
 from discord.ext import commands
 from discord import app_commands
-from tabulate import tabulate
-from cogs import errors
-import traceback
 import wavelink
 import textwrap
 import discord
-import re
 
 if TYPE_CHECKING:
     from main import AceBot
@@ -270,7 +266,7 @@ class Music(subclasses.Cog):
 
             else:
                 # Add requested user to track
-                track: wavelink.Playable = tracks
+                track: wavelink.Playable = tracks[0]
                 track.extras = {
                     "name": ctx.author.display_name,
                     "icon_url": ctx.author.display_avatar.url,
