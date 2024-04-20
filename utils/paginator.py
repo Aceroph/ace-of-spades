@@ -1,6 +1,7 @@
-from cogs.errors import NotYourButton
+from .errors import NotYourButton
 from discord.ext import commands
 from .subclasses import View
+from typing import Optional
 import discord
 
 
@@ -49,18 +50,33 @@ class Paginator:
         )
         self.current_page = []
 
-    async def start(self):
+    async def start(
+        self,
+        destination: Optional[discord.abc.Messageable] = None,
+    ):
         self.update_buttons(self.ctx.author)
         self.add_page()
 
+        if not destination:
+            destination = self.ctx.channel
+
         if self.embed:
-            self.embed.description = self.pages[self.index]
+            if self.embed.description:
+                if getattr(self, "_added_field", False):
+                    self.embed.set_field_at(
+                        index=len(self.embed.fields) - 1, value=self.pages[self.index]
+                    )
+                else:
+                    self.embed.add_field(value=self.pages[self.index])
+            else:
+                self.embed.description = self.pages[self.index]
+
             self.embed.set_footer(text=f"Page {self.index+1} of {len(self.pages)}")
-            return await self.ctx.reply(
+            return await destination.send(
                 embed=self.embed, view=self.view, mention_author=False
             )
         else:
-            return await self.ctx.reply(
+            return await destination.send(
                 self.pages[self.index], view=self.view, mention_author=False
             )
 

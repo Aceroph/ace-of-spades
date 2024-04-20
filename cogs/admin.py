@@ -1,6 +1,6 @@
 from typing import Literal, Optional, Union, TYPE_CHECKING
 from utils import subclasses, misc
-from .errors import NotYourButton
+from utils.errors import NotYourButton
 from discord.ext import commands
 from discord import app_commands
 from tabulate import tabulate

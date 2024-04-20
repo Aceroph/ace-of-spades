@@ -1,7 +1,7 @@
+from utils import subclasses, misc, paginator, errors, context
 from typing import TYPE_CHECKING, Union
-from utils import subclasses, misc
-from discord import app_commands
 from discord.ext import commands
+from utils.errors import iserror
 import traceback
 import wavelink
 import discord
@@ -11,35 +11,10 @@ if TYPE_CHECKING:
     from main import AceBot
 
 
-def iserror(error: Exception, kind) -> bool:
-    if isinstance(kind, (tuple, set, list)):
-        return any([error.__class__.__qualname__ == k.__qualname__ for k in kind])
-
-    return error.__class__.__qualname__ == kind.__qualname__
-
-
-class NotVoiceMember(commands.CommandError):
-    def __init__(self, channel: discord.VoiceChannel) -> None:
-        self.channel = channel
-
-
-class PlayerConnectionFailure(commands.CommandError):
-    pass
-
-
-class NoVoiceFound(commands.CommandError):
-    pass
-
-
-class NotYourButton(app_commands.AppCommandError):
-    def __init__(self, reason: str = None) -> None:
-        self.reason = reason
-
-
 # Error handler
-async def on_command_error(ctx: commands.Context, error: commands.CommandError):
+async def on_command_error(ctx: context.Context, error: commands.CommandError):
     # Defer if interaction
-    if ctx.interaction:
+    if ctx.interaction and not ctx.interaction.response.is_done():
         await ctx.interaction.response.defer()
 
     if iserror(error, commands.errors.CommandNotFound):
@@ -151,7 +126,7 @@ async def on_command_error(ctx: commands.Context, error: commands.CommandError):
             delete_after=15,
         )
 
-    if iserror(error, NotVoiceMember):
+    if iserror(error, errors.NotVoiceMember):
         return await ctx.reply(
             embed=discord.Embed(
                 title=":warning: Cannot use command",
@@ -164,7 +139,7 @@ async def on_command_error(ctx: commands.Context, error: commands.CommandError):
     if iserror(error, (commands.errors.CheckFailure, commands.errors.NotOwner)):
         return
 
-    if iserror(error, NoVoiceFound):
+    if iserror(error, errors.NoVoiceFound):
         return await ctx.reply(
             embed=discord.Embed(
                 title=":musical_note: No Voice Found",
@@ -174,7 +149,7 @@ async def on_command_error(ctx: commands.Context, error: commands.CommandError):
             delete_after=15,
         )
 
-    if iserror(error, PlayerConnectionFailure):
+    if iserror(error, errors.PlayerConnectionFailure):
         return await ctx.reply(
             embed=discord.Embed(
                 title=":musical_note: Player Connection Failure",
@@ -199,20 +174,36 @@ async def on_command_error(ctx: commands.Context, error: commands.CommandError):
     except:
         pass
     trace = "".join(traceback.format_exception(type(error), error, error.__traceback__))
+    description = f"Command:\n```\n{ctx.message.content or 'None'}```\nTraceback:\n```py\n{misc.clean_traceback(trace)}```"
+
     embed = discord.Embed(
         title=f":warning: Unhandled error in command",
-        description=f"Command:\n```\n{ctx.message.content or 'None'}```\nTraceback:\n```py\n{misc.clean_traceback(trace)}```",
+        description=f"Command:\n```\n{ctx.message.content or 'None'}```",
     )
     embed.set_footer(
         text=f"Caused by {ctx.author.display_name} in {ctx.guild.name if ctx.guild else 'DMs'} ({ctx.guild.id if ctx.guild else 0})",
         icon_url=ctx.author.avatar.url,
     )
 
+    # Paginate if too long
+    if len(description) > 4080:
+        p = paginator.Paginator(
+            ctx,
+            embed=embed,
+            prefix=f"Traceback:\n```py",
+            suffix="```",
+        )
+        for line in misc.clean_traceback(trace).split("\n"):
+            p.add_line(line)
+
+        # Send full traceback to owner
+        await p.start(destination=ctx.bot.get_user(ctx.bot.owner_id))
+    else:
+        embed.description = description
+        await ctx.bot.get_user(ctx.bot.owner_id).send(embed=embed)
+
     view = subclasses.View()
     view.add_quit(ctx.author, ctx.guild)
-
-    # Owner embed w full traceback
-    await ctx.bot.get_user(ctx.bot.owner_id).send(embed=embed)
 
     # User error
     embed = discord.Embed(

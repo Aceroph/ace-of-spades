@@ -1,10 +1,14 @@
-from cogs.errors import NoVoiceFound, NotYourButton, iserror
+from .errors import NoVoiceFound, NotYourButton, iserror
+from typing import Iterable, TYPE_CHECKING
 from discord.ext import commands
 from discord import app_commands
 from . import subclasses, misc
 import traceback
 import discord
 import time
+
+if TYPE_CHECKING:
+    from main import AceBot
 
 
 async def can_use(ctx: commands.Context):
@@ -40,6 +44,22 @@ class Cog(commands.Cog):
             return await super().cog_before_invoke(ctx)
         else:
             raise commands.errors.CheckFailure
+
+    async def configure(
+        self, ctx: commands.Context, items: Iterable[discord.ui.Item] = None
+    ) -> None:
+        bot: "AceBot" = ctx.bot
+        async with bot.pool.aquire() as conn:
+            status = await conn.fetchone(
+                "SELECT FROM guildConfig WHERE id = :id AND key = :key",
+                {"id": ctx.guild.id, "key": "status:" + self.qualified_name.casefold()},
+            )
+        print(status)
+        embed = discord.Embed(
+            title=f"\N{GEAR}\N{VARIATION SELECTOR-16} Configuring {self.qualified_name}",
+            description=f"module: `TEST`",
+        )
+        return await ctx.reply(embed=embed)
 
 
 class View(discord.ui.View):
