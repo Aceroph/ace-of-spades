@@ -298,10 +298,11 @@ class Music(subclasses.Cog):
     @commands.hybrid_group(aliases=["q"], fallback="show", invoke_without_command=True)
     async def queue(self, ctx: commands.Context):
         """Lists the next titles and position in the queue"""
-        if not ctx.voice_client:
+        player = cast(wavelink.Player, ctx.voice_client)
+        if not player:
             raise errors.NoVoiceFound
 
-        length = len(ctx.voice_client.queue._items)
+        length = len(player.queue._items + player.auto_queue._items)
         if length > 0:
             p = paginator.Paginator(
                 ctx=ctx,
@@ -315,11 +316,16 @@ class Music(subclasses.Cog):
                 [
                     format(i + 1, "02d"),
                     textwrap.shorten(
-                        track.title, 45, break_long_words=False, placeholder="..."
+                        track.title.replace("[", "(").replace("]", ")"),
+                        45,
+                        break_long_words=False,
+                        placeholder="...",
                     ),
                     track.uri,
                 ]
-                for i, track in enumerate(ctx.voice_client.queue._items)
+                for i, track in enumerate(
+                    player.queue._items + player.auto_queue._items
+                )
             ]
             for item in items:
                 p.add_line(f"`{item[0]}` | [`{item[1]}`]({item[2]})")
@@ -333,12 +339,15 @@ class Music(subclasses.Cog):
     @queue.command(name="clear")
     async def queue_clear(self, ctx: commands.Context):
         """Clears the queue and stops the music"""
-        if not ctx.voice_client:
+        player = cast(wavelink.Player, ctx.voice_client)
+        if not player:
             raise errors.NoVoiceFound
 
-        ctx.voice_client.queue.clear()
-        ctx.voice_client.autoplay = wavelink.AutoPlayMode.disabled
-        await ctx.voice_client.skip()
+        player.queue.clear()
+        player.autoplay = wavelink.AutoPlayMode.disabled
+        await player.skip()
+        player.autoplay = wavelink.AutoPlayMode.enabled
+
         await ctx.reply("Cleared queue", mention_author=False)
 
     @commands.guild_only()
@@ -346,12 +355,13 @@ class Music(subclasses.Cog):
     @commands.hybrid_command()
     async def shuffle(self, ctx: commands.Context):
         """Shuffles the current player's queue"""
-        if not ctx.voice_client:
+        player = cast(wavelink.Player, ctx.voice_client)
+        if not player:
             raise errors.NoVoiceFound
 
-        length = len(ctx.voice_client.queue._items)
+        length = len(player.queue._items)
         if length > 1:
-            ctx.voice_client.queue.shuffle()
+            player.queue.shuffle()
             embed = discord.Embed(
                 title="\N{ANTICLOCKWISE DOWNWARDS AND UPWARDS OPEN CIRCLE ARROWS} Shuffled queue",
                 description=f">>> reordered {length} items",
@@ -370,11 +380,12 @@ class Music(subclasses.Cog):
     @commands.hybrid_command(aliases=["unpause"])
     async def pause(self, ctx: commands.Context):
         """Pauses or resumes activity"""
-        if not ctx.voice_client:
+        player = cast(wavelink.Player, ctx.voice_client)
+        if not player:
             raise errors.NoVoiceFound
 
-        await ctx.voice_client.pause(not ctx.voice_client.paused)
-        if not ctx.voice_client.paused:
+        await player.pause(not player.paused)
+        if not player.paused:
             embed = discord.Embed(
                 title="\N{BLACK RIGHT-POINTING TRIANGLE}\N{VARIATION SELECTOR-16} Resumed player",
                 description=f"{misc.curve} to pause, run `pause`",
@@ -394,10 +405,11 @@ class Music(subclasses.Cog):
     @commands.hybrid_command(aliases=["next"])
     async def skip(self, ctx: commands.Context):
         """Skips the current song"""
-        if not ctx.voice_client:
+        player = cast(wavelink.Player, ctx.voice_client)
+        if not player:
             raise errors.NoVoiceFound
 
-        await ctx.voice_client.skip()
+        await player.skip()
         await ctx.reply("Skipped song", mention_author=False)
 
     @commands.guild_only()
@@ -405,10 +417,11 @@ class Music(subclasses.Cog):
     @commands.hybrid_command(aliases=["quit"])
     async def stop(self, ctx: commands.Context):
         """Stops playing music and disconnects the player"""
-        if not ctx.voice_client:
+        player = cast(wavelink.Player, ctx.voice_client)
+        if not player:
             raise errors.NoVoiceFound
 
-        await ctx.voice_client.disconnect()
+        await player.disconnect()
         await ctx.reply("Stopped playing music", mention_author=False)
 
     @commands.guild_only()

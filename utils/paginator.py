@@ -2,6 +2,7 @@ from .errors import NotYourButton
 from discord.ext import commands
 from .subclasses import View
 from typing import Optional
+from copy import copy
 from . import misc
 import discord
 
@@ -30,6 +31,29 @@ class Paginator:
 
         # Buttons
         self.view = View()
+
+    def _update_embed(self, embed: discord.Embed) -> discord.Embed:
+        if self.embed.description:
+            if getattr(self, "_added_field", False):
+                embed.set_field_at(
+                    index=len(embed.fields) - 1,
+                    name=self.subtitle,
+                    value=self.pages[self.index],
+                )
+            else:
+                embed.add_field(name=self.subtitle, value=self.pages[self.index])
+                self._added_field = True
+        else:
+            embed.description = self.pages[self.index]
+
+        if self.embed.footer:
+            embed.set_footer(
+                text=f"{self.embed.footer.text} • Page {self.index+1} of {len(self.pages)}",
+                icon_url=self.embed.footer.icon_url,
+            )
+        else:
+            embed.set_footer(text=f"Page {self.index+1} of {len(self.pages)}")
+        return embed
 
     def add_line(self, line: str = "") -> None:
         # Establish max
@@ -61,31 +85,18 @@ class Paginator:
         self.add_page()
         self.update_buttons(self.ctx.author)
 
-        if not destination:
-            destination = self.ctx.channel
+        if destination:
+            respond = destination.send
+        else:
+            respond = self.ctx.reply
 
         if self.embed:
-            if self.embed.description:
-                if getattr(self, "_added_field", False):
-                    self.embed.set_field_at(
-                        index=len(self.embed.fields) - 1,
-                        name=self.subtitle,
-                        value=self.pages[self.index],
-                    )
-                else:
-                    self.embed.add_field(
-                        name=self.subtitle, value=self.pages[self.index]
-                    )
-                    self._added_field = True
-            else:
-                self.embed.description = self.pages[self.index]
-
-            self.embed.set_footer(text=f"Page {self.index+1} of {len(self.pages)}")
-            return await destination.send(
-                embed=self.embed, view=self.view, mention_author=False
+            embed = copy(self.embed)
+            return await respond(
+                embed=self._update_embed(embed), view=self.view, mention_author=False
             )
         else:
-            return await destination.send(
+            return await respond(
                 self.pages[self.index], view=self.view, mention_author=False
             )
 
@@ -153,21 +164,9 @@ class Paginator:
 
         if self.embed:
             embed = interaction.message.embeds[0]
-            if embed.description:
-                if getattr(self, "_added_field", False):
-                    embed.set_field_at(
-                        index=len(embed.fields) - 1,
-                        name=self.subtitle,
-                        value=self.pages[self.index],
-                    )
-                else:
-                    embed.add_field(name=self.subtitle, value=self.pages[self.index])
-                    self._added_field = True
-            else:
-                embed.description = self.pages[self.index]
-
-            embed.set_footer(text=f"Page {self.index+1} of {len(self.pages)}")
-            return await interaction.response.edit_message(embed=embed, view=self.view)
+            return await interaction.response.edit_message(
+                embed=self._update_embed(embed), view=self.view
+            )
         else:
             return await interaction.response.edit_message(
                 self.pages[self.index], view=self.view

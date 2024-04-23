@@ -131,9 +131,9 @@ def clean_traceback(t: str) -> str:
 
 
 def clean_codeblock(codeblock: str, ctx: commands.Context = None) -> str:
-    clean = re.match(r"`{3}[a-zA-Z]*[ \n](.*)\n?`{3}", repr(codeblock))
+    clean = re.match(r"`{3}[a-zA-Z]*[ \n](.*)\n?`{3}", codeblock, flags=re.S)
     if clean:
-        return clean.group()
+        return clean.group(1)
 
     return codeblock
 
