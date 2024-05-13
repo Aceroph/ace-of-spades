@@ -215,9 +215,6 @@ class CountryGuessing:
         else:
             await interaction.response.edit_message(view=None)
 
-    async def react(self, msg: discord.Message, emoji: discord.PartialEmoji):
-        await msg.add_reaction(emoji)
-
     async def track_stats(self, user: discord.User, accuracy: int) -> None:
         async with self.ctx.bot.pool.acquire() as conn:
             await conn.execute(
@@ -239,17 +236,14 @@ class CountryGuessing:
             if "quit" in msg.content.casefold() or "stop" in msg.content.casefold():
                 self.playing = False
                 self.winner = None
-                asyncio.create_task(self.react(msg, "\N{OCTAGONAL SIGN}"))
+                asyncio.create_task(msg.add_reaction("\N{OCTAGONAL SIGN}"))
                 asyncio.create_task(self.end_game(msg.channel))
                 return True
 
             elif "skip" in msg.content.casefold():
                 self.winner = None
                 asyncio.create_task(
-                    self.react(
-                        msg,
-                        "\N{BLACK RIGHT-POINTING DOUBLE TRIANGLE WITH VERTICAL BAR}",
-                    )
+                    msg.add_reaction("\N{BLACK RIGHT-POINTING DOUBLE TRIANGLE WITH VERTICAL BAR}")
                 )
                 return True
 
@@ -260,7 +254,7 @@ class CountryGuessing:
             if self.accuracy >= 0.65:
                 asyncio.create_task(self.track_stats(msg.author, self.accuracy))
                 self.winner = msg.author
-                asyncio.create_task(self.react(msg, "\N{WHITE HEAVY CHECK MARK}"))
+                asyncio.create_task(msg.add_reaction("\N{WHITE HEAVY CHECK MARK}"))
                 return True
         return
 
