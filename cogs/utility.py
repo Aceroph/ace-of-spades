@@ -1,5 +1,5 @@
 from typing import Literal, Optional, Union, TYPE_CHECKING, Generator
-from utils import subclasses, ui, misc
+from utils import subclasses, ui, misc, context
 from discord.ext import commands
 from discord import app_commands
 from utils import errors
@@ -572,18 +572,20 @@ class Utility(subclasses.Cog):
                     continue
 
                 if i == len(body.split("\n")) - 1:
-                    if (
-                        not line.strip().startswith(
-                            ("print", "raise", "import", "return")
-                        )
-                        and line.count("=") != 1
+                    if not any(
+                        [
+                            line.strip().startswith(
+                                ("print", "raise", "import", "return")
+                            ),
+                            "=" in line,
+                        ]
                     ):
-                        code += " " * 2 + "return " + line + "\n"
+                        code += " " * 2 + f"print({line})\n"
                         continue
 
                 code += " " * 2 + line + "\n"
 
-            body = code + "print(asyncio.run(func()))"
+            body = code + "asyncio.run(func())"
 
         payload = {
             "language": language["language"],
@@ -598,14 +600,6 @@ class Utility(subclasses.Cog):
 
         output = response["run"]["output"] or "No output"
 
-        # Truncate in need
-        if (
-            len(output.split("\n")) > 100
-            if isinstance(ctx.channel, discord.DMChannel)
-            else 20
-        ):
-            output = "\n".join(output.split("\n")[:20]) + "\n..."
-
         view = subclasses.View()
         view.add_quit(
             ctx.author,
@@ -616,7 +610,13 @@ class Utility(subclasses.Cog):
             label="Delete",
         )
 
-        await ctx.reply(f"```py\n{output}```", mention_author=False, view=view)
+        await context.reply(
+            ctx,
+            output,
+            prefix=f"```{language['language']}\n",
+            suffix="```",
+            mention_author=False,
+        )
 
         if not ctx.interaction:
             if response["run"]["code"] != 0:

@@ -1,14 +1,34 @@
 from discord.ext import commands
-from typing import Optional
-import discord
+from .paginator import Paginator
+from discord import Message
 
 
-class Context(commands.Context):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+async def reply(
+    ctx: commands.Context,
+    content: str,
+    prefix: str = "",
+    suffix: str = "",
+    *args,
+    **kwargs
+) -> Message:
+    if ctx.interaction and ctx.interaction.response.is_done():
+        if len(prefix + content + suffix) > 2000:
+            p = Paginator(ctx, prefix=prefix, suffix=suffix, max_lines=100)
+            for line in content.split("\n"):
+                p.add_line(line)
+            return await p.start()
 
-    async def reply(self, **kwargs):
-        if self.interaction.response.is_done():
-            return await self.interaction.followup.send(**kwargs)
-        else:
-            return await self.reply(**kwargs)
+        return await ctx.interaction.followup.send(
+            prefix + content + suffix, *args, **kwargs
+        )
+    else:
+        if len(prefix + content + suffix) > 2000:
+            p = Paginator(ctx, prefix=prefix, suffix=suffix, max_lines=100)
+            for line in content.split("\n"):
+                p.add_line(line)
+            return await p.start()
+
+        return await ctx.reply(prefix + content + suffix, *args, **kwargs)
+
+
+commands.Context.reply

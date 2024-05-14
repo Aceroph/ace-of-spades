@@ -57,15 +57,18 @@ class Paginator:
 
     def add_line(self, line: str = "") -> None:
         # Establish max
-        if self.embed.description:
-            MAX = 1024
+        if self.embed:
+            if self.embed.description:
+                MAX = 1024
+            else:
+                MAX = 2048
         else:
-            MAX = 2048
+            MAX = 2000
 
         # If too many lines or too many characters, add page
         if (
-            len("\n".join(self.current_page)) + len(self.prefix + line + self.suffix)
-            > MAX
+            len("\n".join(self.current_page)) + len(line + self.prefix + self.suffix)
+            > MAX - 1
             or len(self.current_page) + 1 > self.max_lines
         ):
             self.add_page("\n".join(self.current_page))
@@ -143,7 +146,9 @@ class Paginator:
         _previous.callback = self.previous_page
         self.view.add_item(_previous)
 
-        self.view.add_quit(user, self.ctx.guild)
+        self.view.add_quit(
+            user, self.ctx.guild, label=f"Quit • Page {self.index+1}/{len(self.pages)}"
+        )
 
         _next = discord.ui.Button(
             label=">",
@@ -169,5 +174,5 @@ class Paginator:
             )
         else:
             return await interaction.response.edit_message(
-                self.pages[self.index], view=self.view
+                content=self.pages[self.index], view=self.view
             )
