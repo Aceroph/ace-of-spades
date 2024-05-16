@@ -25,7 +25,7 @@ class Music(subclasses.Cog):
                 password=self.config["passwd"],
                 inactive_player_timeout=180,
                 resume_timeout=300,
-                retries=5,
+                retries=0,
             )
         ]
         self.nodes = await wavelink.Pool.connect(
