@@ -21,6 +21,7 @@ class Paginator:
         self.index: int = 0
         self.max_lines = max_lines
         self.ctx = ctx
+        self.author = ctx.author
 
         self.pages = []
         self.current_page = []
@@ -86,10 +87,12 @@ class Paginator:
         destination: Optional[discord.abc.Messageable] = None,
     ):
         self.add_page()
-        self.update_buttons(self.ctx.author)
+        self.update_buttons(self.author)
 
         if destination:
             respond = destination.send
+            if isinstance(destination, discord.abc.User):
+                self.author = destination
         else:
             respond = self.ctx.reply
 
@@ -104,28 +107,28 @@ class Paginator:
             )
 
     async def next_page(self, interaction: discord.Interaction):
-        if interaction.user != self.ctx.author:
+        if interaction.user != self.author:
             raise NotYourButton
 
         self.index += 1
         return await self.update_page(interaction)
 
     async def previous_page(self, interaction: discord.Interaction):
-        if interaction.user != self.ctx.author:
+        if interaction.user != self.author:
             raise NotYourButton
 
         self.index -= 1
         return await self.update_page(interaction)
 
     async def first_page(self, interaction: discord.Interaction):
-        if interaction.user != self.ctx.author:
+        if interaction.user != self.author:
             raise NotYourButton
 
         self.index = 0
         return await self.update_page(interaction)
 
     async def last_page(self, interaction: discord.Interaction):
-        if interaction.user != self.ctx.author:
+        if interaction.user != self.author:
             raise NotYourButton
 
         self.index = len(self.pages) - 1

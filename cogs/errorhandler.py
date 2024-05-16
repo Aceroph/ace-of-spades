@@ -2,6 +2,7 @@ from utils import misc, paginator, errors, subclasses
 from typing import TYPE_CHECKING, Union
 from discord.ext import commands
 from utils.errors import iserror
+from copy import copy
 import traceback
 import wavelink
 import discord
