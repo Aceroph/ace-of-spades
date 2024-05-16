@@ -1,6 +1,10 @@
+from typing import TYPE_CHECKING
 from discord import app_commands
 from discord.ext import commands
 import discord
+
+if TYPE_CHECKING:
+    from .subclasses import Cog
 
 
 def iserror(error: Exception, kind) -> bool:
@@ -26,3 +30,8 @@ class NoVoiceFound(commands.CommandError):
 class NotYourButton(app_commands.AppCommandError):
     def __init__(self, reason: str = None) -> None:
         self.reason = reason
+
+
+class ModuleDisabled(commands.CommandError):
+    def __init__(self, module: "Cog") -> None:
+        self.module = module.qualified_name

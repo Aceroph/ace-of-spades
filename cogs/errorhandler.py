@@ -1,4 +1,4 @@
-from utils import subclasses, misc, paginator, errors, context
+from utils import misc, paginator, errors, subclasses
 from typing import TYPE_CHECKING, Union
 from discord.ext import commands
 from utils.errors import iserror
@@ -11,87 +11,95 @@ if TYPE_CHECKING:
     from main import AceBot
 
 
+# Reinvocation
+async def reinvoke(ctx: commands.Context):
+    command = ctx.message.content.split()[0].strip(ctx.prefix)
+
+    # Get closest match for command
+    correct_command: Union[commands.Command, commands.Group] = None
+    ratio: float = 0.5
+    cmd: commands.Command
+    for cmd in ctx.bot.commands:
+        try:
+            await cmd.can_run(ctx)
+            r = difflib.SequenceMatcher(None, command, cmd.qualified_name).ratio()
+            if r > ratio:
+                correct_command = cmd
+                ratio = r
+        except:
+            pass
+
+    if not correct_command:
+        return
+
+    # Is commands a group?
+    if hasattr(correct_command, "commands"):
+        command = ctx.message.content.split()
+        command = (
+            " ".join(command[:2]).strip(ctx.prefix)
+            if len(command) > 1
+            else command[0].strip(ctx.prefix)
+        )
+        ratio: float = 0.75
+        for cmd in correct_command.commands:
+            r = difflib.SequenceMatcher(None, command, cmd.qualified_name).ratio()
+            if r > ratio:
+                correct_command = cmd
+                ratio = r
+
+    # Invoke command
+    async def invoke(interaction: discord.Interaction):
+        args = ctx.message.content.split()[
+            len(correct_command.qualified_name.split()) :
+        ]
+        if interaction.guild:
+            await interaction.message.delete()
+        else:
+            await interaction.response.edit_message(
+                content="Reinvoked command successfully !", view=None
+            )
+
+        # If command is help
+        if correct_command.qualified_name == "help":
+            if len(args) >= 1:
+                await ctx.send_help(" ".join(args))
+            else:
+                await ctx.send_help()
+        else:
+            r = [
+                await commands.run_converters(ctx, param.converter, args[i], param)
+                for i, param in enumerate(correct_command.params.values())
+                if i < len(args)
+            ]
+            try:
+                await correct_command.call_before_hooks(ctx)
+                return await ctx.invoke(correct_command, *r)
+            except Exception as err:
+                return await on_command_error(ctx, err)
+
+    # UI
+    _invoke = discord.ui.Button(style=discord.ButtonStyle.green, label="Yes")
+    _invoke.callback = invoke
+
+    view = subclasses.View()
+    view.add_item(_invoke)
+    view.add_quit(ctx.author, ctx.guild, label="Nah")
+
+    return await ctx.reply(
+        f"Did you mean: `{correct_command.qualified_name}`",
+        mention_author=False,
+        view=view,
+    )
+
+
 # Error handler
-async def on_command_error(ctx: context.Context, error: commands.CommandError):
+async def on_command_error(ctx: commands.Context, error: commands.CommandError):
     # Defer if interaction
     if ctx.interaction and not ctx.interaction.response.is_done():
         await ctx.interaction.response.defer()
 
     if iserror(error, commands.errors.CommandNotFound):
-        command = ctx.message.content.split()[0].strip(ctx.prefix)
-
-        # Get closest match for command
-        correct_command: Union[commands.Command, commands.Group] = None
-        ratio: float = 0.5
-        cmd: commands.Command
-        for cmd in ctx.bot.commands:
-            try:
-                await cmd.can_run(ctx)
-                r = difflib.SequenceMatcher(None, command, cmd.qualified_name).ratio()
-                if r > ratio:
-                    correct_command = cmd
-                    ratio = r
-            except:
-                pass
-
-        if not correct_command:
-            return
-
-        # Is commands a group?
-        if hasattr(correct_command, "commands"):
-            command = ctx.message.content.split()
-            command = (
-                " ".join(command[:2]).strip(ctx.prefix)
-                if len(command) > 1
-                else command[0].strip(ctx.prefix)
-            )
-            ratio: float = 0.75
-            for cmd in correct_command.commands:
-                r = difflib.SequenceMatcher(None, command, cmd.qualified_name).ratio()
-                if r > ratio:
-                    correct_command = cmd
-                    ratio = r
-
-        # Invoke command
-        async def invoke(interaction: discord.Interaction):
-            args = ctx.message.content.split()[
-                len(correct_command.qualified_name.split()) :
-            ]
-            if interaction.guild:
-                await interaction.message.delete()
-            else:
-                await interaction.response.edit_message(
-                    content="Reinvoked command successfully !", view=None
-                )
-
-            # If command is help
-            if correct_command.qualified_name == "help":
-                if len(args) >= 1:
-                    await ctx.send_help(" ".join(args))
-                else:
-                    await ctx.send_help()
-            else:
-                r = [
-                    await commands.run_converters(ctx, param.converter, args[i], param)
-                    for i, param in enumerate(correct_command.params.values())
-                    if i < len(args)
-                ]
-                await correct_command.call_before_hooks(ctx)
-                await ctx.invoke(correct_command, *r)
-
-        # UI
-        _invoke = discord.ui.Button(style=discord.ButtonStyle.green, label="Yes")
-        _invoke.callback = invoke
-
-        view = subclasses.View()
-        view.add_item(_invoke)
-        view.add_quit(ctx.author, ctx.guild, label="Nah")
-
-        return await ctx.reply(
-            f"Did you mean: `{correct_command.qualified_name}`",
-            mention_author=False,
-            view=view,
-        )
+        return await reinvoke(ctx)
 
     if iserror(error, commands.errors.MissingPermissions):
         return await ctx.reply(
@@ -106,7 +114,6 @@ async def on_command_error(ctx: context.Context, error: commands.CommandError):
     if iserror(error, commands.errors.MissingRequiredArgument):
         correction = f"{ctx.command} {ctx.command.signature}"
         missing_arg = error.args[0].split()[0]
-        startPos = correction.find(missing_arg)
         return await ctx.reply(
             embed=discord.Embed(
                 title=":warning: Missing required argument",
@@ -167,6 +174,16 @@ async def on_command_error(ctx: context.Context, error: commands.CommandError):
             )
             return await ctx.reply(embed=embed, delete_after=15, mention_author=False)
 
+    if iserror(error, errors.ModuleDisabled):
+        return await ctx.reply(
+            embed=discord.Embed(
+                title=":warning: Command unavailable",
+                description=f"> The module `{error.module}` is disabled in this server",
+            ),
+            mention_author=False,
+            delete_after=15,
+        )
+
     # UNHANDLED ERRORS BELLOW
     # Process the traceback to clean path !
     try:
@@ -203,17 +220,12 @@ async def on_command_error(ctx: context.Context, error: commands.CommandError):
         embed.add_field(name="Traceback", value=prefix + trace + "```")
         await ctx.bot.get_user(ctx.bot.owner_id).send(embed=embed)
 
-    view = subclasses.View()
-    view.add_quit(ctx.author, ctx.guild)
-
     # User error
     embed = discord.Embed(
         title=f":warning: {type(error).__qualname__}",
         description=f"> {' '.join(error.args)}" if len(error.args) > 0 else None,
     )
-    return await ctx.reply(
-        embed=embed, view=view, mention_author=False, delete_after=15
-    )
+    return await ctx.reply(embed=embed, mention_author=False, delete_after=15)
 
 
 async def setup(bot: "AceBot"):
