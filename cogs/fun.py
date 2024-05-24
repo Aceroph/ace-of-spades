@@ -58,7 +58,7 @@ class ConfigView(subclasses.View):
         return True
 
     async def on_timeout(self) -> None:
-        games.pop(self.game.ctx.channel, None)
+        games.pop(self.game.ctx.channel.id, None)
 
 
 class ConfigSelect(discord.ui.Select):
