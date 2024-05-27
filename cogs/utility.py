@@ -1,5 +1,5 @@
 from typing import Literal, Optional, Union, TYPE_CHECKING, Generator
-from utils import subclasses, ui, misc, context
+from utils import subclasses, ui, misc
 from discord.ext import commands
 from discord import app_commands
 from utils import errors
@@ -610,7 +610,7 @@ class Utility(subclasses.Cog):
             label="Delete",
         )
 
-        await context.reply(
+        await subclasses.reply(
             ctx,
             output,
             prefix=f"```{language['language']}\n",

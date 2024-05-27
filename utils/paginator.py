@@ -1,9 +1,8 @@
 from .errors import NotYourButton
 from discord.ext import commands
-from .subclasses import View
 from typing import Optional
+from . import misc, errors
 from copy import copy
-from . import misc
 import discord
 
 
@@ -31,7 +30,7 @@ class Paginator:
         self.suffix = suffix
 
         # Buttons
-        self.view = View()
+        self.view = discord.ui.View()
 
     def _update_embed(self, embed: discord.Embed) -> discord.Embed:
         if self.embed.description:
@@ -134,6 +133,20 @@ class Paginator:
         self.index = len(self.pages) - 1
         return await self.update_page(interaction)
 
+    async def _quit(self, interaction: discord.Interaction):
+        if interaction.user != self.author:
+            raise errors.NotYourButton
+
+        reference = interaction.message.reference
+        if reference:
+            try:
+                msg = await interaction.channel.fetch_message(reference.message_id)
+                await msg.delete()
+            except:
+                pass
+
+        await interaction.message.delete()
+
     def update_buttons(self, user: discord.User):
         # Update buttons
         self.view.clear_items()
@@ -149,9 +162,9 @@ class Paginator:
         _previous.callback = self.previous_page
         self.view.add_item(_previous)
 
-        self.view.add_quit(
-            user, self.ctx.guild, label=f"Quit • Page {self.index+1}/{len(self.pages)}"
-        )
+        _quit = discord.ui.Button(label=f"Quit • Page {self.index+1}/{len(self.pages)}", style=discord.ButtonStyle.danger)
+        _quit.callback = self._quit
+        self.view.add_item(_quit)
 
         _next = discord.ui.Button(
             label=">",

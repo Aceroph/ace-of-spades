@@ -1,14 +1,42 @@
-from .errors import NoVoiceFound, NotYourButton, iserror
-from typing import Iterable, TYPE_CHECKING
+from typing import TYPE_CHECKING, Dict, Any
+from discord import app_commands, Message
+from . import misc, errors, paginator
+from dataclasses import dataclass
 from discord.ext import commands
-from discord import app_commands
-from . import subclasses, misc
 import traceback
 import discord
 import time
 
 if TYPE_CHECKING:
     from main import AceBot
+
+
+async def reply(
+    ctx: commands.Context,
+    content: str,
+    prefix: str = "",
+    suffix: str = "",
+    *args,
+    **kwargs,
+) -> Message:
+    if ctx.interaction and ctx.interaction.response.is_done():
+        if len(prefix + content + suffix) > 2000:
+            p = paginator.Paginator(ctx, prefix=prefix, suffix=suffix, max_lines=100)
+            for line in content.split("\n"):
+                p.add_line(line)
+            return await p.start()
+
+        return await ctx.interaction.followup.send(
+            prefix + content + suffix, *args, **kwargs
+        )
+    else:
+        if len(prefix + content + suffix) > 2000:
+            p = paginator.Paginator(ctx, prefix=prefix, suffix=suffix, max_lines=100)
+            for line in content.split("\n"):
+                p.add_line(line)
+            return await p.start()
+
+        return await ctx.reply(prefix + content + suffix, *args, **kwargs)
 
 
 async def can_use(ctx: commands.Context):
@@ -72,22 +100,6 @@ class Cog(commands.Cog):
         else:
             raise commands.errors.CheckFailure
 
-    async def configure(
-        self, ctx: commands.Context, items: Iterable[discord.ui.Item] = None
-    ) -> None:
-        bot: "AceBot" = ctx.bot
-        async with bot.pool.aquire() as conn:
-            status = await conn.fetchone(
-                "SELECT FROM guildConfig WHERE id = :id AND key = :key",
-                {"id": ctx.guild.id, "key": "status:" + self.qualified_name.casefold()},
-            )
-        print(status)
-        embed = discord.Embed(
-            title=f"\N{GEAR}\N{VARIATION SELECTOR-16} Configuring {self.qualified_name}",
-            description=f"module: `TEST`",
-        )
-        return await ctx.reply(embed=embed)
-
 
 class View(discord.ui.View):
     def __init__(self, *args, **kwargs):
@@ -123,7 +135,7 @@ class View(discord.ui.View):
         delete_reference: bool = True,
     ):
         if interaction.user != author:
-            raise NotYourButton
+            raise errors.NotYourButton
 
         reference = interaction.message.reference
         if reference and delete_reference:
@@ -138,12 +150,12 @@ class View(discord.ui.View):
     async def on_error(
         self, interaction: discord.Interaction, error: Exception, item: discord.ui.Item
     ):
-        if iserror(error, NotYourButton):
+        if errors.iserror(error, errors.NotYourButton):
             return await interaction.response.send_message(
                 error.reason or "This is not your button !", ephemeral=True
             )
 
-        if iserror(error, NoVoiceFound):
+        if errors.iserror(error, errors.NoVoiceFound):
             return await interaction.response.send_message(
                 embed=discord.Embed(
                     title=":musical_note: No Voice Found",
@@ -166,7 +178,7 @@ class View(discord.ui.View):
             icon_url=interaction.user.avatar.url,
         )
 
-        view = subclasses.View()
+        view = View()
         view.add_quit(interaction.user, interaction.guild)
 
         # Owner embed w full traceback
@@ -175,7 +187,7 @@ class View(discord.ui.View):
         # User error
         embed = discord.Embed(
             title=f":warning: {type(error).__qualname__}",
-            description=f"> {' '.join(error.args)}" if len(error.args) > 0 else None,
+            description=(f"> {' '.join(error.args)}" if len(error.args) > 0 else None),
         )
         return await interaction.response.send_message(embed=embed, view=view)
 
