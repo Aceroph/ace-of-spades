@@ -16,13 +16,14 @@ class Music(subclasses.Cog):
         self.bot = bot
         self.emoji = "\N{MUSICAL NOTE}"
         self.nodes: dict[str, wavelink.Node] = None
-        self.config = bot.config["wavelink"]
+        self.wavelinkconfig = bot.config["wavelink"]
+        self.config.update({"home": subclasses.Setting(discord.TextChannel), "silent": subclasses.Setting(bool, False)})
 
     async def connection(self):
         nodes = [
             wavelink.Node(
-                uri=self.config["uri"],
-                password=self.config["passwd"],
+                uri=self.wavelinkconfig["uri"],
+                password=self.wavelinkconfig["passwd"],
                 inactive_player_timeout=180,
                 resume_timeout=300,
                 retries=0,

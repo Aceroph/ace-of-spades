@@ -1,6 +1,6 @@
-from typing import Literal, Optional, Union, TYPE_CHECKING
-from utils import subclasses, misc
+from typing import Any, Literal, Optional, Union, TYPE_CHECKING, Annotated
 from utils.errors import NotYourButton
+from utils import subclasses, misc
 from discord.ext import commands
 from discord import app_commands
 from tabulate import tabulate
@@ -222,29 +222,6 @@ class Admin(subclasses.Cog):
                 else discord.Color.from_str("#2b2d31")
             )
             embed.add_field(name="`[p]` Changelog", value=changelog)
-
-        await ctx.reply(embed=embed, mention_author=False)
-
-    @commands.command()
-    @commands.is_owner()
-    @commands.guild_only()
-    async def config(self, ctx: commands.Context) -> None:
-        """Shows current guild's config"""
-        async with self.bot.pool.acquire() as conn:
-            config = await conn.fetchall(
-                "select * from guildConfig where id = :id", {"id": ctx.guild.id}
-            )
-        config = [[x[1], x[0]] for x in config]
-
-        embed = discord.Embed(
-            title=f"{ctx.guild.name}'s configuration", colour=discord.Color.blurple()
-        )
-        embed.set_author(name="Guild Config", icon_url=self.bot.user.avatar.url)
-        embed.description = (
-            f'```\n{tabulate(config, headers=["Key", "Value"], tablefmt="outline")}```'
-        )
-        if config == []:
-            embed.description = "Not configured"
 
         await ctx.reply(embed=embed, mention_author=False)
 
@@ -636,7 +613,7 @@ class Admin(subclasses.Cog):
     @source.autocomplete("entity")
     async def source_autocomplete(
         self, interaction: discord.Interaction, current: str
-    ) -> list[app_commands.Choice[str]]:
+    ) -> list[app_commands.Choice]:
         cogs = [
             app_commands.Choice(name=f"[Cog] {cog}", value=cog)
             for cog in self.bot.cogs.keys()
@@ -724,6 +701,162 @@ class Admin(subclasses.Cog):
                 ret += 1
 
         await ctx.send(f"Synced the tree to {ret}/{len(guilds)}.")
+
+    @commands.is_owner()
+    @commands.guild_only()
+    @commands.hybrid_command(aliases=["config", "cfg"])
+    @app_commands.describe(
+        module="The module to configure",
+        setting="The setting to update or view",
+        value="The new value for the given setting",
+    )
+    async def settings(
+        self,
+        ctx: commands.Context,
+        module: Annotated[subclasses.Cog, misc.Module],
+        setting: Optional[str] = None,
+        value: Optional[str] = None,
+    ):
+        """Configure a module"""
+
+        def format_value(value: Any, annotation: Any) -> str:
+            if issubclass(annotation, discord.abc.GuildChannel):
+                return self.bot.get_channel(int(value)).mention
+            else:
+                return f"`{_value}`"
+
+        if not value:
+            config = {
+                _name: _setting.default for _name, _setting in module.config.items()
+            }
+            async with self.bot.pool.acquire() as conn:
+                if not setting:
+                    config.update(
+                        {
+                            row[0].split(":")[1]: row[1]
+                            for row in await conn.fetchall(
+                                "SELECT key, value FROM guildConfig WHERE key LIKE :key AND id = :id;",
+                                {
+                                    "id": ctx.guild.id,
+                                    "key": f"{module.qualified_name}:%",
+                                },
+                            )
+                        }
+                    )
+                else:
+                    config = {
+                        row[0].split(":")[1]: row[1]
+                        for row in await conn.fetchall(
+                            "SELECT key, value FROM guildConfig WHERE key LIKE :key AND id = :id;",
+                            {
+                                "id": ctx.guild.id,
+                                "key": f"{module.qualified_name}:{setting}",
+                            },
+                        )
+                    }
+
+            embed = discord.Embed(
+                title=f"\N{GEAR}\N{VARIATION SELECTOR-16} Config for {module.qualified_name}",
+                description="",
+                color=discord.Color.blurple(),
+            )
+            for _setting, _value in config.items():
+                annotation = module.config[_setting].annotation
+                embed.description += (
+                    f"{misc.space}{_setting}: {format_value(_value, annotation)}\n"
+                )
+
+            return await ctx.reply(embed=embed, mention_author=False)
+
+        # Get id incase its a discord object
+        _value = getattr(value, "id", value)
+
+        async with self.bot.pool.acquire() as conn:
+            await conn.execute(
+                "INSERT INTO guildConfig (id, key, value) VALUES (:id, :key, :value) ON CONFLICT(id, key) DO UPDATE SET value = :value;",
+                {
+                    "id": ctx.guild.id,
+                    "key": f"{module.qualified_name}:{setting}",
+                    "value": _value,
+                },
+            )
+        embed = discord.Embed(
+            title=f"\N{GEAR}\N{VARIATION SELECTOR-16} Updated config for {module.qualified_name}",
+            description=f"{setting} -> {format_value(value, module.config[setting].annotation)}",
+            color=discord.Color.blurple(),
+        )
+        return await ctx.reply(embed=embed)
+
+    @settings.autocomplete("module")
+    async def settings_module(
+        self, interaction: discord.Interaction, current: str
+    ) -> list[app_commands.Choice]:
+        return [
+            app_commands.Choice(name=name, value=name)
+            for name in self.bot.cogs.keys()
+            if current.strip() == "" or name.casefold().startswith(current.casefold())
+        ]
+
+    @settings.autocomplete("setting")
+    async def settings_setting(
+        self, interaction: discord.Interaction, current: str
+    ) -> list[app_commands.Choice]:
+        return [
+            app_commands.Choice(name=setting, value=setting)
+            for setting in self.bot.get_cog(interaction.namespace.module).config.keys()
+            if current.strip() == ""
+            or setting.casefold().startswith(current.casefold())
+        ]
+
+    @settings.autocomplete("value")
+    async def settings_value(
+        self, interaction: discord.Interaction, current: str
+    ) -> list[app_commands.Choice]:
+        annotation = (
+            self.bot.get_cog(interaction.namespace.module)
+            .config[interaction.namespace.setting]
+            .annotation
+        )
+
+        # True/False
+        if issubclass(annotation, bool):
+            return [
+                app_commands.Choice(name=option, value=option)
+                for option in ["True", "False"]
+            ]
+
+        # Text channel
+        if issubclass(annotation, (discord.TextChannel, discord.ForumChannel)):
+            channels = interaction.guild.text_channels + interaction.guild.forums
+            return sorted(
+                [
+                    app_commands.Choice(
+                        name="\N{SPEECH BALLOON} " + channel.name, value=channel.name
+                    )
+                    for channel in channels
+                    if current.strip() == ""
+                    or channel.name.casefold().startswith(current.casefold())
+                ][:25],
+                key=lambda c: c.name,
+            )
+
+        # Voice channel
+        if issubclass(annotation, (discord.VoiceChannel, discord.StageChannel)):
+            channels = (
+                interaction.guild.voice_channels + interaction.guild.stage_channels
+            )
+            return sorted(
+                [
+                    app_commands.Choice(
+                        name="\N{SPEAKER WITH THREE SOUND WAVES} " + channel.name,
+                        value=channel.name,
+                    )
+                    for channel in channels
+                    if current.strip() == ""
+                    or channel.name.casefold().startswith(current.casefold())
+                ][:25],
+                key=lambda c: c.name,
+            )
 
 
 async def setup(bot):

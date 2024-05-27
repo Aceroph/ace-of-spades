@@ -1,7 +1,9 @@
-from typing import Optional, Literal
 from discord.ext import commands
+from cogs import EXTENSIONS
+from . import subclasses
+from typing import cast
+import difflib
 import requests
-import datetime
 import inspect
 import discord
 import re
@@ -65,28 +67,26 @@ class Categories:
         return "Default"
 
 
-class Time(commands.Converter):
-    def __init__(self, return_type: str = "datetime") -> None:
-        super().__init__()
-        self.return_type = return_type
+class Module(commands.Converter):
+    async def convert(self, ctx: commands.Context, module: str):
+        """Converts given module query to Cog"""
+        mod = None
+        for extension in EXTENSIONS:
+            r = difflib.SequenceMatcher(
+                None, extension.split(".")[-1], module.split(".")[-1]
+            ).ratio()
+            if r >= 0.60:
+                mod: subclasses.Cog = extension
+                break
 
-    async def convert(
-        self, ctx: Optional[commands.Context], argument: str
-    ) -> datetime.datetime:
-        # Fixed date like 2024-02-16
-        if re.fullmatch("\\d{4}-\\d{2}-\\d{2}", argument):
-            date = datetime.datetime.strptime(argument, "%Y-%m-%d")
-            return date if self.return_type == "datetime" else date.date()
+        if not mod:
+            raise commands.errors.ExtensionNotFound
 
-        # Relative date like 1d
-        if re.fullmatch("-?\\d+d", argument):
-            days = int(re.match("-?\\d+", argument).group())
+        for name, cog in ctx.bot.cogs.items():
+            if name.casefold() == mod.split(".")[-1]:
+                return cast(subclasses.Cog, cog)
 
-            if days > 0:
-                date = datetime.datetime.today() + datetime.timedelta(days=abs(days))
-            else:
-                date = datetime.datetime.today() - datetime.timedelta(days=abs(days))
-            return date if self.return_type == "datetime" else date.date()
+        return mod
 
 
 def git_source(bot: commands.Bot, obj: str = None):

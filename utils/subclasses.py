@@ -34,12 +34,39 @@ async def can_use(ctx: commands.Context):
     return True
 
 
+@dataclass
+class Setting:
+    annotation: Any
+    default: Any = None
+
+
 class Cog(commands.Cog):
-    def __init__(self):
+    def __init__(self, bot=None):
+        self.bot: "AceBot" = bot
         self.emoji: str = "<:sadcowboy:1002608868360208565>"
         self.time: float = time.time()
+        self.config: Dict[str, Setting] = {"disabled": Setting(bool, False)}
+
+    async def get_setting(self, ctx: commands.Context, setting: str) -> Any:
+        async with self.bot.pool.acquire() as conn:
+            setting = await conn.fetchone(
+                "SELECT value FROM guildConfig WHERE id = ? AND key LIKE '%:?';",
+                (ctx.guild.id, setting.upper()),
+            )
+            return setting[0] if setting else None
 
     async def cog_before_invoke(self, ctx: commands.Context) -> None:
+        if not ctx.guild:
+            return await super().cog_before_invoke(ctx)
+
+        try:
+            if await commands.run_converters(
+                ctx, bool, self.get_setting(ctx, "disabled"), commands.Parameter
+            ):
+                raise errors.ModuleDisabled(self)
+        except:
+            pass
+
         if await can_use(ctx) or ctx.author.guild_permissions.administrator:
             return await super().cog_before_invoke(ctx)
         else:
