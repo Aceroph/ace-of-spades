@@ -719,12 +719,17 @@ class Admin(subclasses.Cog):
     ):
         """Configure a module"""
 
-        def format_value(value: Any, annotation: Any) -> str:
+        # Formats value
+        def format_value(value: Any, annotation: Any, default: Any = None) -> str:
+            if not value:
+                return f"`{default}`" if default is not None else "`None`"
+
             if issubclass(annotation, discord.abc.GuildChannel):
                 return self.bot.get_channel(int(value)).mention
             else:
-                return f"`{_value}`"
+                return f"`{value}`"
 
+        ## Show config
         if not value:
             config = {
                 _name: _setting.default for _name, _setting in module.config.items()
@@ -760,29 +765,49 @@ class Admin(subclasses.Cog):
                 description="",
                 color=discord.Color.blurple(),
             )
-            for _setting, _value in config.items():
-                annotation = module.config[_setting].annotation
-                embed.description += (
-                    f"{misc.space}{_setting}: {format_value(_value, annotation)}\n"
-                )
+            embed.description = "\n".join(
+                [
+                    f"{misc.space}{_setting.replace('_', ' ')}: {format_value(_value, module.config[_setting].annotation, module.config[_setting].default)}"
+                    for _setting, _value in config.items()
+                ]
+            )
 
             return await ctx.reply(embed=embed, mention_author=False)
 
-        # Get id incase its a discord object
-        _value = getattr(value, "id", value)
-
+        ## Set config
         async with self.bot.pool.acquire() as conn:
-            await conn.execute(
-                "INSERT INTO guildConfig (id, key, value) VALUES (:id, :key, :value) ON CONFLICT(id, key) DO UPDATE SET value = :value;",
-                {
-                    "id": ctx.guild.id,
-                    "key": f"{module.qualified_name}:{setting}",
-                    "value": _value,
-                },
-            )
+            if value.casefold() in {"none", "false", "no", "0"}:
+                await conn.execute(
+                    "DELETE FROM guildConfig WHERE key = :key AND id = :id;",
+                    {"key": f"{module.qualified_name}:{setting}", "id": ctx.guild.id},
+                )
+                value = None
+            else:
+                # Convert value
+                value: module.config[setting].annotation = (
+                    await commands.run_converters(
+                        ctx,
+                        module.config[setting].annotation,
+                        value,
+                        commands.Parameter,
+                    )
+                )
+
+                # Get id incase its a discord object
+                value = getattr(value, "id", value)
+
+                await conn.execute(
+                    "INSERT INTO guildConfig (id, key, value) VALUES (:id, :key, :value) ON CONFLICT(id, key) DO UPDATE SET value = :value;",
+                    {
+                        "id": ctx.guild.id,
+                        "key": f"{module.qualified_name}:{setting}",
+                        "value": value,
+                    },
+                )
+
         embed = discord.Embed(
             title=f"\N{GEAR}\N{VARIATION SELECTOR-16} Updated config for {module.qualified_name}",
-            description=f"{setting} -> {format_value(value, module.config[setting].annotation)}",
+            description=f"{setting.replace('_', ' ')} -> {format_value(value, module.config[setting].annotation, module.config[setting].default)}",
             color=discord.Color.blurple(),
         )
         return await ctx.reply(embed=embed)

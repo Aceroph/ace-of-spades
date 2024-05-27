@@ -89,7 +89,7 @@ class Cog(commands.Cog):
 
         try:
             if await commands.run_converters(
-                ctx, bool, self.get_setting(ctx, "disabled"), commands.Parameter
+                ctx, bool, await self.get_setting(ctx, "disabled"), commands.Parameter
             ):
                 raise errors.ModuleDisabled(self)
         except:

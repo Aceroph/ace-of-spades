@@ -17,7 +17,7 @@ class Music(subclasses.Cog):
         self.emoji = "\N{MUSICAL NOTE}"
         self.nodes: dict[str, wavelink.Node] = None
         self.wavelinkconfig = bot.config["wavelink"]
-        self.config.update({"home": subclasses.Setting(discord.TextChannel), "silent": subclasses.Setting(bool, False)})
+        self.config.update({"channel": subclasses.Setting(discord.TextChannel), "silent": subclasses.Setting(bool, False)})
 
     async def connection(self):
         nodes = [
