@@ -1,5 +1,6 @@
+from typing import Generator, List, Dict, Tuple
 from discord.ext import commands
-from typing import Generator
+from utils.misc import avg
 import requests
 import discord
 import difflib
@@ -131,7 +132,6 @@ async def do_rtfm(ctx: commands.Context, key: tuple, obj: str = None):
         await ctx.send(RTFM_PAGES[key])
         return
 
-    timer = time.time()
     # If no cache
     if not rtfm_cache:
         await ctx.typing()
@@ -140,21 +140,32 @@ async def do_rtfm(ctx: commands.Context, key: tuple, obj: str = None):
     # Discard any discord.ext.commands
     obj = re.sub(r"^(?:discord\.(?:ext\.)?)?(?:commands\.)?(.+)", r"\1", obj)
 
-    cache = list(rtfm_cache[key].items())
+    cache: List[Tuple[str, Dict[str, str]]] = list(rtfm_cache[key].items())
 
-    # Sort and get the top 6 items
+    # Sort and get the top 8 items
+    t = time.time()
+    if ":" in obj:
+        _type, obj = obj.split(":", maxsplit=1)
+
     matches = sorted(
         cache,
-        key=lambda c: difflib.SequenceMatcher(None, obj, c[0]).ratio(),
+        key=lambda c: avg(
+            [
+                difflib.SequenceMatcher(None, m[0].casefold(), m[1].casefold()).ratio()
+                for m in zip(obj.split("."), c[0].split())
+            ]
+        )
+        + 5 * c[1]["type"].startswith(_type.casefold()),
         reverse=True,
     )[:8]
+    t = time.time() - t
 
     embed = discord.Embed(
         title=f"RTFM - {'Discord.py' if key == ('stable') else key[0].capitalize()}",
         colour=discord.Colour.blurple(),
     )
     embed.set_footer(
-        text=f"Query time : {(time.time()-timer):,.2f}s",
+        text=f"Query time : {t:,.2f}s",
         icon_url=ctx.author.avatar.url,
     )
     if len(matches) == 0:

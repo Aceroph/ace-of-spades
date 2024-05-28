@@ -1,7 +1,7 @@
+from typing import cast, Iterable
 from discord.ext import commands
 from cogs import EXTENSIONS
 from . import subclasses
-from typing import cast
 import difflib
 import requests
 import inspect
@@ -136,6 +136,10 @@ def clean_codeblock(codeblock: str, ctx: commands.Context = None) -> str:
         return clean.group(1)
 
     return codeblock
+
+
+def avg(x: Iterable[float | int]) -> float | int:
+    return sum(x) / len(x)
 
 
 runtimes: list[dict] = requests.get("https://emkc.org/api/v2/piston/runtimes").json()
