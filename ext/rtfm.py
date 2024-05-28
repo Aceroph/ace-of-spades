@@ -144,6 +144,7 @@ async def do_rtfm(ctx: commands.Context, key: tuple, obj: str = None):
 
     # Sort and get the top 8 items
     t = time.time()
+    _type = None
     if ":" in obj:
         _type, obj = obj.split(":", maxsplit=1)
 
@@ -155,7 +156,7 @@ async def do_rtfm(ctx: commands.Context, key: tuple, obj: str = None):
                 for m in zip(obj.split("."), c[0].split())
             ]
         )
-        + 5 * c[1]["type"].startswith(_type.casefold()),
+        + (5 * c[1]["type"].startswith(_type.casefold()) if _type else 0),
         reverse=True,
     )[:8]
     t = time.time() - t
