@@ -1,3 +1,4 @@
+from __future__ import annotations
 from utils import subclasses, misc, errors
 from typing import TYPE_CHECKING
 from discord.ext import commands
@@ -13,8 +14,120 @@ import time
 
 if TYPE_CHECKING:
     from main import AceBot
+    from discord import Interaction
+    from discord.ui import Button
+
 
 games = {}
+
+
+class ConfigView(subclasses.View):
+    def __init__(self, *, game: CountryGuessing, timeout: float | None = 180):
+        super().__init__(timeout=timeout)
+        self.game = game
+        self.add_item(ConfigSelect(game=game))
+
+    @discord.ui.button(label="Save", disabled=True, row=2)
+    async def save(self, interaction: Interaction, button: Button):
+        pass
+
+    @discord.ui.button(label="Play", style=discord.ButtonStyle.green, row=2)
+    async def play(self, interaction: Interaction, button: Button):
+        await self.game.start(interaction)
+        self.stop()
+
+    @discord.ui.button(label="Cancel", style=discord.ButtonStyle.red, row=2)
+    async def cancel(self, interaction: Interaction, button: Button):
+        games.pop(interaction.channel_id, None)
+        if interaction.guild:
+            await self.quit(interaction, interaction.user)
+        else:
+            await interaction.response.edit_message(view=None)
+        self.stop()
+
+    @discord.ui.button(label="Profile", disabled=True, row=2)
+    async def profile(self, interaction: Interaction, button: Button):
+        pass
+
+    async def interaction_check(self, interaction: Interaction) -> bool:
+        if interaction.user != self.game.gamemaster:
+            await interaction.response.send_message(
+                content="You are not the Gamemaster!", ephemeral=True
+            )
+            return False
+        return True
+
+    async def on_timeout(self) -> None:
+        games.pop(self.game.ctx.channel.id, None)
+
+
+class ConfigSelect(discord.ui.Select):
+    view: ConfigView
+
+    def __init__(self, game: CountryGuessing):
+        self.game = game
+        options = [
+            discord.SelectOption(label="Change difficulty", value="difficulty"),
+            discord.SelectOption(label="Change region", value="region"),
+            discord.SelectOption(label="Change gamemode", value="gamemode"),
+        ]
+        super().__init__(options=options, placeholder="Configure game")
+
+    async def callback(self, interaction: Interaction):
+        sub_config_view = discord.ui.View()
+        setting = self.values[0]
+        sub_config_view.add_item(SubconfigSelect(setting, parent=self, game=self.game))
+        embed = discord.Embed(
+            title=f"\N{GEAR}\N{VARIATION SELECTOR-16} Select {setting}",
+            description=f"> Current: `{getattr(self.game, setting)}`",
+            color=discord.Colour.green(),
+        )
+        await interaction.response.send_message(
+            embed=embed, view=sub_config_view, ephemeral=True
+        )
+
+
+class SubconfigSelect(discord.ui.Select):
+    def __init__(self, setting: str, parent: ConfigSelect, game: CountryGuessing):
+        self.parent = parent
+        self.game = game
+        match setting:
+            case "region":
+                options = [discord.SelectOption(label="Global", default=True)]
+                options.extend(
+                    [
+                        discord.SelectOption(label=region, value=region.lower())
+                        for region in (
+                            "Africa",
+                            "Americas",
+                            "Antarctic",
+                            "Asia",
+                            "Europe",
+                            "Oceania",
+                        )
+                    ]
+                )
+
+            case "difficulty":
+                options = [discord.SelectOption(label="Flags only", default=True)]
+
+            case "gamemode":
+                options = [discord.SelectOption(label="Multiplayer", default=True)]
+
+        super().__init__(
+            options=options,
+        )
+
+    async def callback(self, interaction: Interaction) -> None:
+        setting = self.parent.values[0]
+        value = self.values[0]
+        setattr(self.game, setting, value)
+        await self.game.menu_embed.edit(embed=self.game.update_menu())
+        embed = discord.Embed(
+            title=f"Edited {setting}",
+            description=f"> set to: `{value}`",
+        )
+        await interaction.response.edit_message(embed=embed, view=None)
 
 
 class CountryGuessing:
@@ -102,75 +215,8 @@ class CountryGuessing:
         return embed
 
     async def menu(self):
+        view = ConfigView(game=self)
         embed = self.update_menu()
-
-        options = [
-            discord.SelectOption(label="Change difficulty", value="difficulty"),
-            discord.SelectOption(label="Change region", value="region"),
-            discord.SelectOption(label="Change gamemode", value="gamemode"),
-        ]
-        config = discord.ui.Select(placeholder="Configure game", options=options)
-
-        async def edit_config(interaction: discord.Interaction):
-            embed = discord.Embed(
-                title=f"\N{GEAR}\N{VARIATION SELECTOR-16} Select {config.values[0]}",
-                description=f"> current: `{getattr(self, config.values[0])}`",
-                color=discord.Colour.green(),
-            )
-            match config.values[0]:
-                case "region":
-                    r = requests.get(
-                        "https://restcountries.com/v3.1/all?fields=region"
-                    ).json()
-                    _regions = list(
-                        dict.fromkeys([x["region"] for x in r])
-                    )  # Remove duplicate regions
-                    _options = [discord.SelectOption(label="global", default=True)]
-                    for region in _regions:
-                        _options.append(discord.SelectOption(label=region.lower()))
-
-                case "difficulty":
-                    _options = [discord.SelectOption(label="flags only", default=True)]
-
-                case "gamemode":
-                    _options = [discord.SelectOption(label="multiplayer", default=True)]
-
-            subconfig = discord.ui.Select(options=_options)
-
-            async def edited(interaction: discord.Interaction):
-                setattr(self, config.values[0], subconfig.values[0])
-                await self.menu_embed.edit(embed=self.update_menu())
-                embed = discord.Embed(
-                    title=f"Edited {config.values[0]}",
-                    description=f"> set to: `{subconfig.values[0]}`",
-                )
-                await interaction.response.edit_message(embed=embed, view=None)
-
-            subconfig.callback = edited
-            view = subclasses.View()
-            view.add_item(subconfig)
-            await interaction.response.send_message(
-                embed=embed, view=view, ephemeral=True
-            )
-
-        config.callback = edit_config
-
-        save = discord.ui.Button(label="Save", disabled=True, row=2)
-
-        start = discord.ui.Button(style=discord.ButtonStyle.green, label="Play", row=2)
-        start.callback = self.game
-
-        cancel = discord.ui.Button(style=discord.ButtonStyle.red, label="Cancel", row=2)
-        cancel.callback = self.cancel_game
-
-        profile = discord.ui.Button(label="Profile", disabled=True, row=2)
-
-        view = subclasses.View()
-        view.add_item(config)
-        view.add_item(save)
-        view.add_item(start)
-        view.add_item(cancel)
-        view.add_item(profile)
         self.menu_embed = await self.ctx.reply(
             embed=embed, view=view, mention_author=False
         )
@@ -203,18 +249,6 @@ class CountryGuessing:
             )
         await origin.send(embed=embed)
 
-    async def cancel_game(self, interaction: discord.Interaction):
-        if interaction.user != self.gamemaster:
-            raise errors.NotYourButton("You are not the gamemaster !")
-
-        games.pop(interaction.channel_id, None)
-
-        # It's like a super() but much worse
-        if interaction.guild:
-            await subclasses.View.quit(interaction, interaction.user)
-        else:
-            await interaction.response.edit_message(view=None)
-
     async def track_stats(self, user: discord.User, accuracy: int) -> None:
         async with self.ctx.bot.pool.acquire() as conn:
             await conn.execute(
@@ -243,7 +277,9 @@ class CountryGuessing:
             elif "skip" in msg.content.casefold():
                 self.winner = None
                 asyncio.create_task(
-                    msg.add_reaction("\N{BLACK RIGHT-POINTING DOUBLE TRIANGLE WITH VERTICAL BAR}")
+                    msg.add_reaction(
+                        "\N{BLACK RIGHT-POINTING DOUBLE TRIANGLE WITH VERTICAL BAR}"
+                    )
                 )
                 return True
 
@@ -258,11 +294,8 @@ class CountryGuessing:
                 return True
         return
 
-    async def game(self, interaction: discord.Interaction):
+    async def start(self, interaction: discord.Interaction):
         self.playing = True
-        # Check if the gamemaster started the game
-        if interaction.user != self.gamemaster:
-            raise errors.NotYourButton("Only the gamemaster can start the game !")
 
         while self.playing:  # Game loop
             self.round += 1
