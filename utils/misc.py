@@ -144,17 +144,3 @@ for r in runtimes:
     literal_runtimes.add(r["language"])
     for alias in r["aliases"]:
         literal_runtimes.add(alias)
-
-
-RTFM_PAGES = {
-    ("stable"): "https://discordpy.readthedocs.io/en/stable",
-    ("python", "py"): "https://docs.python.org/3/",
-    ("wavelink", "wl"): "https://wavelink.dev/en/latest/",
-}
-
-literal_rtfm = set()
-for src in RTFM_PAGES.keys():
-    if isinstance(src, str):
-        literal_rtfm.add(src)
-    else:
-        literal_rtfm.update(src)
