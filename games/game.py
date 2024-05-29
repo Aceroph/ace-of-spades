@@ -150,7 +150,7 @@ class Game:
         score_headers: Iterable[str] = None,
         scores: Dict[str, int] = {},
     ):
-        self.ctx.bot.games.pop(origin.id, None)
+        self.ctx.bot.games.pop(self.id, None)  
         self.playing = False
 
         # Get all scores and send the final results
