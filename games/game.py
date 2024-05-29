@@ -150,10 +150,10 @@ class Game:
         score_headers: Iterable[str] = None,
         scores: Dict[str, int] = {},
     ):
-        self.ctx.bot.games.pop(origin.id, None)
+        self.ctx.bot.games.pop(self.id, None)  
         self.playing = False
 
-        # Get all scores and send the final results
+        # Get all scores and send the results
         scores = {
             f"{'*' if score == max(scores.values()) else ''}{self.ctx.bot.get_user(user).name}": score
             for user, score in sorted(scores.items(), key=lambda s: s[1], reverse=True)
