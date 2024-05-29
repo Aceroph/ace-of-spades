@@ -209,7 +209,7 @@ class Utility(subclasses.Cog):
             self.stats["lines"] = 0
             root = pathlib.Path(__file__).parent.parent
             for file in pathlib.Path(__file__).parent.parent.glob("**/*"):
-                if file.name.endswith((".py", ".json")) and not any(
+                if file.name.endswith(".py") and not any(
                     file.is_relative_to(bad) for bad in root.glob("**/.*")
                 ):
                     with open(file, "r") as f:
