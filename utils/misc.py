@@ -2,6 +2,7 @@ from typing import cast, Iterable
 from discord.ext import commands
 from cogs import EXTENSIONS
 from . import subclasses
+import unicodedata
 import difflib
 import requests
 import inspect
@@ -140,6 +141,12 @@ def clean_codeblock(codeblock: str, ctx: commands.Context = None) -> str:
 
 def avg(x: Iterable[float | int]) -> float | int:
     return sum(x) / len(x)
+
+
+def clean_string(string: str) -> str:
+    return unicodedata.normalize("NFD", string.casefold().replace(",", "")).encode(
+        "ASCII", "ignore"
+    )
 
 
 runtimes: list[dict] = requests.get("https://emkc.org/api/v2/piston/runtimes").json()

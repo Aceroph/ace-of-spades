@@ -4,13 +4,9 @@ import logging.handlers
 import discord
 import asqlite
 import aiohttp
-import pathlib
 import logging
 import time
 import json
-
-# FILE MANAGEMENT
-directory = pathlib.Path(__file__).parent
 
 LOGGER = logging.getLogger("discord")
 LOGGER.setLevel(logging.INFO)
@@ -47,6 +43,7 @@ class AceBot(commands.Bot):
         self.boot = time.time()
         self.logger = LOGGER
         self.strip_after_prefix = True
+        self.games = {}
 
     async def setup_hook(self):
         # Database stuff
