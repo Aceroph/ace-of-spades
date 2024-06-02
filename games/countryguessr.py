@@ -20,9 +20,6 @@ class Country:
             data["name"]["common"],
             data["name"]["official"],
         ]
-        self.names.extend(
-            [translation["official"] for translation in data["translations"].values()]
-        )
 
         self.capital: str = data.get("country", None)
         self.capital: str = self.capital[0] if self.capital else None
