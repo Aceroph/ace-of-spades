@@ -5,7 +5,6 @@ from tabulate import tabulate
 import discord
 import random
 import string
-import arrow
 import time
 
 if TYPE_CHECKING:
@@ -113,9 +112,9 @@ class ConfigView(subclasses.View):
 
 
 class Game:
-    def __init__(self, ctx: commands.Context) -> None:
-        self.START = arrow.get(time.time())
-        self.title: str = ""
+    def __init__(self, ctx: commands.Context, title: str="") -> None:
+        self.START = time.time()
+        self.title = title
         self.playing = False
         self.ctx = ctx
         self.id = "".join(random.choices(string.ascii_letters + string.digits, k=6))
@@ -148,26 +147,33 @@ class Game:
         self,
         origin: discord.TextChannel,
         score_headers: Iterable[str] = None,
-        scores: Dict[str, int] = {},
+        scores: Dict[str, int] = None,
+        extras: Dict[str, Any] = None,
     ):
-        self.ctx.bot.games.pop(self.id, None)  
+        self.ctx.bot.games.pop(self.id, None)
         self.playing = False
-
-        # Get all scores and send the final results
-        scores = {
-            f"{'*' if score == max(scores.values()) else ''}{self.ctx.bot.get_user(user).name}": score
-            for user, score in sorted(scores.items(), key=lambda s: s[1], reverse=True)
-        }
 
         embed = discord.Embed(
             title="End of game",
-            description=f"{misc.space}duration : `{self.START.humanize(only_distance=True)}`\n",
+            description=f"{misc.space}duration : `{misc.time_format(time.time()-self.START)}`",
         )
-        if len(scores) > 0:
+        if extras:
+            for extra, value in extras.items():
+                embed.description += f"\n{misc.space}{extra}: `{value}`"
+
+        if scores and score_headers:
+            # Get all scores and send the final results
+            scores = {
+                f"{'*' if score == max(scores.values()) else ''}{self.ctx.bot.get_user(user).name}": score
+                for user, score in sorted(
+                    scores.items(), key=lambda s: s[1], reverse=True
+                )
+            }
             embed.add_field(
                 name=f"{misc.space}\nScoreboard",
                 value=f"```\n{tabulate(scores.items(), headers=score_headers)}```",
             )
+
         await origin.send(embed=embed)
 
     async def track_stats(self, user: discord.User, accuracy: int) -> None:

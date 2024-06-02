@@ -22,9 +22,9 @@ class Country:
             data["name"]["common"],
             data["name"]["official"],
         ]
- 
-        self.capital: str = data.get("country", None)
-        self.capital: str = self.capital[0] if self.capital else None
+
+        self.capital: str = data.get("capital", None)
+        self.capital: str = self.capital[0] if self.capital else "Unknown"
 
         self.region: str = data["region"]
         self.subregion: str = data.get("subregion", None)
@@ -37,7 +37,7 @@ class Country:
 
 class CountryGuesser(Game):
     def __init__(self, ctx: Context) -> None:
-        super().__init__(ctx)
+        super().__init__(ctx, title="\N{EARTH GLOBE AMERICAS} CountryGuesser")
         # Config
         self.config = {
             "region": [
@@ -60,9 +60,17 @@ class CountryGuesser(Game):
 
         # Game stuff
         self.scores = {}
+        self.playing = True
+        self.round = 0
+        self.winner = None
 
     async def end_game(self, origin: discord.TextChannel):
-        return await super().end_game(origin, ["name", "score"], self.scores)
+        return await super().end_game(
+            origin,
+            score_headers=["name", "score"],
+            scores=self.scores,
+            extras={"round": f"{self.round} out of {self.rounds}"},
+        )
 
     def text_input(self, msg: discord.Message):
         if not (msg.content):
@@ -100,9 +108,7 @@ class CountryGuesser(Game):
         return
 
     async def start(self, interaction: discord.Interaction):
-        self.playing = True
-        self.round = 0
-        # Get guesses
+        ## Get country data
         with open(directory / "countries.json", "r") as file:
             data = json.load(file)
             match self.region:
@@ -115,15 +121,20 @@ class CountryGuesser(Game):
                         Country(data)
                         for data in random.choices(
                             [
+                                
                                 country
+                               
                                 for country in data
+                               
                                 if country["region"].casefold() == spec
+                            
                             ],
                             k=self.rounds,
                         )
                     ]
 
-        while self.playing:  # Game loop
+        ## Game loop
+        while self.playing:
             self.country = countries[self.round]
             self.round += 1
 
@@ -141,12 +152,7 @@ class CountryGuesser(Game):
             )
             embed.add_field(
                 name="Game",
-                value=f"{misc.space}timeout : `{self.timeout//60}min`\n{misc.space}round : `{self.round} of {self.rounds}`",
-            )
-            embed.add_field(
-                name="Timer",
-                value=f"{misc.space}{misc.curve}<t:{int(time.time() + self.timeout)}:R>",
-                inline=False,
+                value=f"{misc.space}timeout : `{self.timeout//60}min`\n{misc.space}round : `{self.round} of {self.rounds}`\n{misc.space}ends <t:{int(time.time() + self.timeout)}:R>",
             )
             embed.set_thumbnail(url="attachment://flag.png")
             embed.set_footer(text=f"Game ID : #{self.id}")
@@ -168,15 +174,16 @@ class CountryGuesser(Game):
                     "message", check=self.text_input, timeout=self.timeout
                 )
 
+            ## Game timeout
             except asyncio.TimeoutError:
                 embed = discord.Embed(
                     title="\N{CLOCK FACE ONE OCLOCK} Game terminated",
-                    description=f"{misc.space}players failed to respond within `{self.timeout//60}m`\n{misc.space}{misc.curve} country was `{self.country.names[0]}`",
+                    description=f"{misc.space}players failed to respond within `{self.timeout//60}m`",
                     color=discord.Color.red(),
                 )
                 embed.add_field(
-                    name=f"{misc.space}\nInfo",
-                    value="Put info here :)",
+                    name="Stats",
+                    value=f"{misc.space}country: `{self.country.names[0]}`\n{misc.space}capital: `{self.country.capital}`\n{misc.space}population: `{self.country.population:,} habitants`",
                     inline=False,
                 )
 
@@ -184,10 +191,10 @@ class CountryGuesser(Game):
                 await self.game_msg.edit(embed=embed)  # no attachment edit requited
                 return await self.end_game(self.ctx.channel)
 
-            # End (win)
+            ## End (win)
             embed = discord.Embed(
                 title=f"\N{PARTY POPPER} {self.country.names[0]} \N{PARTY POPPER}",
-                description=f"{misc.space}{misc.curve}next in `10s`",
+                description=f"{misc.space}{misc.curve} next in `10s`",
                 color=(
                     discord.Color.green()
                     if not hasattr(msg.author, "top_role")
@@ -200,26 +207,20 @@ class CountryGuesser(Game):
                 self.scores[self.winner.id] = self.scores.get(self.winner.id, 0) + int(
                     self.accuracy * 100
                 )
-
-                embed.add_field(
-                    name="Stats",
-                    value=f"{misc.space}accuracy : `{self.accuracy*100:.2f}%`\n{misc.space}time : `{time.time() - self.response_time:.2f}s`\n{misc.space}round : `{self.round} of {self.rounds}`",
-                    inline=False,
-                )
+                userstats = f"{misc.space}accuracy : `{self.accuracy*100:.2f}%`\n{misc.space}time : `{time.time() - self.response_time:.2f}s`\n"
             else:
+                ## End (skip)
                 embed.title = f"\N{BLACK RIGHT-POINTING DOUBLE TRIANGLE WITH VERTICAL BAR} {self.country.names[0]}"
-                embed.add_field(
-                    name="Stats",
-                    value=f"{misc.space}round : `{self.round} of {self.rounds}`",
-                    inline=False,
-                )
+                userstats = ""
+
+            embed.add_field(
+                name="Stats",
+                value=f"{userstats}{misc.space}round : `{self.round} of {self.rounds}`\n\n{misc.space}capital: `{self.country.capital}`\n{misc.space}population: `{self.country.population:,} habitants`",
+                inline=False,
+            )
 
             embed.set_author(
                 name=msg.author.display_name, icon_url=msg.author.avatar.url
-            )
-
-            embed.add_field(
-                name=f"{misc.space}\nInfo", value="Info here again :)", inline=False
             )
 
             embed.set_thumbnail(url="attachment://flag.png")
