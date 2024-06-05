@@ -32,17 +32,17 @@ class AceBot(commands.Bot):
         super().__init__(
             command_prefix=prefix,
             log_handler=None,
+            owner_id=493107597281329185,
+            case_insensitive=True,
+            strip_after_prefix = True,
             *args,
             **kwargs,
         )
         with open("config.json", "r") as cfg:
             self.config: dict = json.load(cfg)
 
-        self.owner_id = 493107597281329185
-        self.case_insensitive = True
         self.boot = time.time()
         self.logger = LOGGER
-        self.strip_after_prefix = True
         self.games = {}
 
     async def setup_hook(self):
