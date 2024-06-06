@@ -22,7 +22,7 @@ class Country:
             data["name"]["common"],
             data["name"]["official"],
         ]
-
+ 
         self.capital: str = data.get("country", None)
         self.capital: str = self.capital[0] if self.capital else None
 
