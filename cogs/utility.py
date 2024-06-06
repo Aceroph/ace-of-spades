@@ -423,11 +423,11 @@ class Utility(subclasses.Cog):
         # Format code if python
         if language["language"] == "python":
             code = "import asyncio\nasync def func():\n"
-            for i, line in enumerate(body.split("\n")):
+            for i, line in enumerate(body.splitlines()):
                 if len(line.strip()) == 0:
                     continue
 
-                if i == len(body.split("\n")) - 1:
+                if i == len(body.splitlines()) - 1:
                     if not any(
                         [
                             line.strip().startswith(

@@ -1,7 +1,9 @@
 from discord.ext.commands.context import Context
 from typing import List
+from io import BytesIO
 from utils import misc
 from .game import Game
+import aiohttp
 import difflib
 import asyncio
 import pathlib
@@ -20,7 +22,7 @@ class Country:
             data["name"]["common"],
             data["name"]["official"],
         ]
-
+ 
         self.capital: str = data.get("country", None)
         self.capital: str = self.capital[0] if self.capital else None
 
@@ -63,9 +65,9 @@ class CountryGuesser(Game):
         return await super().end_game(origin, ["name", "score"], self.scores)
 
     def text_input(self, msg: discord.Message):
-        if msg.content.strip() == "":
+        if not (msg.content):
             return
-        
+
         if msg.author == self.gamemaster:
             if "quit" in msg.content.casefold() or "stop" in msg.content.casefold():
                 self.playing = False
@@ -112,15 +114,26 @@ class CountryGuesser(Game):
                     countries = [
                         Country(data)
                         for data in random.choices(
-                            [country for country in data if country["region"].casefold() == spec],
+                            [
+                                country
+                                for country in data
+                                if country["region"].casefold() == spec
+                            ],
                             k=self.rounds,
                         )
                     ]
-            file.close()
 
         while self.playing:  # Game loop
             self.country = countries[self.round]
             self.round += 1
+
+            # Getting the flag image from the url to send it as a file
+            async with aiohttp.ClientSession() as cs:
+                async with cs.get(self.country.flag) as res:
+                    _bytes = await res.read()
+
+            buff = BytesIO(_bytes)
+            file = discord.File(buff, filename="flag.png")
 
             # Game ui
             embed = discord.Embed(
@@ -135,14 +148,18 @@ class CountryGuesser(Game):
                 value=f"{misc.space}{misc.curve}<t:{int(time.time() + self.timeout)}:R>",
                 inline=False,
             )
-            embed.set_thumbnail(url=self.country.flag)
+            embed.set_thumbnail(url="attachment://flag.png")
             embed.set_footer(text=f"Game ID : #{self.id}")
 
             if self.round == 1:
                 await interaction.response.defer()
-                self.game_msg = await interaction.message.edit(view=None, embed=embed)
+                self.game_msg = await interaction.message.edit(
+                    view=None, embed=embed, attachments=[file]
+                )  # send the file as well
             else:
-                self.game_msg = await self.ctx.channel.send(embed=embed)
+                self.game_msg = await self.ctx.channel.send(
+                    embed=embed, file=file
+                )  # here too
 
             self.response_time = time.time()
 
@@ -163,8 +180,8 @@ class CountryGuesser(Game):
                     inline=False,
                 )
 
-                embed.set_thumbnail(url=self.country.flag)
-                await self.game_msg.edit(embed=embed)
+                embed.set_thumbnail(url="attachment://flag.png")
+                await self.game_msg.edit(embed=embed)  # no attachment edit requited
                 return await self.end_game(self.ctx.channel)
 
             # End (win)
@@ -205,10 +222,10 @@ class CountryGuesser(Game):
                 name=f"{misc.space}\nInfo", value="Info here again :)", inline=False
             )
 
-            embed.set_thumbnail(url=self.country.flag)
+            embed.set_thumbnail(url="attachment://flag.png")
             embed.set_footer(text=f"Game ID : #{self.id}")
 
-            await self.game_msg.edit(embed=embed)
+            await self.game_msg.edit(embed=embed)  # no attachment required here either
 
             if self.round == self.rounds:
                 return await self.end_game(self.ctx.channel)
@@ -217,3 +234,4 @@ class CountryGuesser(Game):
             if self.playing:
                 async with interaction.channel.typing():
                     await asyncio.sleep(10.0)
+                    
