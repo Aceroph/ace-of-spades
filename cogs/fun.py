@@ -1,13 +1,15 @@
 from utils import subclasses, misc
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 from discord.ext import commands
 from games import CountryGuesser
-import requests
 import discord
+import json
+import re
+
 
 if TYPE_CHECKING:
     from main import AceBot
-
+    
 
 class Fun(subclasses.Cog):
     def __init__(self, bot: "AceBot"):
@@ -44,34 +46,24 @@ class Fun(subclasses.Cog):
     @country.command(name="wiki", aliases=["info"])
     async def country_wiki(self, ctx: commands.Context, *, country: str):
         """Wiki for countries"""
-        query = "name" if len(country) > 2 else "alpha"
-
-        countries = requests.get(
-            f"https://restcountries.com/v3.1/{query}/{country}?fields=area,capital,currencies,demonyms,flags,gini,languages,maps,name,nativeName,population,region,subregion,timezones"
-        )
-
-        if countries.status_code != 404:
-            if len(countries.json()) > 1 and isinstance(countries.json(), list):
-                names = [c["name"]["official"] for c in countries.json()]
-                embed = discord.Embed(
-                    title=f"{misc.info} Showing results for {country}..",
-                    description=">>> " + "\n".join(names[:7]),
-                    color=discord.Color.blurple(),
-                )
-                return await ctx.reply(embed=embed, mention_author=False)
-
-        else:
-            return await ctx.reply(
-                f"Found nothing matching `{country}`",
-                mention_author=False,
-            )
-
+        with open('games/countries.json', 'r') as file:
+            data: dict[str, Any] = json.load(file)
+            
         async with ctx.channel.typing():
-            country: dict = (
-                countries.json()[0]
-                if isinstance(countries.json(), list)
-                else countries.json()
-            )
+            matched = None
+            tld_pattern = r'^\.?([A-z]{2})$'
+            tld = re.sub(tld_pattern, '.\\1', country)   
+    
+            for country_dict in data:
+                if (country_dict['name']['common'].casefold() == country.casefold() 
+                    or tld.casefold() in country_dict['tld']):
+                    matched = country_dict
+                    break
+                    
+            if matched is None:
+                return await ctx.send(content=f'No result found for `{country}`.')
+                
+            country = matched
             native_names = (
                 "native names: `"
                 + "` | `".join(

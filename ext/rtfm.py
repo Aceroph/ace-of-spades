@@ -153,7 +153,7 @@ async def do_rtfm(ctx: commands.Context, key: tuple, obj: str = None):
         key=lambda c: avg(
             [
                 difflib.SequenceMatcher(None, m[0].casefold(), m[1].casefold()).ratio()
-                for m in zip(obj.split("."), c[0].split())
+                for m in zip(reversed(obj.split(".")), c[0].split())
             ]
         )
         + (5 * c[1]["type"].startswith(_type.casefold()) if _type else 0),

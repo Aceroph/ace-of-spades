@@ -84,6 +84,7 @@ class AceBot(commands.Bot):
                 LOGGER.error("%s failed to load", extension, exc_info=1)
 
     async def close(self):
+        await self.session.close()
         await self.pool.close()
         await super().close()
 
