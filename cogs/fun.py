@@ -2,6 +2,7 @@ from utils import subclasses, misc
 from typing import TYPE_CHECKING, Any
 from discord.ext import commands
 from games import CountryGuesser
+import pathlib
 import discord
 import json
 import re
@@ -9,6 +10,8 @@ import re
 
 if TYPE_CHECKING:
     from main import AceBot
+
+directory = pathlib.Path(__file__).parent.parent   # ace-of-spades folder
     
 
 class Fun(subclasses.Cog):
@@ -46,7 +49,7 @@ class Fun(subclasses.Cog):
     @country.command(name="wiki", aliases=["info"])
     async def country_wiki(self, ctx: commands.Context, *, country: str):
         """Wiki for countries"""
-        with open('games/countries.json', 'r') as file:
+        with open(directory / "games" / "countries.json", 'r') as file:
             data: dict[str, Any] = json.load(file)
             
         async with ctx.channel.typing():
@@ -55,7 +58,7 @@ class Fun(subclasses.Cog):
             tld = re.sub(tld_pattern, '.\\1', country)   
     
             for country_dict in data:
-                if (country_dict['name']['common'].casefold() == country.casefold() 
+                if (country.casefold() in (country_dict['name']['common'].casefold(), country_dict['cca3'].casefold())
                     or tld.casefold() in country_dict['tld']):
                     matched = country_dict
                     break
