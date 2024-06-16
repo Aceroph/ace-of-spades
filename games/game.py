@@ -89,7 +89,7 @@ class ConfigView(subclasses.View):
 
     @discord.ui.button(label="Cancel", style=discord.ButtonStyle.red, row=2)
     async def cancel(self, interaction: discord.Interaction, button: discord.Button):
-        self.bot.games.pop(interaction.channel_id, None)
+        self.bot.games.pop(self.game.id)   # No default cause KeyErrors are annoying to debug without an error/tb
         if interaction.guild:
             await self.quit(interaction, interaction.user)
         else:
