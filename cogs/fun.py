@@ -12,7 +12,8 @@ if TYPE_CHECKING:
     from main import AceBot
 
 directory = pathlib.Path(__file__).parent.parent   # ace-of-spades folder
-    
+
+TLD_REGEX = re.compile(r'\.?([A-z]{2})$')
 
 class Fun(subclasses.Cog):
     def __init__(self, bot: "AceBot"):
@@ -29,11 +30,11 @@ class Fun(subclasses.Cog):
     async def game_delete(self, ctx: commands.Context, gameid: str):
         """Deletes the specified game
         This is not reversible !"""
-        if not gameid.strip("#") in self.bot.games.keys():
+        if gameid.strip("#") not in self.bot.games.keys():
             return await ctx.reply("Game not found !", mention_author=False, delete_after=15)
         
         self.bot.games.pop(gameid.strip("#"))
-        return await ctx.reply(f"Deleted game `#{gameid.strip("#")}`", mention_author=False, delete_after=15)
+        return await ctx.reply(f"Deleted game `{gameid}`", mention_author=False, delete_after=15)
 
 
     @commands.hybrid_group(invoke_without_command=True, fallback="play")
@@ -54,8 +55,7 @@ class Fun(subclasses.Cog):
             
         async with ctx.channel.typing():
             matched = None
-            tld_pattern = r'^\.?([A-z]{2})$'
-            tld = re.sub(tld_pattern, '.\\1', country)   
+            tld = TLD_REGEX.sub(r'\g<1>', country)   
     
             for country_dict in data:
                 if (country.casefold() in (country_dict['name']['common'].casefold(), country_dict['cca3'].casefold())
