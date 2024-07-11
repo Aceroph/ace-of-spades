@@ -98,7 +98,7 @@ class Fun(subclasses.Cog):
             )
 
             geo = [
-                f"region: `{country['subregion']}` ({country['region']})",
+                f"region: `{country['subregion']}` ({country['region']})" if country.get("subregion") else f"region: `{country['region']}`",
                 f"timezones: `{country['timezones'][0]}` to `{country['timezones'][-1]}`",
                 f"area: `{int(country['area']):,} km²`",
             ]
@@ -108,7 +108,8 @@ class Fun(subclasses.Cog):
                 if country.get("gini", None)
                 else None
             )
-            currency = f"currency: `{country['currencies'][list(country['currencies'])[0]]['name']}` ({country['currencies'][list(country['currencies'])[0]]['symbol']})"
+
+            currency = f"currency: `{country['currencies'][list(country['currencies'])[0]]['name']}` ({country['currencies'][list(country['currencies'])[0]]['symbol']})" if country.get("currencies", None) else None
 
             embed = discord.Embed(
                 title=f"{misc.info} {country['name']['official']}",
@@ -136,7 +137,7 @@ class Fun(subclasses.Cog):
             embed.add_field(
                 name="Economy",
                 value=misc.space
-                + currency
+                + (currency or "currency: `Unknown`")
                 + "\n"
                 + misc.space
                 + (gini or "gini index: `Unknown`"),
@@ -151,7 +152,7 @@ class Fun(subclasses.Cog):
                         for lang in country["demonyms"].keys()
                         if country["demonyms"][lang]["m"]
                         and country["demonyms"][lang]["f"]
-                    ]
+                    ] or ["unknown demonyms"]
                 ),
                 inline=False,
             )
