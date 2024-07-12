@@ -1,5 +1,4 @@
 import json
-
 import logging
 import logging.handlers
 import time
@@ -41,7 +40,7 @@ class AceBot(commands.Bot):
             log_handler=None,
             owner_id=493107597281329185,
             case_insensitive=True,
-            strip_after_prefix = True,
+            strip_after_prefix=True,
             *args,
             **kwargs,
         )
@@ -50,7 +49,7 @@ class AceBot(commands.Bot):
 
         self.boot = time.time()
         self.logger = LOGGER
-        self.games = {}
+        self.games: Dict[str, "game.Game"] = {}
 
     async def setup_hook(self):
         # Database stuff

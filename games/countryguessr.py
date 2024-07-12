@@ -40,7 +40,11 @@ class Country:
 
 class CountryGuesser(Game):
     def __init__(self, ctx: Context) -> None:
-        super().__init__(ctx, title="\N{EARTH GLOBE AMERICAS} CountryGuesser")
+        super().__init__(
+            ctx,
+            title="CountryGuesser",
+            thumbnail="https://upload.wikimedia.org/wikipedia/commons/thumb/5/5e/%C3%86toms_-_Earth.svg/1200px-%C3%86toms_-_Earth.svg.png",
+        )  # \N{EARTH GLOBE AMERICAS}
         # Config
         self.config = {
             "region": [
@@ -72,7 +76,7 @@ class CountryGuesser(Game):
             origin,
             score_headers=["name", "score"],
             scores=self.scores,
-            extras={"round": f"{self.round} out of {self.rounds}"},
+            extras={"rounds": f"`{self.round}/{self.rounds}`"},
         )
 
     def text_input(self, msg: discord.Message):
@@ -80,13 +84,13 @@ class CountryGuesser(Game):
             return
 
         if msg.author == self.gamemaster:
-            if "quit" in msg.content.casefold() or "stop" in msg.content.casefold():
+            if msg.content.casefold().startswith(("quit", "stop")):
                 self.playing = False
                 asyncio.create_task(msg.add_reaction("\N{OCTAGONAL SIGN}"))
                 asyncio.create_task(self.end_game(msg.channel))
                 return True
 
-            if "skip" in msg.content.casefold():
+            if msg.content.casefold().startswith(("skip", "idk")):
                 self.winner = None
                 asyncio.create_task(
                     msg.add_reaction(
@@ -104,7 +108,6 @@ class CountryGuesser(Game):
             ]
         )
         if self.accuracy >= 0.65:
-            asyncio.create_task(self.track_stats(msg.author, self.accuracy))
             self.winner = msg.author
             asyncio.create_task(msg.add_reaction("\N{WHITE HEAVY CHECK MARK}"))
             return True
@@ -124,13 +127,9 @@ class CountryGuesser(Game):
                         Country(data)
                         for data in random.choices(
                             [
-                                
                                 country
-                               
                                 for country in data
-                               
                                 if country["region"].casefold() == spec
-                            
                             ],
                             k=self.rounds,
                         )
@@ -155,10 +154,10 @@ class CountryGuesser(Game):
             )
             embed.add_field(
                 name="Game",
-                value=f"{misc.space}timeout : `{self.timeout//60}min`\n{misc.space}round : `{self.round} of {self.rounds}`\n{misc.space}ends <t:{int(time.time() + self.timeout)}:R>",
+                value=f"{misc.space}timeout : `{self.timeout//60}min`\n{misc.space}round : `{self.round} of {self.rounds}`\n{misc.space}ends <t:{int(time.time() + self.timeout)}:R>\n-# Game ID : #{self.id}",
             )
             embed.set_thumbnail(url="attachment://flag.png")
-            embed.set_footer(text=f"Game ID : #{self.id}")
+            # embed.set_footer(text=f"Game ID : #{self.id}")
 
             if self.round == 1:
                 await interaction.response.defer()
@@ -238,4 +237,3 @@ class CountryGuesser(Game):
             if self.playing:
                 async with interaction.channel.typing():
                     await asyncio.sleep(10.0)
-                    

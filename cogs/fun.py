@@ -23,10 +23,18 @@ class Fun(subclasses.Cog):
         self.bot = bot
     
     @commands.group(invoke_without_command=True)
-    async def game(self, ctx: commands.Context):
-        pass
+    async def games(self, ctx: commands.Context):
+        embed = discord.Embed(color=discord.Color.blurple(), title=f"\N{VIDEO GAME} Game manager", description=f"{misc.curve} {ctx.channel.mention}")
+        games = [g for g in self.bot.games.values() if g.ctx.guild == ctx.guild]
+        for game in games[:25]:
+            embed.add_field(name=f"{misc.space}\n{game.title}", value=f"{misc.space}player: {game.gamemaster.mention}\n{misc.space}duration: `{misc.time_format(time.time()-game.START)}`\n{misc.space}id: `#{game.id}`")
+        
+        if len(embed.fields) == 0:
+            embed.set_footer(text="No games to be seen")
+        
+        return await ctx.reply(embed=embed, mention_author=False)
 
-    @game.command(name="delete", aliases=["remove", "rm", "del"])
+    @games.command(name="delete", aliases=["remove", "rm", "del"])
     @commands.has_permissions(manage_channels=True)
     async def game_delete(self, ctx: commands.Context, gameid: str):
         """Deletes the specified game
@@ -41,12 +49,8 @@ class Fun(subclasses.Cog):
     @commands.hybrid_group(invoke_without_command=True, fallback="play")
     async def country(self, ctx: commands.Context):
         """Starts a game of country guesser"""
-        if any([isinstance(game, CountryGuesser) for game in self.bot.games.values()]):
-            await ctx.reply("An instance of that game is already in play !", mention_author=False, delete_after=15)
-        else:
-            game = CountryGuesser(ctx)
-            self.bot.games[game.id] = game
-            await game.send_menu()
+        game = CountryGuesser(ctx)
+        await game.send_menu()
 
     @country.command(name="wiki", aliases=["info"])
     async def country_wiki(self, ctx: commands.Context, *, country: str):
@@ -154,7 +158,7 @@ class Fun(subclasses.Cog):
                         for lang in country["demonyms"].keys()
                         if country["demonyms"][lang]["m"]
                         and country["demonyms"][lang]["f"]
-                    ] or ["unknown demonyms"]
+                    ] or ["demonyms: `Unknown`"]
                 ),
                 inline=False,
             )
