@@ -166,7 +166,7 @@ async def do_rtfm(ctx: commands.Context, key: tuple, obj: str = None):
     embed = discord.Embed(
         title=f"RTFM - {'Discord.py' if key == ('stable') else key[0].capitalize()}",
         colour=discord.Colour.blurple(),
-    )
+    ).set_author(name=ctx.author.display_name, icon_url=ctx.author.display_avatar.url)
     embed.set_footer(
         text=f"Query time : {t:,.2f}s",
         icon_url=ctx.author.avatar.url,
@@ -180,4 +180,4 @@ async def do_rtfm(ctx: commands.Context, key: tuple, obj: str = None):
         results.append(f"[`{data['type'][:4]}`] [`{key}`]({data['url']})")
 
     embed.description = "\n".join(results)
-    await ctx.reply(embed=embed, mention_author=False)
+    await ctx.send(embed=embed)

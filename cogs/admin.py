@@ -282,17 +282,7 @@ class Admin(subclasses.Cog):
             # Time taken
             embed.set_footer(text=f"Took {time.time()-timer:.2f} s")
 
-            await ctx.send(
-                embed=embed,
-                view=subclasses.View().add_quit(
-                    author=ctx.author,
-                    guild=ctx.guild,
-                    delete_reference=False,
-                    label=None,
-                    style=discord.ButtonStyle.gray,
-                    emoji=misc.delete,
-                ),
-            )
+            await ctx.send(embed=embed, delete_after=5)
 
     @commands.guild_only()
     @commands.has_permissions(manage_messages=True)
@@ -355,14 +345,7 @@ class Admin(subclasses.Cog):
 
             await ctx.send(
                 embed=embed,
-                view=subclasses.View().add_quit(
-                    author=ctx.author,
-                    guild=ctx.guild,
-                    delete_reference=False,
-                    label=None,
-                    style=discord.ButtonStyle.gray,
-                    emoji=misc.delete,
-                ),
+                view=subclasses.View().add_quit(author=ctx.author, guild=ctx.guild),
             )
 
     @commands.is_owner()
@@ -572,10 +555,13 @@ class Admin(subclasses.Cog):
             else:
                 r = discord.Embed(description="Executed !")
 
-            await ctx.reply(
+            r.set_author(
+                name=ctx.author.display_name, icon_url=ctx.author.display_avatar.url
+            )
+
+            await ctx.send(
                 embed=r,
                 view=subclasses.View().add_quit(ctx.author, ctx.guild),
-                mention_author=False,
             )
 
     @commands.command(
@@ -589,9 +575,8 @@ class Admin(subclasses.Cog):
     @commands.is_owner()
     async def kys(self, ctx: commands.Context) -> None:
         """Self-explanatory"""
-        await ctx.reply(
+        await ctx.send(
             "https://tenor.com/view/pc-computer-shutting-down-off-windows-computer-gif-17192330",
-            mention_author=False,
         )
         await self.bot.close()
 
@@ -602,15 +587,17 @@ class Admin(subclasses.Cog):
         url = misc.git_source(self.bot, entity)
 
         if not url:  # On error
-            await ctx.reply(
+            await ctx.send(
                 embed=discord.Embed(title=f"Failed to fetch {entity} :("),
-                delete_after=10,
-                mention_author=False,
+                delete_after=5,
             )
         else:
             await ctx.reply(
-                embed=discord.Embed(title=f'Source for {entity or "Bot"}', url=url),
-                mention_author=False,
+                embed=discord.Embed(
+                    title=f'Source for {entity or "Bot"}', url=url
+                ).set_author(
+                    name=ctx.author.display_name, icon_url=ctx.author.display_avatar.url
+                ),
             )
 
     @source.autocomplete("entity")
@@ -675,7 +662,8 @@ class Admin(subclasses.Cog):
                         name=f"Locally",
                         value="\n".join(local_mentions) or "`None`",
                     )
-                    return await ctx.reply(embed=embed, mention_author=False)
+                    embed.set_author(name=ctx.author.display_name, icon_url=ctx.author.display_avatar.url)
+                    return await ctx.send(embed=embed)
 
                 case "~" | "local":
                     synced = await ctx.bot.tree.sync(guild=ctx.guild)
@@ -774,8 +762,9 @@ class Admin(subclasses.Cog):
                     for _setting, _value in config.items()
                 ]
             )
+            embed.set_author(name=ctx.author.display_name, icon_url=ctx.author.display_avatar.url)
 
-            return await ctx.reply(embed=embed, mention_author=False)
+            return await ctx.send(embed=embed)
 
         ## Set config
         async with self.bot.pool.acquire() as conn:
@@ -813,7 +802,8 @@ class Admin(subclasses.Cog):
             description=f"{setting.replace('_', ' ')} -> {format_value(value, module.config[setting].annotation, module.config[setting].default)}",
             color=discord.Color.blurple(),
         )
-        return await ctx.reply(embed=embed)
+        embed.set_author(name=ctx.author.display_name, icon_url=ctx.author.display_avatar.url)
+        return await ctx.send(embed=embed)
 
     @settings.autocomplete("module")
     async def settings_module(

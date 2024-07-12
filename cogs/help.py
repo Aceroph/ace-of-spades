@@ -116,10 +116,8 @@ class Help(subclasses.Cog):
                     inline=True,
                 )
 
-            return await ctx.reply(
-                embed=embed,
-                view=subclasses.View().add_quit(ctx.author, ctx.guild),
-                mention_author=False,
+            return await ctx.send(
+                embed=embed, view=subclasses.View().add_quit(ctx.author, ctx.guild)
             )
 
         async def show_info(interaction: discord.Interaction):
@@ -176,10 +174,11 @@ class Help(subclasses.Cog):
                 )
 
         if not entity:
+            prefixes = self.bot.command_prefix(self.bot, ctx.message)
             embed = discord.Embed(
                 color=discord.Color.blurple(),
                 title="Help Page",
-                description=f"> Use `b.help command/group` for more info on a command",
+                description=f"> Use `{prefixes[0]}help command/group` for more info on a command",
             )
             embed.set_author(
                 name=f"{ctx.author.display_name} : Help",
@@ -189,17 +188,12 @@ class Help(subclasses.Cog):
             # Syntax
             embed.add_field(
                 name="Command Syntax",
-                value=f">>> My prefix is `{ctx.prefix}`\nMy commands and prefix are case-insensitive\nI will try me best to correct you if you don knoe how ti spel :grin:",
+                value=f">>> My prefixes are `{prefixes[0]}` and {self.bot.user.mention}\nMy commands and prefix are case-insensitive\nI also auto-correct mistakes",
                 inline=False,
             )
             embed.add_field(
                 name="Arguments",
                 value=f">>> `<arg>` -> This argument is required\n`[arg]` -> This argument is optional",
-                inline=False,
-            )
-            embed.add_field(
-                name="Configuration",
-                value=">>> For server administrators,\nYou can restrict access to certains commands\nthrough the integrations tab within server settings,\nthis will affect both app commands and prefix commands.",
                 inline=False,
             )
 
@@ -217,7 +211,7 @@ class Help(subclasses.Cog):
             view.add_item(info)
             ctx.old_view = view.add_quit(ctx.author, ctx.guild)
 
-            await ctx.reply(embed=embed, view=view, mention_author=False)
+            await ctx.send(embed=embed, view=view)
 
     @_help.autocomplete("entity")
     async def help_autocomplete(self, interaction: discord.Interaction, current: str):

@@ -25,6 +25,7 @@ class Fun(subclasses.Cog):
     @commands.group(invoke_without_command=True)
     async def games(self, ctx: commands.Context):
         embed = discord.Embed(color=discord.Color.blurple(), title=f"\N{VIDEO GAME} Game manager", description=f"{misc.curve} {ctx.channel.mention}")
+        embed.set_author(name=ctx.author.display_name, icon_url=ctx.author.display_avatar.url)
         games = [g for g in self.bot.games.values() if g.ctx.guild == ctx.guild]
         for game in games[:25]:
             embed.add_field(name=f"{misc.space}\n{game.title}", value=f"{misc.space}player: {game.gamemaster.mention}\n{misc.space}duration: `{misc.time_format(time.time()-game.START)}`\n{misc.space}id: `#{game.id}`")
@@ -32,7 +33,7 @@ class Fun(subclasses.Cog):
         if len(embed.fields) == 0:
             embed.set_footer(text="No games to be seen")
         
-        return await ctx.reply(embed=embed, mention_author=False)
+        return await ctx.send(embed=embed)
 
     @games.command(name="delete", aliases=["remove", "rm", "del"])
     @commands.has_permissions(manage_channels=True)
@@ -40,20 +41,20 @@ class Fun(subclasses.Cog):
         """Deletes the specified game
         This is not reversible !"""
         if not gameid.strip("#") in self.bot.games.keys():
-            return await ctx.reply("Game not found !", mention_author=False, delete_after=15)
+            return await ctx.send("Game not found !", mention_author=False, delete_after=15)
         
         self.bot.games.pop(gameid.strip("#"))
-        return await ctx.reply(f"Deleted game `#{gameid.strip("#")}`", mention_author=False, delete_after=15)
+        return await ctx.send(f"Deleted game `#{gameid.strip("#")}`", mention_author=False, delete_after=15)
 
 
-    @commands.hybrid_group(invoke_without_command=True, fallback="play")
-    async def country(self, ctx: commands.Context):
+    @commands.hybrid_command(aliases=["country", "cgssr"], invoke_without_command=True)
+    async def countryguesser(self, ctx: commands.Context):
         """Starts a game of country guesser"""
         game = CountryGuesser(ctx)
         await game.send_menu()
 
-    @country.command(name="wiki", aliases=["info"])
-    async def country_wiki(self, ctx: commands.Context, *, country: str):
+    @commands.hybrid_command()
+    async def cwiki(self, ctx: commands.Context, *, country: str):
         """Wiki for countries"""
         with open(directory / "games" / "countries.json", 'r') as file:
             data: dict[str, Any] = json.load(file)
@@ -121,6 +122,7 @@ class Fun(subclasses.Cog):
                 title=f"{misc.info} {country['name']['official']}",
                 description=f"{misc.curve} [view on map]({country['maps']['googleMaps']}) | [view on stree view]({country['maps']['openStreetMaps']})",
             )
+            embed.set_author(name=ctx.author.display_name, icon_url=ctx.author.display_avatar.url)
             embed.set_thumbnail(url=country["flags"]["png"])
 
             embed.add_field(
@@ -170,10 +172,10 @@ class Fun(subclasses.Cog):
 
         view = subclasses.View()
         view.add_quit(
-            ctx.author, ctx.guild, emoji=misc.delete, style=discord.ButtonStyle.gray
+            ctx.author, ctx.guild
         )
 
-        await ctx.reply(embed=embed, mention_author=False, view=view)
+        await ctx.send(embed=embed, view=view)
 
 
 async def setup(bot):

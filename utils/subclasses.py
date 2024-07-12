@@ -8,12 +8,13 @@ from discord import Message, app_commands
 from discord.ext import commands
 
 from . import errors, misc, paginator
+from .dynamic import QuitButton
 
 if TYPE_CHECKING:
     from main import AceBot
 
 
-async def reply(
+async def send(
     ctx: commands.Context,
     content: str,
     prefix: str = "",
@@ -38,7 +39,7 @@ async def reply(
                 p.add_line(line)
             return await p.start()
 
-        return await ctx.reply(prefix + content + suffix, *args, **kwargs)
+        return await ctx.send(prefix + content + suffix, *args, **kwargs)
 
 
 async def can_use(ctx: commands.Context):
@@ -107,48 +108,6 @@ class View(discord.ui.View):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-    def add_quit(
-        self,
-        author: discord.User,
-        guild: discord.Guild = None,
-        delete_reference: bool = True,
-        **kwargs,
-    ):
-        self.author = author
-        self.delete_reference = delete_reference
-        attributes = {
-            "style": discord.ButtonStyle.red,
-            "label": "Quit",
-            "disabled": not guild,
-        }
-        attributes.update(**kwargs)
-        button = discord.ui.Button(**attributes)
-        button.callback = self.quit_callback
-        return self.add_item(button)
-
-    async def quit_callback(self, interaction: discord.Interaction):
-        await self.quit(interaction, self.author, self.delete_reference)
-
-    @classmethod
-    async def quit(
-        cls,
-        interaction: discord.Interaction,
-        author: discord.User = None,
-        delete_reference: bool = True,
-    ):
-        if interaction.user != author:
-            raise errors.NotYourButton
-
-        reference = interaction.message.reference
-        if reference and delete_reference:
-            try:
-                msg = await interaction.channel.fetch_message(reference.message_id)
-                await msg.delete()
-            except:
-                pass
-
-        await interaction.message.delete()
-
     async def on_error(
         self, interaction: discord.Interaction, error: Exception, item: discord.ui.Item
     ):
@@ -181,7 +140,6 @@ class View(discord.ui.View):
         )
 
         view = View()
-        view.add_quit(interaction.user, interaction.guild)
 
         # Owner embed w full traceback
         await interaction.client.get_user(interaction.client.owner_id).send(embed=embed)
@@ -198,5 +156,14 @@ class View(discord.ui.View):
         else:
             return await interaction.response.send_message(embed=embed, view=view)
 
-    async def on_timeout(self):
+    def add_quit(
+        self,
+        author: discord.abc.User = None,
+        guild: discord.Guild = None,
+        label: str = "Close",
+    ):
+        return self.add_item(QuitButton(author=author.id, guild=guild.id, label=label))
+
+    async def stop(self) -> None:
         self.clear_items()
+        return super().stop()

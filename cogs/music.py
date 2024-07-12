@@ -19,7 +19,12 @@ class Music(subclasses.Cog):
         self.emoji = "\N{MUSICAL NOTE}"
         self.nodes: dict[str, wavelink.Node] = None
         self.wavelinkconfig = bot.config["wavelink"]
-        self.config.update({"channel": subclasses.Setting(discord.TextChannel), "silent": subclasses.Setting(bool, False)})
+        self.config.update(
+            {
+                "channel": subclasses.Setting(discord.TextChannel),
+                "silent": subclasses.Setting(bool, False),
+            }
+        )
 
     async def connection(self):
         nodes = [
@@ -75,12 +80,14 @@ class Music(subclasses.Cog):
             )
 
         embed.set_image(url=track.artwork or track.album.url)
+        embed.set_author(
+            name=ctx.author.display_name, icon_url=ctx.author.display_avatar.url
+        )
 
         if isinstance(origin, commands.Context):
-            await origin.reply(embed=embed, mention_author=False)
-        else:
-            if hasattr(player, "home"):
-                await player.home.send(embed=embed)
+            await origin.send(embed=embed)
+        elif hasattr(player, "home"):
+            await player.home.send(embed=embed)
 
     async def cog_before_invoke(self, ctx: commands.Context) -> None:
         if ctx.voice_client and not hasattr(ctx.voice_client, "home"):
@@ -167,7 +174,7 @@ class Music(subclasses.Cog):
             [f"{plg.name} ({plg.version})" for plg in info.plugins]
         )
         msg = f"```\nstatus: {node.status}\n\njvm: {info.jvm}\nlavaplayer: {info.lavaplayer}\nwavelink: {wavelink.__version__}\n\nsources:{sources}\n\nplugins: {plugins if len(info.plugins) > 0 else 'none'}```"
-        await ctx.reply(msg, mention_author=False)
+        await ctx.send(msg)
 
     @commands.guild_only()
     @commands.hybrid_command(aliases=["np", "now"])
@@ -176,12 +183,13 @@ class Music(subclasses.Cog):
         if ctx.voice_client.current:
             return await self.now_playing_logic(ctx)
         else:
-            return await ctx.reply(
+            return await ctx.send(
                 embed=discord.Embed(
                     title=":eyes: Nothing is playing",
                     description=f">>> Play something using `play`",
+                ).set_author(
+                    name=ctx.author.display_name, icon_url=ctx.author.display_avatar.url
                 ),
-                mention_author=False,
                 delete_after=15,
             )
 
@@ -240,7 +248,7 @@ class Music(subclasses.Cog):
             embed.set_author(
                 name=ctx.author.display_name, icon_url=ctx.author.display_avatar.url
             )
-            await ctx.reply(embed=embed, mention_author=False)
+            await ctx.send(embed=embed)
         else:
             tracks: wavelink.Search = await wavelink.Playable.search(query)
 
@@ -265,7 +273,10 @@ class Music(subclasses.Cog):
                 embed.set_author(
                     name=ctx.author.display_name, icon_url=ctx.author.display_avatar.url
                 )
-                await ctx.reply(embed=embed, mention_author=False)
+                embed.set_author(
+                    name=ctx.author.display_name, icon_url=ctx.author.display_avatar.url
+                )
+                await ctx.send(embed=embed)
 
             else:
                 # Add requested user to track
@@ -283,13 +294,14 @@ class Music(subclasses.Cog):
                 embed.set_author(
                     name=ctx.author.display_name, icon_url=ctx.author.display_avatar.url
                 )
-                await ctx.reply(embed=embed, mention_author=False)
+                embed.set_author(
+                    name=ctx.author.display_name, icon_url=ctx.author.display_avatar.url
+                )
+                await ctx.send(embed=embed)
 
         if not tracks:
-            print("error")
-            await ctx.reply(
-                f"{ctx.author.mention} - Could not find any tracks with that query. Please try again.",
-                mention_author=False,
+            await ctx.send(
+                f"{ctx.author.mention} - Could not find any tracks with that query. Please try again."
             )
             return
 
@@ -335,7 +347,7 @@ class Music(subclasses.Cog):
 
             await p.start()
         else:
-            await ctx.reply("Queue empty !", mention_author=False)
+            await ctx.send("Queue empty !")
 
     @commands.guild_only()
     @commands.before_invoke(isvoicemember)
@@ -351,7 +363,7 @@ class Music(subclasses.Cog):
         await player.skip()
         player.autoplay = wavelink.AutoPlayMode.enabled
 
-        await ctx.reply("Cleared queue", mention_author=False)
+        await ctx.send("Cleared queue")
 
     @commands.guild_only()
     @commands.before_invoke(isvoicemember)
@@ -376,7 +388,11 @@ class Music(subclasses.Cog):
                 description=f"> why shuffle {length + ' item' if length > 0 else 'nothing'}?",
             )
 
-        await ctx.reply(embed=embed, mention_author=False)
+        embed.set_author(
+            name=ctx.author.display_name, icon_url=ctx.author.display_avatar.url
+        )
+
+        await ctx.send(embed=embed)
 
     @commands.guild_only()
     @commands.before_invoke(isvoicemember)
@@ -400,8 +416,10 @@ class Music(subclasses.Cog):
                 description=f"{misc.curve} to resume, run `play` or `unpause`",
                 color=discord.Color.blurple(),
             )
+        
+        embed.set_author(name=ctx.author.display_name, icon_url=ctx.author.display_avatar.url)
 
-        await ctx.reply(embed=embed, mention_author=False)
+        await ctx.send(embed=embed)
 
     @commands.guild_only()
     @commands.before_invoke(isvoicemember)
@@ -413,7 +431,7 @@ class Music(subclasses.Cog):
             raise errors.NoVoiceFound
 
         await player.skip()
-        await ctx.reply("Skipped song", mention_author=False)
+        await ctx.send("Skipped song")
 
     @commands.guild_only()
     @commands.before_invoke(isvoicemember)
@@ -425,7 +443,7 @@ class Music(subclasses.Cog):
             raise errors.NoVoiceFound
 
         await player.disconnect()
-        await ctx.reply("Stopped playing music", mention_author=False)
+        await ctx.send("Stopped playing music")
 
     @commands.guild_only()
     @commands.before_invoke(isvoicemember)
@@ -460,9 +478,9 @@ class Music(subclasses.Cog):
                 )
         else:
             if not is_silent:
-                await ctx.reply("\N{FACE WITH FINGER COVERING CLOSED LIPS}")
+                await ctx.send("\N{FACE WITH FINGER COVERING CLOSED LIPS}")
             else:
-                await ctx.reply(
+                await ctx.send(
                     "\N{SPEAKING HEAD IN SILHOUETTE}\N{VARIATION SELECTOR-16}"
                 )
 

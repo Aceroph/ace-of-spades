@@ -67,57 +67,6 @@ class Utility(subclasses.Cog):
                 elif len(before.channel.members) == 1:
                     self.vcs[str(before.channel.id)] = before.channel.members[0].id
 
-    @commands.guild_only()
-    @commands.group(aliases=["vc", "voice"], invoke_without_command=True)
-    async def party(self, ctx: commands.Context):
-        """An all-in-one menu to configure your own voice channel"""
-        vc = ctx.author.voice.channel if ctx.author.voice else None
-        msg = ""
-        if vc and vc.bitrate == 63000:
-            menu = ui.PartyMenu(self.bot, self.vcs)
-            await menu.check_ownership(ctx)
-
-            await ctx.reply(
-                msg,
-                embed=ui.PartyMenu.Embed(ctx, self.vcs),
-                view=ui.PartyMenu(self.bot, self.vcs),
-            )
-        elif vc:
-            await ctx.reply(":warning: You are not in a party !")
-        else:
-            await ctx.reply(":warning: You are not in a vc !")
-
-    @party.command(name="config")
-    @commands.guild_only()
-    @commands.is_owner()
-    async def party_config(
-        self, ctx: commands.Context, channel: Union[discord.VoiceChannel, int] = None
-    ):
-        """Sets the party lobby"""
-        if channel:
-            channel_id = (
-                channel if type(channel) is int else channel.id or ctx.channel.id
-            )
-            async with self.bot.pool.acquire() as conn:
-                await conn.execute(
-                    "INSERT INTO guildConfig (id, key, value) VALUES (:id, :key, :value) ON CONFLICT(id, key) DO UPDATE SET value = :value WHERE id = :id AND key = :key;",
-                    {"id": ctx.guild.id, "key": "party_id", "value": channel_id},
-                )
-            if isinstance(channel, discord.VoiceChannel):
-                await ctx.send(f"Party lobby is now {channel.mention}")
-            else:
-                await ctx.send("Disabled party lobby")
-        else:
-            async with self.bot.pool.acquire() as conn:
-                channel_id = await conn.fetchone(
-                    "SELECT value FROM guildConfig WHERE id = :id AND key = :key;",
-                    {"id": ctx.guild.id, "key": "party_id"},
-                )
-            channel = self.bot.get_channel(channel_id[1])
-            await ctx.send(
-                f"Current channel is {channel.mention if isinstance(channel, discord.VoiceChannel) else None}"
-            )
-
     @commands.hybrid_command(aliases=["char", "character"])
     @app_commands.describe(characters="The characters to get info on")
     async def charinfo(self, ctx: commands.Context, *, characters: str):
@@ -173,9 +122,11 @@ class Utility(subclasses.Cog):
             )
             or "Nothing to convert",
             color=discord.Color.blurple(),
+        ).set_author(
+            name=ctx.author.display_name, icon_url=ctx.author.display_avatar.url
         )
 
-        await ctx.reply(embed=embed, mention_author=False)
+        await ctx.send(embed=embed)
 
     @commands.hybrid_command(aliases=["rtfd"])
     @app_commands.describe(source="From where to gather docs", obj="What to search for")
@@ -365,6 +316,8 @@ class Utility(subclasses.Cog):
                 title="\N{ANTICLOCKWISE DOWNWARDS AND UPWARDS OPEN CIRCLE ARROWS} Reloading stats",
                 description=">>> Gathering information..\nThis may take a few seconds",
                 color=discord.Color.blurple(),
+            ).set_author(
+                name=ctx.author.display_name, icon_url=ctx.author.display_avatar.url
             )
             await interaction.response.edit_message(
                 embed=embed, view=None, delete_after=5
@@ -385,7 +338,7 @@ class Utility(subclasses.Cog):
         view.add_item(refresh)
         view.add_quit(ctx.author, ctx.guild)
 
-        await ctx.reply(embed=embed, mention_author=False, view=view)
+        await ctx.send(embed=embed, view=view)
 
     @commands.hybrid_command(name="eval")
     @app_commands.describe(
@@ -457,16 +410,9 @@ class Utility(subclasses.Cog):
         output = response["run"]["output"] or "No output"
 
         view = subclasses.View()
-        view.add_quit(
-            ctx.author,
-            ctx.guild,
-            False,
-            style=discord.ButtonStyle.gray,
-            emoji=misc.delete,
-            label="Delete",
-        )
+        view.add_quit(ctx.author, ctx.guild)
 
-        await subclasses.reply(
+        await subclasses.send(
             ctx,
             output,
             prefix=f"```{language['language']}\n",
@@ -506,8 +452,10 @@ class Utility(subclasses.Cog):
             title="Pong \N{TABLE TENNIS PADDLE AND BALL}",
             description=f">>> Bot: `{bot}ms`\nAPI: `{api}ms`\nWS: `{ws}ms`",
             color=discord.Color.blurple(),
+        ).set_author(
+            name=ctx.author.display_name, icon_url=ctx.author.display_avatar.url
         )
-        return await ctx.reply(embed=embed, mention_author=False)
+        return await ctx.send(embed=embed)
 
 
 async def setup(bot):

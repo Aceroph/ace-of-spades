@@ -95,16 +95,16 @@ class Paginator:
             if isinstance(destination, discord.abc.User):
                 self.author = destination
         else:
-            respond = self.ctx.reply
+            respond = self.ctx.send
 
         if self.embed:
             embed = copy(self.embed)
             return await respond(
-                embed=self._update_embed(embed), view=self.view, mention_author=False
+                embed=self._update_embed(embed), view=self.view
             )
         else:
             return await respond(
-                self.pages[self.index], view=self.view, mention_author=False
+                self.pages[self.index], view=self.view
             )
 
     async def next_page(self, interaction: discord.Interaction):

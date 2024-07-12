@@ -10,6 +10,7 @@ import discord
 from discord.ext import commands
 
 from cogs import EXTENSIONS
+from utils.dynamic import QuitButton
 
 if TYPE_CHECKING:
     from games import game
@@ -30,7 +31,7 @@ LOGGER.addHandler(handler)
 
 def prefix(bot: "AceBot", msg: discord.abc.Messageable):
     p = bot.config["prefix"]
-    return [p.lower(), p.upper()]
+    return [p.lower(), p.upper(), bot.user.mention]
 
 
 class AceBot(commands.Bot):
@@ -89,6 +90,9 @@ class AceBot(commands.Bot):
             except Exception as e:
                 LOGGER.error("%s failed to load", extension, exc_info=1)
 
+        # Dynamic items
+        self.add_dynamic_items(QuitButton)
+
     async def close(self):
         await self.session.close()
         await self.pool.close()
@@ -108,6 +112,9 @@ class AceBot(commands.Bot):
                 ),
             )
             await conn.commit()
+
+    async def on_command_completion(self, ctx: commands.Context):
+        return await ctx.message.delete()
 
 
 if __name__ == "__main__":

@@ -55,13 +55,13 @@ class Economy(subclasses.Cog):
         if amount:
             if await self.bot.is_owner(ctx.message.author):
                 await Bank.set_wallet(self.bot, member_id, balance + amount)
-                await ctx.reply(
+                await ctx.send(
                     f"{abs(amount):,}$ was {'added to' if amount >= 0 else 'removed from'} your balance ({balance:,}$ -> {balance + amount:,}$)"
                 )
             else:
                 raise commands.NotOwner()
         else:
-            await ctx.reply(f"You have currently {balance:,}$")
+            await ctx.send(f"You have currently {balance:,}$")
 
 
 async def setup(bot):

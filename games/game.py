@@ -104,7 +104,7 @@ class ConfigView(subclasses.View):
 
         self.bot.games[self.game.id] = self.game
         await self.game.start(interaction)
-        self.stop()
+        await self.stop()
 
     @discord.ui.button(label="Cancel", style=discord.ButtonStyle.red, row=2)
     async def cancel(self, interaction: discord.Interaction, button: discord.Button):
@@ -114,10 +114,10 @@ class ConfigView(subclasses.View):
                     content="You are not the Gamemaster!", ephemeral=True
                 )
                 return
-            await self.quit(interaction, interaction.user)
+            await self.game.menu.delete()
         else:
             await interaction.response.edit_message(view=None)
-        self.stop()
+            await self.stop()
 
     @discord.ui.button(label="Profile", row=2)
     async def profile(self, interaction: discord.Interaction, button: discord.Button):
@@ -209,7 +209,9 @@ class Game:
         self.config: Dict[str, Iterable[Any]] = {}
 
     def update_menu(self):
-        embed = discord.Embed(title=self.title)
+        embed = discord.Embed(title=self.title).set_author(
+            name=self.gamemaster.display_name, icon_url=self.gamemaster.display_avatar.url
+        )
         embed.set_thumbnail(url=self.thumbnail)
         embed.add_field(
             name="\N{GEAR}\N{VARIATION SELECTOR-16} Settings",
@@ -224,9 +226,7 @@ class Game:
 
     async def send_menu(self):
         view = ConfigView(bot=self.ctx.bot, game=self)
-        self.menu = await self.ctx.reply(
-            embed=self.update_menu(), view=view, mention_author=False
-        )
+        self.menu = await self.ctx.send(embed=self.update_menu(), view=view)
 
     async def end_game(
         self,
