@@ -1,14 +1,17 @@
-from typing import cast, Iterable
-from discord.ext import commands
-from cogs import EXTENSIONS
-from . import subclasses
-import unicodedata
 import difflib
-import requests
 import inspect
-import discord
-import re
 import os
+import re
+import unicodedata
+from typing import Iterable, cast
+
+import discord
+import requests
+from discord.ext import commands
+
+from cogs import EXTENSIONS
+
+from . import subclasses
 
 # Emojis
 yes = "<:yes:1221652590153171045>"

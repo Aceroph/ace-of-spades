@@ -1,11 +1,13 @@
-from utils import misc, paginator, errors, subclasses
-from typing import TYPE_CHECKING, Union
-from discord.ext import commands
-from utils.errors import iserror
-import traceback
-import wavelink
-import discord
 import difflib
+import traceback
+from typing import TYPE_CHECKING, Union
+
+import discord
+import wavelink
+from discord.ext import commands
+
+from utils import errors, misc, paginator, subclasses
+from utils.errors import iserror
 
 if TYPE_CHECKING:
     from main import AceBot

@@ -1,9 +1,11 @@
-from .errors import NotYourButton
-from discord.ext import commands
-from typing import Optional
-from . import misc, errors
 from copy import copy
+from typing import Optional
+
 import discord
+from discord.ext import commands
+
+from . import errors, misc
+from .errors import NotYourButton
 
 
 class Paginator:
@@ -162,7 +164,10 @@ class Paginator:
         _previous.callback = self.previous_page
         self.view.add_item(_previous)
 
-        _quit = discord.ui.Button(label=f"Quit • Page {self.index+1}/{len(self.pages)}", style=discord.ButtonStyle.danger)
+        _quit = discord.ui.Button(
+            label=f"Quit • Page {self.index+1}/{len(self.pages)}",
+            style=discord.ButtonStyle.danger,
+        )
         _quit.callback = self._quit
         self.view.add_item(_quit)
 

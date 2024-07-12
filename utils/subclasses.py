@@ -1,11 +1,13 @@
-from typing import TYPE_CHECKING, Dict, Any
-from discord import app_commands, Message
-from . import misc, errors, paginator
-from dataclasses import dataclass
-from discord.ext import commands
-import traceback
-import discord
 import time
+import traceback
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any, Dict
+
+import discord
+from discord import Message, app_commands
+from discord.ext import commands
+
+from . import errors, misc, paginator
 
 if TYPE_CHECKING:
     from main import AceBot
@@ -189,7 +191,12 @@ class View(discord.ui.View):
             title=f":warning: {type(error).__qualname__}",
             description=(f"> {' '.join(error.args)}" if len(error.args) > 0 else None),
         )
-        return await interaction.response.send_message(embed=embed, view=view)
+
+        # Stop fucking responding twice
+        if interaction.response.is_done():
+            return await interaction.followup.send(embed=embed, view=view)
+        else:
+            return await interaction.response.send_message(embed=embed, view=view)
 
     async def on_timeout(self):
         self.clear_items()

@@ -1,8 +1,10 @@
-from typing import Union, TYPE_CHECKING
-from discord.ext import commands
-from . import subclasses
-import discord
 import time
+from typing import TYPE_CHECKING, Union
+
+import discord
+from discord.ext import commands
+
+from . import subclasses
 
 if TYPE_CHECKING:
     from main import AceBot

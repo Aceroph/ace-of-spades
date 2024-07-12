@@ -1,10 +1,12 @@
-from utils import subclasses, misc, paginator, errors
-from typing import TYPE_CHECKING, cast, Union
-from discord.ext import commands
-from discord import app_commands
-import wavelink
 import textwrap
+from typing import TYPE_CHECKING, Union, cast
+
 import discord
+import wavelink
+from discord import app_commands
+from discord.ext import commands
+
+from utils import errors, misc, paginator, subclasses
 
 if TYPE_CHECKING:
     from main import AceBot

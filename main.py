@@ -1,12 +1,19 @@
-from discord.ext import commands
-from cogs import EXTENSIONS
-import logging.handlers
-import discord
-import asqlite
-import aiohttp
-import logging
-import time
 import json
+
+import logging
+import logging.handlers
+import time
+from typing import TYPE_CHECKING, Dict
+
+import aiohttp
+import asqlite
+import discord
+from discord.ext import commands
+
+from cogs import EXTENSIONS
+
+if TYPE_CHECKING:
+    from games import game
 
 LOGGER = logging.getLogger("discord")
 LOGGER.setLevel(logging.INFO)

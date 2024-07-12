@@ -1,16 +1,19 @@
-from discord.ext.commands.context import Context
-from typing import List
-from io import BytesIO
-from utils import misc
-from .game import Game
-import aiohttp
-import difflib
 import asyncio
-import pathlib
-import discord
-import random
+import difflib
 import json
+import pathlib
+import random
 import time
+from io import BytesIO
+from typing import List
+
+import aiohttp
+import discord
+from discord.ext.commands.context import Context
+
+from utils import misc
+
+from .game import Game
 
 directory = pathlib.Path(__file__).parent
 

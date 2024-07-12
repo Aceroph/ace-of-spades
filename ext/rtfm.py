@@ -1,13 +1,15 @@
-from typing import Generator, List, Dict, Tuple
-from discord.ext import commands
-from utils.misc import avg
-import requests
-import discord
 import difflib
-import zlib
-import time
-import re
 import io
+import re
+import time
+import zlib
+from typing import Dict, Generator, List, Tuple
+
+import discord
+import requests
+from discord.ext import commands
+
+from utils.misc import avg
 
 rtfm_cache: dict = None
 

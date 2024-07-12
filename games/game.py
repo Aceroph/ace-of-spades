@@ -6,6 +6,13 @@ import discord
 import random
 import string
 import time
+from typing import TYPE_CHECKING, Any, Dict, Iterable
+
+import discord
+from discord.ext import commands
+from tabulate import tabulate
+
+from utils import misc, subclasses
 
 if TYPE_CHECKING:
     from main import AceBot

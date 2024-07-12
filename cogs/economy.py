@@ -1,7 +1,9 @@
-from typing import Optional, TYPE_CHECKING
-from discord.ext import commands
-from utils import subclasses
+from typing import TYPE_CHECKING, Optional
+
 import discord
+from discord.ext import commands
+
+from utils import subclasses
 
 if TYPE_CHECKING:
     from main import AceBot
