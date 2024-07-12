@@ -3,7 +3,7 @@ import inspect
 import os
 import re
 import unicodedata
-from typing import Iterable, cast
+from typing import TYPE_CHECKING, Iterable, cast
 
 import discord
 import requests
@@ -11,7 +11,8 @@ from discord.ext import commands
 
 from cogs import EXTENSIONS
 
-from . import subclasses
+if TYPE_CHECKING:
+    from . import subclasses
 
 # Emojis
 yes = "<:yes:1221652590153171045>"
@@ -80,7 +81,7 @@ class Module(commands.Converter):
                 None, extension.split(".")[-1], module.split(".")[-1]
             ).ratio()
             if r >= 0.60:
-                mod: subclasses.Cog = extension
+                mod: "subclasses.Cog" = extension
                 break
 
         if not mod:
@@ -88,7 +89,7 @@ class Module(commands.Converter):
 
         for name, cog in ctx.bot.cogs.items():
             if name.casefold() == mod.split(".")[-1]:
-                return cast(subclasses.Cog, cog)
+                return cast("subclasses.Cog", cog)
 
         return mod
 
