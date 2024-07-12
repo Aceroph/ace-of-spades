@@ -177,7 +177,6 @@ class Utility(subclasses.Cog):
 
         await ctx.reply(embed=embed, mention_author=False)
 
-
     @commands.hybrid_command(aliases=["rtfd"])
     @app_commands.describe(source="From where to gather docs", obj="What to search for")
     async def rtfm(
@@ -493,6 +492,22 @@ class Utility(subclasses.Cog):
             [app_commands.Choice(name=n.capitalize(), value=n) for n in names],
             key=lambda c: c.name,
         )[:25]
+
+    @commands.hybrid_command()
+    async def ping(self, ctx: commands.Context):
+        """Simplest command, ping \N{TABLE TENNIS PADDLE AND BALL}"""
+        bot = round((time.time() - ctx.message.created_at.timestamp()) * 1000)
+        api = time.perf_counter()
+        await ctx.typing()
+        api = round((time.perf_counter() - api) * 1000)
+        ws = round(self.bot.latency * 1000)
+
+        embed = discord.Embed(
+            title="Pong \N{TABLE TENNIS PADDLE AND BALL}",
+            description=f">>> Bot: `{bot}ms`\nAPI: `{api}ms`\nWS: `{ws}ms`",
+            color=discord.Color.blurple(),
+        )
+        return await ctx.reply(embed=embed, mention_author=False)
 
 
 async def setup(bot):
