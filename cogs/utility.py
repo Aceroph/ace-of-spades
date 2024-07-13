@@ -4,14 +4,14 @@ import re
 import string
 import time
 import unicodedata
-from typing import TYPE_CHECKING, Literal, Optional, Union
+from typing import TYPE_CHECKING, Any, Literal, Optional, Union
 
 import discord
 import psutil
 from discord import app_commands
 from discord.ext import commands
 
-from ext import rtfm
+from ext import rtfm, embedbuilder
 from utils import errors, misc, subclasses, ui
 
 if TYPE_CHECKING:
@@ -456,6 +456,78 @@ class Utility(subclasses.Cog):
             name=ctx.author.display_name, icon_url=ctx.author.display_avatar.url
         )
         return await ctx.send(embed=embed)
+
+    @commands.hybrid_command(aliases=["embed"])
+    async def embedbuilder(self, ctx: commands.Context, *, source=None):
+        """Create, export and import rich embeds.
+        Embeds are exported in a JSON format which can be used to import embeds or even be used in tags.
+        """
+        # Import embed
+        if source:
+            # Import from message id
+            if re.fullmatch(r"[0-9]+", source):
+                try:
+                    message = await ctx.channel.fetch_message(int(source))
+                except commands.MessageNotFound:
+                    return await ctx.send(
+                        "Unknown message, make sure it is from this channel.\nYou can always export your embeds and import them directly."
+                    )
+                embed = message.embeds[0]
+                builder = embedbuilder.EmbedBuilder(
+                    embed=embed, bot=self.bot, imported=True
+                )
+                return await builder.start(ctx)
+
+            # Import from json dict
+            elif re.fullmatch(r"{.*}", misc.clean_codeblock(source), flags=re.S):
+                embed = discord.Embed.from_dict(
+                    json.loads(misc.clean_codeblock(source))
+                )
+                builder = embedbuilder.EmbedBuilder(
+                    embed=embed, bot=self.bot, imported=True
+                )
+                return await builder.start(ctx)
+
+        # Base embed
+        embed = discord.Embed(
+            title="Title (256 characters), can lead to a url if given",
+            description="Description (4096 characters)\nThe sum of all characters cannot exceed 6000, any field left unedited will disappear",
+            color=discord.Color.blurple(),
+            url="https://google.com/",
+        )
+        embed.set_author(
+            name="Author name (256 characters), can lead to a url if given",
+            icon_url="https://archive.org/download/discordprofilepictures/discordblue.png",
+            url="https://google.com/",
+        )
+        embed.set_footer(
+            text="Footer (2048 characters), only supports emojis and other characters",
+            icon_url="https://archive.org/download/discordprofilepictures/discordblue.png",
+        )
+        embed.set_thumbnail(
+            url="https://archive.org/download/discordprofilepictures/discordblue.png"
+        )
+        embed.set_image(
+            url="https://archive.org/download/discordprofilepictures/discordblue.png"
+        )
+        embed.add_field(
+            name="Field title (256 characters)",
+            value="Supports all kinds of markdown unlike titles who only supports emojis and other characters, a maximum of 25 fields is allowed",
+            inline=False,
+        )
+        embed.add_field(
+            name="Hyperlinks",
+            value="Areas who support markdowns also support [hyperlinks](https://google.com/)",
+            inline=True,
+        )
+        embed.add_field(
+            name="Inline fields",
+            value="Fields can also be inlined with others. (1024 characters)",
+            inline=True,
+        )
+
+        builder = embedbuilder.EmbedBuilder(embed=embed, bot=self.bot)
+        return await builder.start(ctx)
 
 
 async def setup(bot):
