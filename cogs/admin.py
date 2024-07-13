@@ -236,27 +236,39 @@ class Admin(subclasses.Cog):
         await ctx.send(embed=embed)
 
     @commands.guild_only()
-    @commands.group(aliases=["clean"], invoke_without_command=True)
+    @commands.hybrid_command(aliases=["clean"])
     async def cleanup(self, ctx: commands.Context, amount: int = 25):
         """Cleans up the channel by removing bot responses.
-        If an amount isn't specified, it'll default to 25 messages.
-        Commands invoked by the user will also get deleted !"""
+        If an amount isn't specified, it'll default to 25 messages."""
         async with ctx.typing():
             timer = time.time()
 
             # Get messages to delete
             to_delete: list[discord.Message] = []
-            async for msg in ctx.channel.history(
-                limit=(
-                    amount + 1
-                    if ctx.channel.permissions_for(ctx.author).manage_messages
-                    else 25 if amount + 1 > 25 else amount + 1
+            if ctx.message.reference.resolved.id or ctx.message.reference.message_id:
+                reference: discord.Message = self.bot.get_partial_messageable(
+                    id=ctx.message.reference.resolved.id
+                    or ctx.message.reference.message_id,
+                    guild_id=ctx.guild.id if ctx.guild else None,
                 )
-            ):
-                if msg.author.bot or msg.content.lower().startswith(
-                    ("b.", "a.", ctx.prefix.lower())
+                async for msg in ctx.channel.history():
+                    if (
+                        msg.created_at >= reference.created_at
+                        and msg.author.bot
+                        or msg.content.startswith((".", "!", "?", ";"))
+                    ):
+                        to_delete.append(msg)
+
+            else:
+                async for msg in ctx.channel.history(
+                    limit=(
+                        amount + 1
+                        if ctx.channel.permissions_for(ctx.author).manage_messages
+                        else 25 if amount + 1 > 25 else amount + 1
+                    )
                 ):
-                    to_delete.append(msg)
+                    if msg.author.bot or msg.content.startswith((".", "!", "?", ";")):
+                        to_delete.append(msg)
 
             await ctx.channel.delete_messages(to_delete, reason="Cleanup")
 
@@ -293,33 +305,36 @@ class Admin(subclasses.Cog):
 
     @commands.guild_only()
     @commands.has_permissions(manage_messages=True)
-    @cleanup.command(name="until")
-    async def cleanup_until(self, ctx: commands.Context, message: int = None):
-        """Cleans up the channel by removing bot responses.
-        Will delete up to the replied message or if provided,
-        to the given id."""
+    @commands.hybrid_command()
+    async def purge(self, ctx: commands.Context, amount: int = 25):
+        """Purges the channel, this cannot be undone !
+        If an amount isn't specified, it'll default to 25 messages."""
         async with ctx.typing():
-            # Get message refered or mentionned
             timer = time.time()
-            message: discord.Message = self.bot.get_partial_messageable(
-                id=message
-                or ctx.message.reference.resolved.id
-                or ctx.message.reference.message_id,
-                guild_id=ctx.guild.id if ctx.guild else None,
-            )
 
             # Get messages to delete
             to_delete: list[discord.Message] = []
-            async for msg in ctx.channel.history():
-                if msg.created_at >= message.created_at:
-                    if msg.author.bot or msg.content.lower().startswith(
-                        ("b.", "a.", ctx.prefix.lower())
-                    ):
+            if ctx.message.reference.resolved.id or ctx.message.reference.message_id:
+                reference: discord.Message = self.bot.get_partial_messageable(
+                    id=ctx.message.reference.resolved.id
+                    or ctx.message.reference.message_id,
+                    guild_id=ctx.guild.id if ctx.guild else None,
+                )
+                async for msg in ctx.channel.history():
+                    if msg.created_at >= reference.created_at:
                         to_delete.append(msg)
-                else:
-                    break
 
-            await ctx.channel.delete_messages(to_delete, reason="Cleanup")
+            else:
+                async for msg in ctx.channel.history(
+                    limit=(
+                        amount + 1
+                        if ctx.channel.permissions_for(ctx.author).manage_messages
+                        else 25 if amount + 1 > 25 else amount + 1
+                    )
+                ):
+                    to_delete.append(msg)
+
+            await ctx.channel.delete_messages(to_delete, reason="Purge")
 
             # Count messages
             users: dict[str, int] = {}
@@ -334,7 +349,7 @@ class Admin(subclasses.Cog):
             # Embed building
             embed = discord.Embed(
                 color=discord.Color.blurple(),
-                title=f"Cleaned up {ctx.channel.mention}",
+                title=f"Purged {ctx.channel.mention}",
                 description=f"{misc.space}Deleted `{total}` message{'s' if total > 1 else ''}",
             )
             for user, count in users.items():
