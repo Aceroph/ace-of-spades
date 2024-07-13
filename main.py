@@ -114,7 +114,10 @@ class AceBot(commands.Bot):
             await conn.commit()
 
     async def on_command_completion(self, ctx: commands.Context):
-        return await ctx.message.delete()
+        try:
+            return await ctx.message.delete()
+        except:
+            pass
 
 
 if __name__ == "__main__":

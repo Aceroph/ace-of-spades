@@ -38,9 +38,7 @@ class Help(subclasses.Cog):
         if entity:
             command = self.bot.get_command(entity)
             if not command:
-                return await ctx.reply(
-                    f"No command called {entity}", mention_author=False
-                )
+                return await ctx.send(f"No command called {entity}")
 
             if command not in await filter_commands(
                 ctx, self.bot.walk_commands(), show_hidden=True

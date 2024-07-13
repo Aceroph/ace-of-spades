@@ -126,7 +126,10 @@ class Admin(subclasses.Cog):
         view.add_item(select_category)
         view.add_quit(ctx.author, ctx.guild)
 
-        await ctx.reply(embed=embed, view=view, mention_author=False)
+        embed.set_author(
+            name=ctx.author.display_name, icon_url=ctx.author.display_avatar.url
+        )
+        await ctx.send(embed=embed, view=view)
 
     @permissions.command(name="edit")
     @commands.has_guild_permissions(administrator=True)
@@ -186,12 +189,14 @@ class Admin(subclasses.Cog):
                     permissions=discord.Permissions(**changed_permissions)
                 )
             else:
-                return await ctx.reply(
-                    mention_author=False,
+                return await ctx.send(
                     embed=discord.Embed(
                         title=":warning: Error while editing user",
                         description="> Cannot edit a user's permissions globally !",
                         color=discord.Color.red(),
+                    ).set_author(
+                        name=ctx.author.display_name,
+                        icon_url=ctx.author.display_avatar.url,
                     ),
                 )
 
@@ -200,7 +205,9 @@ class Admin(subclasses.Cog):
         else:
             changelog += "```"
 
-        embed = discord.Embed()
+        embed = discord.Embed().set_author(
+            name=ctx.author.display_name, icon_url=ctx.author.display_avatar.url
+        )
         embed.description = (
             f"{misc.curve} {'in ' + channel.mention if channel else 'Globally'}"
         )
@@ -226,7 +233,7 @@ class Admin(subclasses.Cog):
             )
             embed.add_field(name="`[p]` Changelog", value=changelog)
 
-        await ctx.reply(embed=embed, mention_author=False)
+        await ctx.send(embed=embed)
 
     @commands.guild_only()
     @commands.group(aliases=["clean"], invoke_without_command=True)
@@ -343,10 +350,7 @@ class Admin(subclasses.Cog):
             # Time taken
             embed.set_footer(text=f"Took {time.time()-timer:.2f} s")
 
-            await ctx.send(
-                embed=embed,
-                view=subclasses.View().add_quit(author=ctx.author, guild=ctx.guild),
-            )
+            await ctx.send(embed=embed, delete_after=5)
 
     @commands.is_owner()
     @commands.command(name="reload", aliases=["r"])
@@ -374,9 +378,11 @@ class Admin(subclasses.Cog):
                     )
                 ),
                 color=discord.Color.blurple(),
+            ).set_author(
+                name=ctx.author.display_name, icon_url=ctx.author.display_avatar.url
             )
             embed.set_footer(text=f"Took {(time.time() - timer)*1000:.2f}ms")
-            return await ctx.reply(embed=embed, mention_author=False)
+            return await ctx.send(embed=embed, delete_after=5)
 
         module: str = None
         # Find module name (eg. cogs.admin)
@@ -399,8 +405,10 @@ class Admin(subclasses.Cog):
                 title=":warning: ExtensionNotFound",
                 description=f"> Couldn't find module : `{extension}`",
                 color=discord.Color.red(),
+            ).set_author(
+                name=ctx.author.display_name, icon_url=ctx.author.display_avatar.url
             )
-            return await ctx.reply(embed=embed, mention_author=False)
+            return await ctx.send(embed=embed, delete_after=5)
 
         timer = time.time()
 
@@ -424,9 +432,11 @@ class Admin(subclasses.Cog):
                 else f"> {module}"
             ),
             color=discord.Color.blurple(),
+        ).set_author(
+            name=ctx.author.display_name, icon_url=ctx.author.display_avatar.url
         )
         embed.set_footer(text=f"Took {(time.time() - timer)*1000:.2f}ms")
-        await ctx.reply(embed=embed, mention_author=False)
+        await ctx.send(embed=embed, delete_after=5)
 
     @commands.is_owner()
     @commands.command(name="load", aliases=["l"])
@@ -455,8 +465,10 @@ class Admin(subclasses.Cog):
                 title=":warning: ExtensionNotFound",
                 description=f"> Couldn't find module : `{extension}`",
                 color=discord.Color.red(),
+            ).set_author(
+                name=ctx.author.display_name, icon_url=ctx.author.display_avatar.url
             )
-            return await ctx.reply(embed=embed, mention_author=False)
+            return await ctx.send(embed=embed, delete_after=5)
 
         timer = time.time()
 
@@ -480,9 +492,11 @@ class Admin(subclasses.Cog):
                 else f"> {module}"
             ),
             color=discord.Color.blurple(),
+        ).set_author(
+            name=ctx.author.display_name, icon_url=ctx.author.display_avatar.url
         )
         embed.set_footer(text=f"Took {(time.time() - timer)*1000:.2f}ms")
-        await ctx.reply(embed=embed, mention_author=False)
+        await ctx.send(embed=embed, delete_after=5)
 
     @commands.is_owner()
     @commands.command(name="unload", aliases=["u"])
@@ -521,8 +535,10 @@ class Admin(subclasses.Cog):
                 title=":warning: ExtensionNotFound",
                 description=f"> Couldn't find module : `{extension}`",
                 color=discord.Color.red(),
+            ).set_author(
+                name=ctx.author.display_name, icon_url=ctx.author.display_avatar.url
             )
-            return await ctx.reply(embed=embed, mention_author=False)
+            return await ctx.send(embed=embed, delete_after=5)
 
         timer = time.time()
 
@@ -536,9 +552,11 @@ class Admin(subclasses.Cog):
                 else f"> {module}"
             ),
             color=discord.Color.blurple(),
+        ).set_author(
+            name=ctx.author.display_name, icon_url=ctx.author.display_avatar.url
         )
         embed.set_footer(text=f"Took {(time.time() - timer)*1000:.2f}ms")
-        await ctx.reply(embed=embed, mention_author=False)
+        await ctx.send(embed=embed, delete_after=5)
 
     @commands.is_owner()
     @commands.command()
@@ -592,7 +610,7 @@ class Admin(subclasses.Cog):
                 delete_after=5,
             )
         else:
-            await ctx.reply(
+            await ctx.send(
                 embed=discord.Embed(
                     title=f'Source for {entity or "Bot"}', url=url
                 ).set_author(
@@ -662,7 +680,10 @@ class Admin(subclasses.Cog):
                         name=f"Locally",
                         value="\n".join(local_mentions) or "`None`",
                     )
-                    embed.set_author(name=ctx.author.display_name, icon_url=ctx.author.display_avatar.url)
+                    embed.set_author(
+                        name=ctx.author.display_name,
+                        icon_url=ctx.author.display_avatar.url,
+                    )
                     return await ctx.send(embed=embed)
 
                 case "~" | "local":
@@ -762,7 +783,9 @@ class Admin(subclasses.Cog):
                     for _setting, _value in config.items()
                 ]
             )
-            embed.set_author(name=ctx.author.display_name, icon_url=ctx.author.display_avatar.url)
+            embed.set_author(
+                name=ctx.author.display_name, icon_url=ctx.author.display_avatar.url
+            )
 
             return await ctx.send(embed=embed)
 
@@ -802,7 +825,9 @@ class Admin(subclasses.Cog):
             description=f"{setting.replace('_', ' ')} -> {format_value(value, module.config[setting].annotation, module.config[setting].default)}",
             color=discord.Color.blurple(),
         )
-        embed.set_author(name=ctx.author.display_name, icon_url=ctx.author.display_avatar.url)
+        embed.set_author(
+            name=ctx.author.display_name, icon_url=ctx.author.display_avatar.url
+        )
         return await ctx.send(embed=embed)
 
     @settings.autocomplete("module")
