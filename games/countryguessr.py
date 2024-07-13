@@ -154,10 +154,9 @@ class CountryGuesser(Game):
             )
             embed.add_field(
                 name="Game",
-                value=f"{misc.space}timeout : `{self.timeout//60}min`\n{misc.space}round : `{self.round} of {self.rounds}`\n{misc.space}ends <t:{int(time.time() + self.timeout)}:R>\n-# Game ID : #{self.id}",
+                value=f"{misc.space}timeout : `{self.timeout//60}min`\n{misc.space}round : `{self.round} of {self.rounds}`\n{misc.space}ends <t:{int(time.time() + self.timeout)}:R>\n\n-# Game ID : #{self.id}",
             )
             embed.set_thumbnail(url="attachment://flag.png")
-            # embed.set_footer(text=f"Game ID : #{self.id}")
 
             if self.round == 1:
                 await interaction.response.defer()
@@ -217,7 +216,7 @@ class CountryGuesser(Game):
 
             embed.add_field(
                 name="Stats",
-                value=f"{userstats}{misc.space}round : `{self.round} of {self.rounds}`\n\n{misc.space}capital: `{self.country.capital}`\n{misc.space}population: `{self.country.population:,} habitants`",
+                value=f"{userstats}{misc.space}round : `{self.round} of {self.rounds}`\n\n{misc.space}capital: `{self.country.capital}`\n{misc.space}population: `{self.country.population:,} habitants`\n\n-# Game ID : #{self.id}",
                 inline=False,
             )
 
@@ -226,7 +225,6 @@ class CountryGuesser(Game):
             )
 
             embed.set_thumbnail(url="attachment://flag.png")
-            embed.set_footer(text=f"Game ID : #{self.id}")
 
             await self.game_msg.edit(embed=embed)  # no attachment required here either
 

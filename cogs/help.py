@@ -58,7 +58,7 @@ class Help(subclasses.Cog):
             failure = "Failed to fetch documentation\nProbably forgot to write one for this command\nThis is awkward.."
             embed.add_field(
                 name="Documentation",
-                value=f">>> {command.help.format(curve=misc.curve) if command.help else failure}",
+                value=f">>> {'\n'.join(textwrap.wrap(command.help, width=len(command.help.splitlines()[0]))) if command.help else failure}",
                 inline=False,
             )
 

@@ -162,7 +162,14 @@ class View(discord.ui.View):
         guild: discord.Guild = None,
         label: str = "Close",
     ):
-        return self.add_item(QuitButton(author=author.id, guild=guild.id, label=label))
+        if guild:
+            return self.add_item(
+                QuitButton(
+                    author=getattr(author, "id", 0),
+                    guild=guild.id,
+                    label=label,
+                )
+            )
 
     async def stop(self) -> None:
         self.clear_items()
