@@ -1,3 +1,4 @@
+import aiohttp
 import asyncio
 import difflib
 import json
@@ -7,7 +8,6 @@ import time
 from io import BytesIO
 from typing import List
 
-import aiohttp
 import discord
 from discord.ext.commands.context import Context
 

@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Dict, Any, Optional
 
 import aiohttp
 import asqlite
+import asyncio
 import discord
 from discord.ext import commands
 
@@ -38,6 +39,7 @@ class AceBot(commands.Bot):
     def __init__(
         self, 
         prefix: str,
+        intents: discord.Intents,
         log_handler: Optional[logging.Logger],
         owner_id: int,
         pool: asqlite.Pool,
@@ -46,6 +48,7 @@ class AceBot(commands.Bot):
     ):
         super().__init__(
             command_prefix=prefix,
+            intents=intents,
             log_handler=log_handler,
             owner_id=owner_id,
             **kwargs,
@@ -124,14 +127,26 @@ class AceBot(commands.Bot):
         except:
             pass
 
-
-if __name__ == "__main__":
-    # Intents
+async def main():
     intents = discord.Intents.default()
     intents.message_content = True
     intents.members = True
 
-    bot = AceBot(intents=intents, help_command=None)
-    bot.add_listener(bot.log_commands_run, "on_command_completion")
-    bot.run(bot.config["token"])
+    async with asqlite.create_pool('database.db') as pool, aiohttp.ClientSession() as session:
+        async with AceBot(
+            prefix=prefix,
+            intents=intents, 
+            log_handler=None,
+            owner_id=493107597281329185,
+            help_command=None,
+            case_insensitive=True,
+            strip_after_prefix=True,
+            pool=pool,
+            session=session,
+        ) as bot:
+            bot.start(bot.config['token'])
+            await bot.wait_until_ready()
+            bot.add_listener(bot.log_commands_run, "on_command_completion")
 
+if __name__ == "__main__":
+    asyncio.run(main())
