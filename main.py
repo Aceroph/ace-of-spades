@@ -37,13 +37,11 @@ def prefix(bot: "AceBot", msg: discord.abc.Messageable):
 
 class AceBot(commands.Bot):
     def __init__(
-        self, 
+        self,
         prefix: str,
         intents: discord.Intents,
         log_handler: Optional[logging.Logger],
         owner_id: int,
-        pool: asqlite.Pool,
-        session: aiohttp.ClientSession,
         **kwargs
     ):
         super().__init__(
@@ -51,13 +49,15 @@ class AceBot(commands.Bot):
             intents=intents,
             log_handler=log_handler,
             owner_id=owner_id,
+            intents=intents,
+            help_command=None,
             **kwargs,
         )
         with open("config.json", "r") as cfg:
             self.config: dict[str, Any] = json.load(cfg)
 
-        self.pool = pool
-        self.session = session
+        self.pool: asqlite.Pool
+        self.session: aiohttp.ClientSession
 
         self.boot = time.time()
         self.logger = LOGGER
@@ -65,6 +65,7 @@ class AceBot(commands.Bot):
 
     async def setup_hook(self):
         # Database stuff
+        self.pool = await asqlite.create_pool("database.db")
         LOGGER.info("Created connection to database")
 
         async with self.pool.acquire() as conn:
@@ -100,6 +101,9 @@ class AceBot(commands.Bot):
         # Dynamic items
         self.add_dynamic_items(QuitButton)
 
+        # HTTP stuff
+        self.session = aiohttp.ClientSession()
+
     async def close(self):
         await self.session.close()
         await self.pool.close()
@@ -121,21 +125,18 @@ class AceBot(commands.Bot):
             )
             await conn.commit()
 
-    async def on_command_completion(self, ctx: commands.Context):
-        try:
-            return await ctx.message.delete()
-        except:
-            pass
 
 async def main():
     intents = discord.Intents.default()
     intents.message_content = True
     intents.members = True
 
-    async with asqlite.create_pool('database.db') as pool, aiohttp.ClientSession() as session:
+    async with asqlite.create_pool(
+        "database.db"
+    ) as pool, aiohttp.ClientSession() as session:
         async with AceBot(
             prefix=prefix,
-            intents=intents, 
+            intents=intents,
             log_handler=None,
             owner_id=493107597281329185,
             help_command=None,
@@ -144,9 +145,10 @@ async def main():
             pool=pool,
             session=session,
         ) as bot:
-            bot.start(bot.config['token'])
+            bot.start(bot.config["token"])
             await bot.wait_until_ready()
             bot.add_listener(bot.log_commands_run, "on_command_completion")
+
 
 if __name__ == "__main__":
     asyncio.run(main())
