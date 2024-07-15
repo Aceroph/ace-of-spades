@@ -23,17 +23,17 @@ class QuitButton(
 
     async def callback(
         self, interaction: discord.Interaction
-    ) -> Coroutine[Any, Any, Any]:
+    ) -> None:
         if interaction.user.id != self.author and self.author:
             raise errors.NotYourButton
 
-        await interaction.message.delete()
+        await interaction.message.delete()     # type: ignore
 
     @classmethod
     async def from_custom_id(
         cls,
         interaction: discord.Interaction,
-        item: discord.ui.Button,
+        item: discord.ui.DynamicItem,
         match: re.Match[str],
         /,
     ):

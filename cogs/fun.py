@@ -15,12 +15,14 @@ if TYPE_CHECKING:
 
 directory = pathlib.Path(__file__).parent.parent   # ace-of-spades folder
     
+TLD_REGEX = re.compile(r'^\.?([A-z]{2})$')
 
 class Fun(subclasses.Cog):
     def __init__(self, bot: "AceBot"):
-        super().__init__()
-        self.emoji = "\N{JIGSAW PUZZLE PIECE}"
-        self.bot = bot
+        super().__init__(
+            bot=bot,
+            emoji="\N{JIGSAW PUZZLE PIECE}",
+        )
     
     @commands.group(invoke_without_command=True)
     async def games(self, ctx: commands.Context):
@@ -40,11 +42,12 @@ class Fun(subclasses.Cog):
     async def game_delete(self, ctx: commands.Context, gameid: str):
         """Deletes the specified game
         This is not reversible !"""
-        if not gameid.strip("#") in self.bot.games.keys():
-            return await ctx.send("Game not found !", mention_author=False, delete_after=15)
+        _id = gameid.removeprefix('#')
+        if _id not in self.bot.games.keys():
+            return await ctx.send("Game not found !", delete_after=15)
         
-        self.bot.games.pop(gameid.strip("#"))
-        return await ctx.send(f"Deleted game `#{gameid.strip("#")}`", mention_author=False, delete_after=15)
+        self.bot.games.pop(_id)
+        return await ctx.send(f"Deleted game `{gameid}`", delete_after=15)
 
 
     @commands.hybrid_command(aliases=["country", "cgssr"], invoke_without_command=True)
@@ -61,12 +64,11 @@ class Fun(subclasses.Cog):
             
         async with ctx.channel.typing():
             matched = None
-            tld_pattern = r'^\.?([A-z]{2})$'
-            tld = re.sub(tld_pattern, '.\\1', country)   
+            tld = TLD_REGEX.sub(r'\g<1>', country)   
     
             for country_dict in data:
                 if (country.casefold() in (country_dict['name']['common'].casefold(), country_dict['cca3'].casefold())
-                    or tld.casefold() in country_dict['tld']):
+                    or tld.casefold() == country_dict['cca2'].casefold()):
                     matched = country_dict
                     break
                     
@@ -127,14 +129,11 @@ class Fun(subclasses.Cog):
 
             embed.add_field(
                 name="Endonyms",
-                value=misc.space
-                + native_names
-                + "\n"
-                + misc.space
-                + languages
-                + "\n"
-                + misc.space
-                + (capital or "capital: `Unknown`"),
+                value=(
+                    f'{misc.space}{native_names}\n'
+                    f'{misc.space}{languages}\n'
+                    f'{misc.space}{capital or "capital: `Unknown`"}'
+                ),
                 inline=False,
             )
             embed.add_field(
@@ -144,11 +143,10 @@ class Fun(subclasses.Cog):
             )
             embed.add_field(
                 name="Economy",
-                value=misc.space
-                + (currency or "currency: `Unknown`")
-                + "\n"
-                + misc.space
-                + (gini or "gini index: `Unknown`"),
+                value=(
+                    f'{misc.space}{currency or "currency: `Unknown`"}\n'
+                    f'{misc.space}{gini or "gini index: `Unknown`"}'
+                ),
                 inline=False,
             )
             embed.add_field(

@@ -14,9 +14,10 @@ if TYPE_CHECKING:
 
 class Music(subclasses.Cog):
     def __init__(self, bot: "AceBot"):
-        super().__init__()
-        self.bot = bot
-        self.emoji = "\N{MUSICAL NOTE}"
+        super().__init__(
+            bot=bot,
+            emoji="\N{MUSICAL NOTE}"
+        )
         self.nodes: dict[str, wavelink.Node] = None
         self.wavelinkconfig = bot.config["wavelink"]
         self.config.update(

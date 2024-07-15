@@ -1,7 +1,7 @@
 import random
 import string
 import time
-from typing import TYPE_CHECKING, Any, Dict, Iterable
+from typing import TYPE_CHECKING, Any, Dict, Iterable, Optional, Sequence
 
 import discord
 from discord.ext import commands
@@ -14,13 +14,13 @@ if TYPE_CHECKING:
 
 
 class SubconfigSelect(discord.ui.Select):
-    def __init__(self, setting: str, parent: "ConfigSelect", game: "Game"):
+    def __init__(self, setting: str, parent: "ConfigSelect"):
         self.parent = parent
-        self.game = game
+        self.game = parent.game
 
         super().__init__(
             options=[
-                discord.SelectOption(label=option) for option in game.config[setting]
+                discord.SelectOption(label=option) for option in self.game.config[setting]
             ],
         )
 
@@ -59,16 +59,16 @@ class ConfigSelect(discord.ui.Select):
         )
 
     async def callback(self, interaction: discord.Interaction):
-        sub_config_view = discord.ui.View()
+        subconfig_view = discord.ui.View()
         setting = self.values[0]
-        sub_config_view.add_item(SubconfigSelect(setting, parent=self, game=self.game))
+        subconfig_view.add_item(SubconfigSelect(setting, parent=self))
         embed = discord.Embed(
             title=f"\N{GEAR}\N{VARIATION SELECTOR-16} Select {setting}",
             description=f"> Current: `{getattr(self.game, setting)}`",
             color=discord.Colour.green(),
         )
         await interaction.response.send_message(
-            embed=embed, view=sub_config_view, ephemeral=True
+            embed=embed, view=subconfig_view, ephemeral=True
         )
 
 
@@ -103,8 +103,8 @@ class ConfigView(subclasses.View):
                 )
 
         self.bot.games[self.game.id] = self.game
+        self.stop()     
         await self.game.start(interaction)
-        await self.stop()
 
     @discord.ui.button(label="Cancel", style=discord.ButtonStyle.red, row=2)
     async def cancel(self, interaction: discord.Interaction, button: discord.Button):
@@ -117,7 +117,7 @@ class ConfigView(subclasses.View):
             await self.game.menu.delete()
         else:
             await interaction.response.edit_message(view=None)
-            await self.stop()
+        self.stop()
 
     @discord.ui.button(label="Profile", row=2)
     async def profile(self, interaction: discord.Interaction, button: discord.Button):
@@ -194,19 +194,19 @@ class ConfigView(subclasses.View):
 
 class Game:
     def __init__(
-        self, ctx: commands.Context, title: str = "Untitled game", thumbnail: str = None
+        self, ctx: commands.Context, title: Optional[str] = "Untitled game", thumbnail: Optional[str] = None
     ) -> None:
         self.START = time.time()
         self.title = title
         self.thumbnail = thumbnail
-        self.playing = False
+        self.playing: bool = False
         self.ctx = ctx
         self.id = "".join(random.choices(string.ascii_letters + string.digits, k=6))
 
         # Game config
         self.gamemaster: discord.abc.User = ctx.author
         self.timeout: int = 120
-        self.config: Dict[str, Iterable[Any]] = {}
+        self.config: Dict[str, Sequence[Any]] = {}
 
     def update_menu(self):
         embed = discord.Embed(title=self.title).set_author(
@@ -283,7 +283,7 @@ class Game:
                 },
             )
 
-        await conn.commit()
+            await conn.commit()
 
     def text_input(self, msg: discord.Message):
         pass
