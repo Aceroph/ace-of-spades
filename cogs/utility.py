@@ -11,7 +11,7 @@ import psutil
 from discord import app_commands
 from discord.ext import commands
 
-from ext import rtfm, embedbuilder
+from ext import rtfm, embedbuilder, info
 from utils import errors, misc, subclasses, ui
 
 if TYPE_CHECKING:
@@ -26,47 +26,12 @@ class Utility(subclasses.Cog):
         )
 
     async def cog_load(self):
-        self.bot.add_view(ui.PartyMenu(self.bot, {}))
         self.bot.logger.info(
             "Loaded persistent view %s from %s",
             ui.PartyMenu.__qualname__,
             self.qualified_name,
         )
-
-    @commands.Cog.listener("on_voice_state_update")
-    async def party_event(
-        self,
-        member: discord.Member,
-        before: discord.VoiceState,
-        after: discord.VoiceState,
-    ):
-        async with self.bot.pool.acquire() as conn:
-            party_config = await conn.fetchone(
-                "SELECT value FROM guildConfig WHERE id = :id AND key = :key;",
-                {"id": member.id, "key": "party_id"},
-            )
-
-        if party_config:
-            if not hasattr(self, "vcs"):
-                self.vcs = {}
-
-            name = member.name + "'s vc"
-            if after.channel and after.channel.id in party_config:
-                vc = await member.guild.create_voice_channel(
-                    name=name, category=after.channel.category, bitrate=63000
-                )
-                self.vcs[str(vc.id)] = member.id
-                await member.move_to(vc)
-
-            if (
-                before.channel
-                and before.channel.bitrate == 63000
-                and after.channel != before.channel
-            ):
-                if not before.channel.members:
-                    await before.channel.delete()
-                elif len(before.channel.members) == 1:
-                    self.vcs[str(before.channel.id)] = before.channel.members[0].id
+        self.bot.info = info.Info(self.bot)
 
     @commands.hybrid_command(aliases=["char", "character"])
     @app_commands.describe(characters="The characters to get info on")
@@ -154,192 +119,16 @@ class Utility(subclasses.Cog):
             key=lambda c: c.name,
         )[:25]
 
-    async def refresh_info(self, ctx: commands.Context):
-        async with ctx.channel.typing():
-            self.stats = {}
-            # Total lines of code
-            self.stats["lines"] = 0
-            root = pathlib.Path(__file__).parent.parent
-            for file in pathlib.Path(__file__).parent.parent.glob("**/*"):
-                if file.name.endswith(".py") and not any(
-                    file.is_relative_to(bad) for bad in root.glob("**/.*")
-                ):
-                    with open(file, "r") as f:
-                        self.stats["lines"] += len(f.readlines())
-
-            self.stats["#commands"] = len(self.bot.commands)
-            self.stats["#modules"] = len(self.bot.cogs)
-            self.stats["#guilds"] = len(self.bot.guilds)
-            self.stats["#users"] = len(self.bot.users)
-
-            process = psutil.Process()
-            self.stats["pid"] = process.pid
-            self.stats["mem"] = process.memory_full_info().rss / 1024**2
-            self.stats["mem%"] = process.memory_percent()
-            self.stats["cpu%"] = process.cpu_percent()
-
-    @commands.hybrid_command(aliases=["stats", "about"], invoke_without_command=True)
-    async def info(self, ctx: commands.Context):
-        """Statistics for nerds"""
-        if not hasattr(self, "stats"):
-            embed = discord.Embed(
-                title="\N{BAR CHART} Stats not found",
-                description=">>> Gathering information..\nThis may take a few seconds",
-                color=discord.Color.red(),
-            )
-            await ctx.channel.send(embed=embed, delete_after=5)
-            await self.refresh_info(ctx)
-
-        embed = discord.Embed(
-            title=self.bot.user.display_name,
-            description=f"{misc.space}{misc.server}servers: `{self.stats['#guilds']}`\n{misc.space}{misc.members}users: `{self.stats['#users']:,}`",
-            color=discord.Color.blurple(),
-        )
-        embed.set_footer(
-            text=f"Made by aceroph using discord.py v{discord.__version__}",
-            icon_url=misc.python,
-        )
-        embed.set_author(
-            name="View source on github",
-            url=misc.git_source(self.bot),
-            icon_url=misc.github,
-        )
-
-        embed.add_field(
-            name="Timestamps",
-            value=f"{misc.space}created on: {discord.utils.format_dt(self.bot.user.created_at, 'd')}\
-            \n{misc.space}joined on: {discord.utils.format_dt(ctx.guild.me.joined_at, 'd') if ctx.guild else '`never.`'}\
-            \n{misc.space}uptime: `{misc.time_format(time.time()-self.bot.boot)}`",
-            inline=False,
-        )
-        embed.add_field(
-            name=f"Code statistics",
-            value=f"{misc.space}lines of code: `{self.stats['lines']:,}`\
-            \n{misc.space}commands: `{self.stats['#commands']}`\
-            \n{misc.space}modules: `{self.stats['#modules']}`",
-            inline=False,
-        )
-        embed.add_field(
-            name="Process",
-            value=f"{misc.space}pid: `{self.stats['pid']}`\
-                    \n{misc.space}cpu: `{self.stats['cpu%']:.1f}%`\
-                    \n{misc.space}mem: `{self.stats['mem']:,.1f}MB` (`{self.stats['mem%']:.1f}%`)",
-            inline=False,
-        )
-
-        # UI
-        async def info_show_more(interaction: discord.Interaction):
-            # Fetch more stats if non existant or its been more that 5 minutes
-            if (
-                not "last_updated" in self.stats.keys()
-                or time.time() - self.stats["last_updated"] >= 300
-            ):
-                async with self.bot.pool.acquire() as conn:
-                    self.stats["last_updated"] = time.time()
-
-                    # COMMANDS STATS
-                    self.stats["total_cmds_ran"] = (
-                        await conn.fetchone(
-                            "SELECT total(value) FROM statistics WHERE key LIKE 'CMD_RAN:%';"
-                        )
-                    )[0]
-                    self.stats["guild_cmds_ran"] = (
-                        await conn.fetchone(
-                            "SELECT total(value) FROM statistics WHERE key LIKE 'CMD_RAN:%' AND id = ?;",
-                            (interaction.guild_id or 0),
-                        )
-                    )[0]
-
-                    # MUSIC STATS
-                    self.stats["total_songs_played"] = (
-                        await conn.fetchone(
-                            "SELECT total(value) FROM statistics WHERE key = 'SONG_PLAYED';"
-                        )
-                    )[0]
-                    self.stats["guild_songs_played"] = (
-                        await conn.fetchone(
-                            "SELECT total(value) FROM statistics WHERE key = 'SONG_PLAYED' AND id = ?;",
-                            (interaction.guild_id),
-                        )
-                    )[0]
-                    self.stats["total_playtime"] = (
-                        await conn.fetchone(
-                            "SELECT total(value) FROM statistics WHERE key = 'SONG_PLAYTIME';"
-                        )
-                    )[0]
-                    self.stats["guild_playtime"] = (
-                        await conn.fetchone(
-                            "SELECT total(value) FROM statistics WHERE key = 'SONG_PLAYTIME' AND id = ?;",
-                            (interaction.guild_id),
-                        )
-                    )[0]
-
-                    # TOP COMMANDS
-                    self.stats["top_guild_commands"] = await conn.fetchall(
-                        "SELECT key, value FROM statistics WHERE key LIKE 'CMD_RAN:%' AND id = ? ORDER BY value DESC LIMIT 5;",
-                        (interaction.guild_id or 0),
-                    )
-
-            medals = [
-                "\N{FIRST PLACE MEDAL}",
-                "\N{SECOND PLACE MEDAL}",
-                "\N{THIRD PLACE MEDAL}",
-                "\N{SPORTS MEDAL}",
-                "\N{SPORTS MEDAL}",
-            ]
-            top_commands = f"\n{misc.space}".join(
-                [
-                    f"{medals[i]} {cmd[0].split(':')[1]}: `{cmd[1]}`"
-                    for i, cmd in enumerate(self.stats["top_guild_commands"])
-                ]
-            )
-
-            embed = discord.Embed(color=discord.Color.blurple())
-            embed.add_field(
-                name="Top commands",
-                value=f"{misc.space}{top_commands}\n\n{misc.space}Total ran: `{self.stats['total_cmds_ran']:.0f}`\
-                \n{misc.space}{misc.curve} from {'guild' if interaction.guild else 'DMs'}: `{self.stats['guild_cmds_ran']:.0f}`",
-            )
-            embed.add_field(
-                name="Music statistics",
-                value=f"{misc.space}Total songs played: `{self.stats['total_songs_played']:.0f}`\
-                \n{misc.space}{misc.curve} from guild: `{self.stats['guild_songs_played']:.0f}`\
-                \n\n{misc.space}Total playtime: `{misc.time_format(self.stats['total_playtime'])}`\
-                \n{misc.space}{misc.curve} from guild: `{misc.time_format(self.stats['guild_playtime'])}`",
-            )
-            await interaction.response.send_message(embed=embed, ephemeral=True)
-
-        async def refresh_callback(interaction: discord.Interaction):
-            if interaction.user.id != ctx.bot.owner_id:
-                raise errors.NotYourButton("Only the owner can refresh stats manually")
-
-            embed = discord.Embed(
-                title="\N{ANTICLOCKWISE DOWNWARDS AND UPWARDS OPEN CIRCLE ARROWS} Reloading stats",
-                description=">>> Gathering information..\nThis may take a few seconds",
-                color=discord.Color.blurple(),
-            ).set_author(
-                name=ctx.author.display_name, icon_url=ctx.author.display_avatar.url
-            )
-            await interaction.response.edit_message(
-                embed=embed, view=None, delete_after=5
-            )
-            await self.refresh_info(ctx)
-            await self.info(ctx)
-
-        show_more = discord.ui.Button(
-            label="See more", style=discord.ButtonStyle.blurple
-        )
-        show_more.callback = info_show_more
-
-        refresh = discord.ui.Button(label="Refresh")
-        refresh.callback = refresh_callback
-
-        view = subclasses.View()
-        view.add_item(show_more)
-        view.add_item(refresh)
+    @commands.hybrid_command(
+        name="info", aliases=["stats", "about"], invoke_without_command=True
+    )
+    async def _info(self, ctx: commands.Context):
+        """Statistics for nerds
+        Anyone can refresh stats every 5 minutes"""
+        view = info.InfoView(self.bot, ctx.author)
         view.add_quit(ctx.author, ctx.guild)
-
-        await ctx.send(embed=embed, view=view)
+        embed = await view.embed(ctx)
+        return await ctx.reply(embed=embed, view=view, mention_author=False)
 
     @commands.hybrid_command(name="eval")
     @app_commands.describe(
