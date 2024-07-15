@@ -2,7 +2,7 @@ import json
 import logging
 import logging.handlers
 import time
-from typing import TYPE_CHECKING, Dict
+from typing import TYPE_CHECKING, Dict, Any, Optional
 
 import aiohttp
 import asqlite
@@ -35,26 +35,33 @@ def prefix(bot: "AceBot", msg: discord.abc.Messageable):
 
 
 class AceBot(commands.Bot):
-    def __init__(self, *args, **kwargs):
+    def __init__(
+        self, 
+        prefix: str,
+        log_handler: Optional[logging.Logger],
+        owner_id: int,
+        pool: asqlite.Pool,
+        session: aiohttp.ClientSession,
+        **kwargs
+    ):
         super().__init__(
             command_prefix=prefix,
-            log_handler=None,
-            owner_id=493107597281329185,
-            case_insensitive=True,
-            strip_after_prefix=True,
-            *args,
+            log_handler=log_handler,
+            owner_id=owner_id,
             **kwargs,
         )
         with open("config.json", "r") as cfg:
-            self.config: dict = json.load(cfg)
+            self.config: dict[str, Any] = json.load(cfg)
+
+        self.pool = pool
+        self.session = session
 
         self.boot = time.time()
         self.logger = LOGGER
-        self.games: Dict[str, "game.Game"] = {}
+        self.games: dict[str, "game.Game"] = {}
 
     async def setup_hook(self):
         # Database stuff
-        self.pool = await asqlite.create_pool("database.db")
         LOGGER.info("Created connection to database")
 
         async with self.pool.acquire() as conn:
@@ -78,9 +85,6 @@ class AceBot(commands.Bot):
 
             await conn.commit()
 
-        # HTTP stuff
-        self.session = aiohttp.ClientSession()
-
         # Module stuff
         for extension in EXTENSIONS:
             try:
@@ -102,6 +106,7 @@ class AceBot(commands.Bot):
         LOGGER.info("Connected as %s (ID: %d)", self.user, self.user.id)
 
     async def log_commands_run(self, ctx: commands.Context):
+        assert ctx.command is not None
         async with self.pool.acquire() as conn:
             # +1 command ran
             await conn.execute(
@@ -129,3 +134,4 @@ if __name__ == "__main__":
     bot = AceBot(intents=intents, help_command=None)
     bot.add_listener(bot.log_commands_run, "on_command_completion")
     bot.run(bot.config["token"])
+

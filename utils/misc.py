@@ -3,7 +3,7 @@ import inspect
 import os
 import re
 import unicodedata
-from typing import TYPE_CHECKING, Iterable, cast
+from typing import TYPE_CHECKING, Sequence, cast, Final
 
 import discord
 import requests
@@ -15,18 +15,20 @@ if TYPE_CHECKING:
     from . import subclasses
 
 # Emojis
-yes = "<:yes:1221652590153171045>"
-no = "<:no:1221652589112721458>"
-members = "<:members:1221344536714809385>"
-server = "<:server:1221346764574031922>"
-delete = "<:delete:1221344534760525824>"
-curve = "<:curve:1210049217280745502>"
-space = "<:space:1210019090920382464>"
-tilde = "<:Tilde:1210003514479083581>"
-info = "<:info:1221344535754313758>"
-dev = "<:dev:1221284499321651210>"
-blueline = "<:blueline:1224902075226390638>"
+# fmt: off
+blueline  = "<:blueline:1224902075226390638>"
+delete    = "<:delete:1221344534760525824>"
+curve     = "<:curve:1210049217280745502>"
+dev       = "<:dev:1221284499321651210>"
+info      = "<:info:1221344535754313758>"
+members   = "<:members:1221344536714809385>"
+no        = "<:no:1221652589112721458>"
+server    = "<:server:1221346764574031922>"
+space     = "<:space:1210019090920382464>"
+tilde     = "<:Tilde:1210003514479083581>"
 whiteline = "<:whiteline:1224902073980682272>"
+yes       = "<:yes:1221652590153171045>"
+# fmt: on
 
 # Images
 python = "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c3/Python-logo-notext.svg/1200px-Python-logo-notext.svg.png"
@@ -81,11 +83,11 @@ class Module(commands.Converter):
                 None, extension.split(".")[-1], module.split(".")[-1]
             ).ratio()
             if r >= 0.60:
-                mod: "subclasses.Cog" = extension
+                mod = extension
                 break
 
         if not mod:
-            raise commands.errors.ExtensionNotFound
+            raise commands.errors.ExtensionNotFound('No Extension called %s Found' % module)
 
         for name, cog in ctx.bot.cogs.items():
             if name.casefold() == mod.split(".")[-1]:
@@ -94,21 +96,22 @@ class Module(commands.Converter):
         return mod
 
 
-def git_source(bot: commands.Bot, obj: str = None):
+def git_source(bot: commands.Bot, obj: str | None = None):
     source_url = "https://github.com/Aceroph/ace-of-spades"
 
     if obj is None:
         return source_url
 
-    obj = bot.get_command(obj.lower()) or bot.get_cog(obj.capitalize())
+    obj = bot.get_command(obj.lower()) or bot.get_cog(obj.capitalize())   # type: ignore
 
     try:
+        assert obj is not None
         src = (
             obj.callback.__code__
             if isinstance(obj, commands.Command)
             else obj.__class__
         )
-        filename = inspect.getsourcefile(src)
+        filename: str = inspect.getsourcefile(src)
         lines, firstlineno = inspect.getsourcelines(src)
         location = os.path.relpath(filename).replace("\\", "/")
 
@@ -143,7 +146,7 @@ def clean_codeblock(codeblock: str) -> str:
     return codeblock
 
 
-def avg(x: Iterable[float | int]) -> float | int:
+def avg(x: Sequence[float | int]) -> float:
     return sum(x) / len(x)
 
 

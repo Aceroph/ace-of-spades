@@ -1,6 +1,7 @@
 import json
 import re
 from typing import TYPE_CHECKING
+from io import StringIO
 
 import discord
 from discord.ext import commands
@@ -10,6 +11,10 @@ from utils import misc, subclasses
 if TYPE_CHECKING:
     from main import AceBot
 
+
+HEX_REGEX = re.compile(r'^(#|0x) ?([a-f\d]{6}|[a-f\d]{3})$', re.IGNORECASE)
+
+RGB_REGEX = re.compile(r"^(rgb) ?\([\d]{1,3}, ?[\d]{1,3}, ?[\d]{1,3} ?\)$")
 
 class EditText(discord.ui.Modal):
     _author = discord.ui.TextInput(
@@ -102,10 +107,12 @@ class EditImages(discord.ui.Modal):
 
     def get_image(self, text: str) -> str:
         # User ID
-        userid = re.fullmatch(r"[0-9]+", text)
+        userid = re.fullmatch(r"^[0-9]{15,21}$", text)
         if userid:
-            return self.builder.bot.get_user(int(userid.string)).avatar.url
-        return text
+            user = self.builder.bot.get_user(int(userid.string))
+            if user is not None:
+                return user.display_avatar.url
+        return None
 
     async def on_submit(self, interaction: discord.Interaction) -> None:
         # Author icon url
@@ -239,15 +246,10 @@ class EditColor(discord.ui.Modal):
     async def on_submit(self, interaction: discord.Interaction) -> None:
         # Edit color
         if self._color.value != "":
-            hexcode = re.fullmatch(
-                r"(0x)?#?[0-9a-zA-Z]{6}", self._color.value
-            ) or re.fullmatch(r"(0x)?#?[0-9a-zA-Z]{3}", self._color.value)
-            rgb = re.fullmatch(
-                r"(rgb)?\([0-9]{1,3}, ?[0-9]{1,3}, ?[0-9]{1,3}\)", self._color.value
-            )
+            matched = HEX_REGEX.match(self._color.value) or RGB_REGEX.match(self._color.value)
             try:
-                if hexcode or rgb:
-                    color = discord.Color.from_str((hexcode or rgb).string)
+                if matched:
+                    color = discord.Color.from_str(matched.string)
                 else:
                     color: discord.Color = getattr(
                         discord.Color, self._color.value.casefold().replace(" ", "_")
@@ -341,10 +343,20 @@ class EmbedBuilder(subclasses.View):
 
     @discord.ui.button(label="Export", row=3)
     async def export(self, interaction: discord.Interaction, button: discord.Button):
-        output = json.dumps(self.changes, indent=4)
-        return await interaction.response.send_message(
-            f"```py\n{output}```", ephemeral=True
-        )
+        _json = json.dumps(self.changes, indent=4)
+        content = f'```json\n{_json}```'
+
+        if len(content) <= 2000:
+            await interaction.response.send_message(
+                content=content, ephemeral=True
+            )
+        else:
+            buff = StringIO(_json)
+            await interaction.response.send_message(
+                content='Output too large to send. Here\'s an output File',
+                file=discord.File(buff, 'output.json'),
+                ephemeral=True
+            )
 
     @discord.ui.button(label="Save", style=discord.ButtonStyle.green, row=3)
     async def save(self, interaction: discord.Interaction, button: discord.Button):

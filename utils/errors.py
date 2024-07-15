@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 import discord
 from discord import app_commands
@@ -29,7 +29,7 @@ class NoVoiceFound(commands.CommandError):
 
 
 class NotYourButton(app_commands.AppCommandError):
-    def __init__(self, reason: str = None) -> None:
+    def __init__(self, reason: Optional[str] = None) -> None:
         self.reason = reason
 
 

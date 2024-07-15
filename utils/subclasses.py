@@ -1,7 +1,7 @@
 import time
 import traceback
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Dict
+from typing import TYPE_CHECKING, Any, Dict, Optional
 
 import discord
 from discord import Message, app_commands
@@ -43,7 +43,7 @@ async def send(
 
 
 async def can_use(ctx: commands.Context):
-    if ctx.guild:
+    if ctx.guild and isinstance(ctx.author, discord.Member):
         if isinstance(ctx.command, commands.HybridCommand):
             app_cmds: list[app_commands.AppCommand] = (
                 await ctx.bot.tree.fetch_commands()
@@ -72,13 +72,14 @@ class Setting:
 
 
 class Cog(commands.Cog):
-    def __init__(self, bot=None):
+    def __init__(self, bot: Optional[commands.Bot] = None, emoji: Optional[str] = None):
         self.bot: "AceBot" = bot
-        self.emoji: str = "<:sadcowboy:1002608868360208565>"
+        self.emoji: str = emoji or "<:sadcowboy:1002608868360208565>"
         self.time: float = time.time()
         self.config: Dict[str, Setting] = {"disabled": Setting(bool, False)}
 
-    async def get_setting(self, ctx: commands.Context, setting: str) -> Any:
+    async def get_setting(self, ctx: commands.Context, setting: str) -> Optional[str]:
+        assert ctx.guild is not None
         async with self.bot.pool.acquire() as conn:
             setting = await conn.fetchone(
                 "SELECT value FROM guildConfig WHERE id = ? AND key LIKE '%:?';",
@@ -87,7 +88,7 @@ class Cog(commands.Cog):
             return setting[0] if setting else None
 
     async def cog_before_invoke(self, ctx: commands.Context) -> None:
-        if not ctx.guild:
+        if ctx.guild is None:
             return await super().cog_before_invoke(ctx)
 
         try:
@@ -136,7 +137,7 @@ class View(discord.ui.View):
         )
         embed.set_footer(
             text=f"Caused by {interaction.user.display_name} in {interaction.guild.name if interaction.guild else 'DMs'} ({interaction.guild.id if interaction.guild else 0})",
-            icon_url=interaction.user.avatar.url,
+            icon_url=interaction.user.display_avatar.url,
         )
 
         view = View()
@@ -158,8 +159,8 @@ class View(discord.ui.View):
 
     def add_quit(
         self,
-        author: discord.abc.User = None,
-        guild: discord.Guild = None,
+        author: Optional[discord.User]  = None,
+        guild: Optional[discord.Guild] = None,
         label: str = "Close",
     ):
         if guild:
@@ -173,4 +174,4 @@ class View(discord.ui.View):
 
     async def stop(self) -> None:
         self.clear_items()
-        return super().stop()
+        super().stop()

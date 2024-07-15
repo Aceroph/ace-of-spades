@@ -20,9 +20,10 @@ if TYPE_CHECKING:
 
 class Utility(subclasses.Cog):
     def __init__(self, bot: "AceBot"):
-        super().__init__()
-        self.emoji = "\N{HAMMER AND WRENCH}"
-        self.bot = bot
+        super().__init__(
+            bot=bot,
+            emoji="\N{HAMMER AND WRENCH}",
+        )
 
     async def cog_load(self):
         self.bot.add_view(ui.PartyMenu(self.bot, {}))

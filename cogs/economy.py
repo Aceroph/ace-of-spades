@@ -35,9 +35,10 @@ class Bank:
 
 class Economy(subclasses.Cog):
     def __init__(self, bot: "AceBot"):
-        super().__init__()
-        self.emoji = "\N{COIN}"
-        self.bot = bot
+        super().__init__(
+            bot=bot,
+            emoji="\N{COIN}",
+        )
 
     @commands.command()
     async def balance(

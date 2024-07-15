@@ -18,9 +18,10 @@ if TYPE_CHECKING:
 
 class Admin(subclasses.Cog):
     def __init__(self, bot: "AceBot"):
-        super().__init__()
-        self.emoji = "\N{NAME BADGE}"
-        self.bot = bot
+        super().__init__(
+            bot=bot,
+            emoji="\N{NAME BADGE}",
+        )
 
     @commands.group(aliases=["perms", "rights"], invoke_without_command=True)
     async def permissions(

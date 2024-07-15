@@ -5,10 +5,9 @@ import discord
 from discord.ext import commands
 
 from . import errors, misc
-from .errors import NotYourButton
 
 
-class Paginator:
+class Paginator(discord.ui.View):
     def __init__(
         self,
         ctx: commands.Context,
@@ -17,7 +16,10 @@ class Paginator:
         max_lines: int = 2048,
         prefix: str = "",
         suffix: str = "",
+        timeout: Optional[float] = 180.0
     ) -> None:
+        super().__init__(timeout=timeout)
+
         self.embed = embed
         self.index: int = 0
         self.max_lines = max_lines
@@ -31,8 +33,17 @@ class Paginator:
         self.prefix = prefix
         self.suffix = suffix
 
-        # Buttons
-        self.view = discord.ui.View()
+        self.quit_button.label = f"Quit • Page 1/{len(self.pages)}"
+
+
+    async def interaction_check(self, interaction: discord.Interaction[discord.Client]) -> bool:
+        if interaction.user != self.author:
+            await interaction.response.send_message(
+                'This is not your button !', ephemeral=True
+            )
+            return False
+        return True
+        
 
     def _update_embed(self, embed: discord.Embed) -> discord.Embed:
         if self.embed.description:
@@ -88,7 +99,7 @@ class Paginator:
         destination: Optional[discord.abc.Messageable] = None,
     ):
         self.add_page()
-        self.update_buttons(self.author)
+        self._update_buttons()
 
         if destination:
             respond = destination.send
@@ -99,46 +110,23 @@ class Paginator:
 
         if self.embed:
             embed = copy(self.embed)
-            return await respond(
-                embed=self._update_embed(embed), view=self.view
-            )
+            await respond(embed=self._update_embed(embed), view=self)
         else:
-            return await respond(
-                self.pages[self.index], view=self.view
-            )
+            await respond(self.pages[self.index], view=self)
 
-    async def next_page(self, interaction: discord.Interaction):
-        if interaction.user != self.author:
-            raise NotYourButton
-
-        self.index += 1
-        return await self.update_page(interaction)
-
-    async def previous_page(self, interaction: discord.Interaction):
-        if interaction.user != self.author:
-            raise NotYourButton
-
-        self.index -= 1
-        return await self.update_page(interaction)
-
-    async def first_page(self, interaction: discord.Interaction):
-        if interaction.user != self.author:
-            raise NotYourButton
-
+    @discord.ui.button(label="<<", disabled=True)
+    async def first_page(self, interaction: discord.Interaction, button: discord.ui.Button):
         self.index = 0
-        return await self.update_page(interaction)
+        await self.update_page(interaction)
+    
 
-    async def last_page(self, interaction: discord.Interaction):
-        if interaction.user != self.author:
-            raise NotYourButton
+    @discord.ui.button(label='<', disabled=True)
+    async def previous_page(self, interaction: discord.Interaction, button: discord.ui.Button):
+        self.index -= 1
+        await self.update_page(interaction)
 
-        self.index = len(self.pages) - 1
-        return await self.update_page(interaction)
-
-    async def _quit(self, interaction: discord.Interaction):
-        if interaction.user != self.author:
-            raise errors.NotYourButton
-
+    @discord.ui.button(label='\u200b', style=discord.ButtonStyle.danger)
+    async def quit_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         reference = interaction.message.reference
         if reference:
             try:
@@ -146,54 +134,36 @@ class Paginator:
                 await msg.delete()
             except:
                 pass
+        
+        await interaction.message.delete()    # type: ignore
+        self.stop()
+    
+    @discord.ui.button(label='>')
+    async def next_page(self, interaction: discord.Interaction, button: discord.ui.Button):
+        self.index += 1
+        await self.update_page(interaction)
 
-        await interaction.message.delete()
+    @discord.ui.button(label='>>')
+    async def last_page(self, interaction: discord.Interaction, button: discord.ui.Button):
+        self.index = len(self.pages) - 1
+        await self.update_page(interaction)
 
-    def update_buttons(self, user: discord.User):
-        # Update buttons
-        self.view.clear_items()
+    def _update_buttons(self):
+        """Method to disable/enable buttons and update the page count"""
+        self.first_page.disabled = self.previous_page.disabled = self.index == 0   # disabled first two button when first page is open
+        self.last_page.disabled = self.next_page.disabled = self.index == len(self.pages) - 1    # disable last two button if last page is open
 
-        _first = discord.ui.Button(
-            label="<<",
-            disabled=self.index == 0,
-        )
-        _first.callback = self.first_page
-        self.view.add_item(_first)
+        self.quit_button.label = f"Quit • Page {self.index+1}/{len(self.pages)}"   # update page count on quit button 
 
-        _previous = discord.ui.Button(label="<", disabled=self.index == 0)
-        _previous.callback = self.previous_page
-        self.view.add_item(_previous)
-
-        _quit = discord.ui.Button(
-            label=f"Quit • Page {self.index+1}/{len(self.pages)}",
-            style=discord.ButtonStyle.danger,
-        )
-        _quit.callback = self._quit
-        self.view.add_item(_quit)
-
-        _next = discord.ui.Button(
-            label=">",
-            disabled=self.index + 1 == len(self.pages),
-        )
-        _next.callback = self.next_page
-        self.view.add_item(_next)
-
-        _last = discord.ui.Button(
-            label=">>",
-            disabled=self.index + 1 == len(self.pages),
-        )
-        _last.callback = self.last_page
-        self.view.add_item(_last)
-
-    async def update_page(self, interaction: discord.Interaction):
-        self.update_buttons(interaction.user)
+    async def update_page(self, interaction: discord.Interaction) -> None:
+        self._update_buttons()
 
         if self.embed:
             embed = interaction.message.embeds[0]
-            return await interaction.response.edit_message(
-                embed=self._update_embed(embed), view=self.view
+            await interaction.response.edit_message(
+                embed=self._update_embed(embed), view=self
             )
         else:
-            return await interaction.response.edit_message(
-                content=self.pages[self.index], view=self.view
+            await interaction.response.edit_message(
+                content=self.pages[self.index], view=self
             )
