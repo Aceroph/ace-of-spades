@@ -79,20 +79,25 @@ class ConfigView(subclasses.View):
         self.bot = bot
         self.add_item(ConfigSelect(game=game))
 
+    async def is_gamemaster(self, interaction: discord.Interaction) -> bool:
+        """Custom implementation of an interaction check. 
+        Returns True if the gamemaster is interacting else responds and return False"""
+        if interaction.user == self.game.gamemaster:
+            return True
+        await interaction.response.send_message(
+            content="You are not the Gamemaster!", ephemeral=True
+        )
+        return False
+
     @discord.ui.button(label="Save", disabled=True, row=2)
     async def save(self, interaction: discord.Interaction, button: discord.Button):
-        if interaction.user != self.game.gamemaster:
-            await interaction.response.send_message(
-                content="You are not the Gamemaster!", ephemeral=True
-            )
-            return
+        if not(self.is_gamemaster(interaction)):
+            return 
+        pass
 
     @discord.ui.button(label="Play", style=discord.ButtonStyle.green, row=2)
     async def play(self, interaction: discord.Interaction, button: discord.Button):
-        if interaction.user != self.game.gamemaster:
-            await interaction.response.send_message(
-                content="You are not the Gamemaster!", ephemeral=True
-            )
+        if not(self.is_gamemaster(interaction)):
             return
 
         for _id, game in self.bot.games.items():
@@ -109,10 +114,7 @@ class ConfigView(subclasses.View):
     @discord.ui.button(label="Cancel", style=discord.ButtonStyle.red, row=2)
     async def cancel(self, interaction: discord.Interaction, button: discord.Button):
         if interaction.guild:
-            if interaction.user != self.game.gamemaster:
-                await interaction.response.send_message(
-                    content="You are not the Gamemaster!", ephemeral=True
-                )
+            if not(self.is_gamemaster(interaction)):
                 return
             await self.game.menu.delete()
         else:
@@ -136,7 +138,6 @@ class ConfigView(subclasses.View):
                     "id": interaction.user.id,
                 },
             )
-            await conn.close()  # Normalize closing connection
 
         embed = discord.Embed(color=discord.Color.blurple())
         embed.set_author(
