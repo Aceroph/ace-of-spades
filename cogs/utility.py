@@ -458,8 +458,8 @@ class Utility(subclasses.Cog):
         )
         return await ctx.send(embed=embed)
 
-    @commands.hybrid_command(aliases=["embed"])
-    async def embedbuilder(self, ctx: commands.Context, *, source=None):
+    @commands.hybrid_command()
+    async def embed(self, ctx: commands.Context, *, source=None):
         """Create, export and import rich embeds.
         Embeds are exported in a JSON format which can be used to import embeds or even be used in tags.
         """
@@ -475,7 +475,7 @@ class Utility(subclasses.Cog):
                     )
                 embed = message.embeds[0]
                 builder = embedbuilder.EmbedBuilder(
-                    embed=embed, bot=self.bot, imported=True
+                    embed=embed, bot=self.bot, author=ctx.author, imported=True
                 )
                 return await builder.start(ctx)
 
@@ -485,7 +485,7 @@ class Utility(subclasses.Cog):
                     json.loads(misc.clean_codeblock(source))
                 )
                 builder = embedbuilder.EmbedBuilder(
-                    embed=embed, bot=self.bot, imported=True
+                    embed=embed, bot=self.bot, author=ctx.author, imported=True
                 )
                 return await builder.start(ctx)
 

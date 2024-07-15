@@ -6,15 +6,16 @@ from io import StringIO
 import discord
 from discord.ext import commands
 
-from utils import misc, subclasses
+from utils import misc, subclasses, errors
 
 if TYPE_CHECKING:
     from main import AceBot
 
 
-HEX_REGEX = re.compile(r'^(#|0x) ?([a-f\d]{6}|[a-f\d]{3})$', re.IGNORECASE)
+HEX_REGEX = re.compile(r"^(#|0x) ?([a-f\d]{6}|[a-f\d]{3})$", re.IGNORECASE)
 
 RGB_REGEX = re.compile(r"^(rgb) ?\([\d]{1,3}, ?[\d]{1,3}, ?[\d]{1,3} ?\)$")
+
 
 class EditText(discord.ui.Modal):
     _author = discord.ui.TextInput(
@@ -246,7 +247,9 @@ class EditColor(discord.ui.Modal):
     async def on_submit(self, interaction: discord.Interaction) -> None:
         # Edit color
         if self._color.value != "":
-            matched = HEX_REGEX.match(self._color.value) or RGB_REGEX.match(self._color.value)
+            matched = HEX_REGEX.match(self._color.value) or RGB_REGEX.match(
+                self._color.value
+            )
             try:
                 if matched:
                     color = discord.Color.from_str(matched.string)
@@ -265,12 +268,28 @@ class EditColor(discord.ui.Modal):
 
 
 class EmbedBuilder(subclasses.View):
-    def __init__(self, embed: discord.Embed, bot: "AceBot", imported: bool = False):
+    def __init__(
+        self,
+        embed: discord.Embed,
+        bot: "AceBot",
+        author: discord.abc.User,
+        imported: bool = False,
+    ):
         super().__init__()
         self.embed = embed
         self.bot = bot
+        self.author = author
         self.message: discord.Message = None
         self.changes = {} if not imported else embed.to_dict()
+
+        self._update_fields()
+
+    def _update_fields(self):
+        # Update field count
+        count = len(self.changes["fields"]) if self.changes.get("fields") else 0
+        self.addfield.disabled = count == 25
+        self.removefield.disabled = count == 0
+        self.fieldcount.label = f"{count}/25"
 
     async def update(self):
         # Update embed
@@ -278,11 +297,7 @@ class EmbedBuilder(subclasses.View):
         self.embed.update(**self.changes)
         self.embed = discord.Embed.from_dict(self.embed)
 
-        # Update field count
-        count = len(self.changes["fields"]) if self.changes.get("fields") else 0
-        self.addfield.disabled = count == 25
-        self.removefield.disabled = count == 0
-        self.fieldcount.label = f"{count}/25"
+        self._update_fields()
 
         return await self.message.edit(embed=self.embed, view=self)
 
@@ -298,16 +313,25 @@ class EmbedBuilder(subclasses.View):
 
     @discord.ui.button(label="Text")
     async def edittext(self, interaction: discord.Interaction, button: discord.Button):
+        if interaction.user != self.author:
+            raise errors.NotYourButton
+
         return await interaction.response.send_modal(EditText(builder=self))
 
     @discord.ui.button(label="Images")
     async def editimages(
         self, interaction: discord.Interaction, button: discord.Button
     ):
+        if interaction.user != self.author:
+            raise errors.NotYourButton
+
         return await interaction.response.send_modal(EditImages(builder=self))
 
     @discord.ui.button(label="URLs")
     async def editlinks(self, interaction: discord.Interaction, button: discord.Button):
+        if interaction.user != self.author:
+            raise errors.NotYourButton
+
         return await interaction.response.send_modal(EditLinks(builder=self))
 
     @discord.ui.button(label="Fields :", disabled=True, row=2)
@@ -320,6 +344,9 @@ class EmbedBuilder(subclasses.View):
         emoji="\N{HEAVY PLUS SIGN}", style=discord.ButtonStyle.green, row=2
     )
     async def addfield(self, interaction: discord.Interaction, button: discord.Button):
+        if interaction.user != self.author:
+            raise errors.NotYourButton
+
         return await interaction.response.send_modal(AddField(builder=self))
 
     @discord.ui.button(
@@ -331,6 +358,9 @@ class EmbedBuilder(subclasses.View):
     async def removefield(
         self, interaction: discord.Interaction, button: discord.Button
     ):
+        if interaction.user != self.author:
+            raise errors.NotYourButton
+
         self.changes["fields"].pop()
         await self.update()
         return await interaction.response.defer()
@@ -343,23 +373,27 @@ class EmbedBuilder(subclasses.View):
 
     @discord.ui.button(label="Export", row=3)
     async def export(self, interaction: discord.Interaction, button: discord.Button):
+        if interaction.user != self.author:
+            raise errors.NotYourButton
+
         _json = json.dumps(self.changes, indent=4)
-        content = f'```json\n{_json}```'
+        content = f"```json\n{_json}```"
 
         if len(content) <= 2000:
-            await interaction.response.send_message(
-                content=content, ephemeral=True
-            )
+            await interaction.response.send_message(content=content, ephemeral=True)
         else:
             buff = StringIO(_json)
             await interaction.response.send_message(
-                content='Output too large to send. Here\'s an output File',
-                file=discord.File(buff, 'output.json'),
-                ephemeral=True
+                content="Output too large to send. Here's an output File",
+                file=discord.File(buff, "output.json"),
+                ephemeral=True,
             )
 
     @discord.ui.button(label="Save", style=discord.ButtonStyle.green, row=3)
     async def save(self, interaction: discord.Interaction, button: discord.Button):
+        if interaction.user != self.author:
+            raise errors.NotYourButton
+
         if self.changes != {}:
             embed = discord.Embed.from_dict(self.changes)
             return await interaction.response.edit_message(embed=embed, view=None)
@@ -367,8 +401,14 @@ class EmbedBuilder(subclasses.View):
 
     @discord.ui.button(label="Delete", style=discord.ButtonStyle.red, row=3)
     async def delete(self, interaction: discord.Interaction, button: discord.Button):
+        if interaction.user != self.author:
+            raise errors.NotYourButton
+
         return await interaction.message.delete()
 
     @discord.ui.button(label="Color", row=3)
     async def editcolor(self, interaction: discord.Interaction, button: discord.Button):
+        if interaction.user != self.author:
+            raise errors.NotYourButton
+
         return await interaction.response.send_modal(EditColor(builder=self))
