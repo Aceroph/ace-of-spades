@@ -1,12 +1,12 @@
 import json
 import re
-from typing import TYPE_CHECKING
 from io import StringIO
+from typing import TYPE_CHECKING
 
 import discord
 from discord.ext import commands
 
-from utils import misc, subclasses, errors
+from utils import errors, misc, subclasses
 
 if TYPE_CHECKING:
     from main import AceBot
