@@ -159,7 +159,9 @@ class View(discord.ui.View):
         if interaction.response.is_done():
             return await interaction.followup.send(embed=embed, view=view)
         else:
-            return await interaction.response.send_message(embed=embed, view=view)
+            return await interaction.response.send_message(
+                embed=embed, view=view, delete_after=7
+            )
 
     async def stop(self) -> None:
         self.clear_items()

@@ -235,33 +235,27 @@ class Admin(subclasses.Cog):
         If an amount isn't specified, it'll default to 25 messages."""
         async with ctx.typing():
             timer = time.time()
+            amount = min(
+                amount,
+                25 if ctx.channel.permissions_for(ctx.author).manage_messages else 1000,
+            )
+            triggers = (".", "!", "?", ";", "b.", "a.")
 
             # Get messages to delete
             to_delete: list[discord.Message] = []
-            if ctx.message.reference.resolved.id or ctx.message.reference.message_id:
+            if ctx.message.reference:
                 reference: discord.Message = self.bot.get_partial_messageable(
                     id=ctx.message.reference.resolved.id
                     or ctx.message.reference.message_id,
                     guild_id=ctx.guild.id if ctx.guild else None,
                 )
-                async for msg in ctx.channel.history():
-                    if (
-                        msg.created_at >= reference.created_at
-                        and msg.author.bot
-                        or msg.content.startswith((".", "!", "?", ";"))
-                    ):
-                        to_delete.append(msg)
-
+                history = ctx.channel.history(limit=amount, after=reference.created_at)
             else:
-                async for msg in ctx.channel.history(
-                    limit=(
-                        amount + 1
-                        if ctx.channel.permissions_for(ctx.author).manage_messages
-                        else 25 if amount + 1 > 25 else amount + 1
-                    )
-                ):
-                    if msg.author.bot or msg.content.startswith((".", "!", "?", ";")):
-                        to_delete.append(msg)
+                history = ctx.channel.history(limit=amount)
+
+            async for msg in history:
+                if msg.author.bot or msg.content.startswith(triggers):
+                    to_delete.append(msg)
 
             await ctx.channel.delete_messages(to_delete, reason="Cleanup")
 
@@ -294,7 +288,7 @@ class Admin(subclasses.Cog):
             # Time taken
             embed.set_footer(text=f"Took {time.time()-timer:.2f} s")
 
-            await ctx.reply(embed=embed, delete_after=5, mention_author=False)
+            await ctx.send(embed=embed, delete_after=5)
 
     @commands.guild_only()
     @commands.has_permissions(manage_messages=True)
@@ -304,28 +298,22 @@ class Admin(subclasses.Cog):
         If an amount isn't specified, it'll default to 25 messages."""
         async with ctx.typing():
             timer = time.time()
+            amount = min(amount, 1000)
 
             # Get messages to delete
             to_delete: list[discord.Message] = []
-            if ctx.message.reference.resolved.id or ctx.message.reference.message_id:
+            if ctx.message.reference:
                 reference: discord.Message = self.bot.get_partial_messageable(
                     id=ctx.message.reference.resolved.id
                     or ctx.message.reference.message_id,
                     guild_id=ctx.guild.id if ctx.guild else None,
                 )
-                async for msg in ctx.channel.history():
-                    if msg.created_at >= reference.created_at:
-                        to_delete.append(msg)
-
+                history = ctx.channel.history(limit=amount, after=reference.created_at)
             else:
-                async for msg in ctx.channel.history(
-                    limit=(
-                        amount + 1
-                        if ctx.channel.permissions_for(ctx.author).manage_messages
-                        else 25 if amount + 1 > 25 else amount + 1
-                    )
-                ):
-                    to_delete.append(msg)
+                history = ctx.channel.history(limit=amount)
+
+            async for msg in history:
+                to_delete.append(msg)
 
             await ctx.channel.delete_messages(to_delete, reason="Purge")
 
@@ -358,7 +346,7 @@ class Admin(subclasses.Cog):
             # Time taken
             embed.set_footer(text=f"Took {time.time()-timer:.2f} s")
 
-            await ctx.reply(embed=embed, delete_after=5, mention_author=False)
+            await ctx.send(embed=embed, delete_after=5)
 
     @commands.is_owner()
     @commands.command(name="reload", aliases=["r"])

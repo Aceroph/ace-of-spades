@@ -85,7 +85,7 @@ async def reinvoke(ctx: commands.Context):
 
     view = subclasses.View()
     view.add_item(_invoke)
-    view.add_item(dynamic.QuitButton(ctx.author, ctx.guild, label="Nah"))
+    view.add_item(dynamic.QuitButton(author=ctx.author, guild=ctx.guild, label="Nah"))
 
     return await ctx.reply(
         f"Did you mean: `{correct_command.qualified_name}`",
