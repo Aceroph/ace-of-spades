@@ -76,7 +76,7 @@ class Setting:
 class Cog(commands.Cog):
     def __init__(self, bot: Optional[commands.Bot] = None, emoji: Optional[str] = None):
         self.bot: "AceBot" = bot
-        self.emoji: str = emoji or "<:sadcowboy:1002608868360208565>"
+        self.emoji: str = emoji or misc.space
         self.time: float = time.time()
         self.config: Dict[str, Setting] = {"disabled": Setting(bool, False)}
 
@@ -160,21 +160,6 @@ class View(discord.ui.View):
             return await interaction.followup.send(embed=embed, view=view)
         else:
             return await interaction.response.send_message(embed=embed, view=view)
-
-    def add_quit(
-        self,
-        author: Optional[discord.User] = None,
-        guild: Optional[discord.Guild] = None,
-        label: str = "Close",
-    ):
-        if guild:
-            return self.add_item(
-                QuitButton(
-                    author=getattr(author, "id", 0),
-                    guild=guild.id,
-                    label=label,
-                )
-            )
 
     async def stop(self) -> None:
         self.clear_items()

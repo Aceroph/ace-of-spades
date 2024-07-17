@@ -10,7 +10,7 @@ from discord import app_commands
 from discord.ext import commands
 
 from ext import embedbuilder, info, rtfm
-from utils import misc, subclasses, ui
+from utils import misc, subclasses
 
 if TYPE_CHECKING:
     from main import AceBot
@@ -21,13 +21,6 @@ class Utility(subclasses.Cog):
         super().__init__(
             bot=bot,
             emoji="\N{HAMMER AND WRENCH}",
-        )
-
-    async def cog_load(self):
-        self.bot.logger.info(
-            "Loaded persistent view %s from %s",
-            ui.PartyMenu.__qualname__,
-            self.qualified_name,
         )
 
     @commands.hybrid_command(aliases=["char", "character"])

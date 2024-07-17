@@ -3,7 +3,6 @@ discord.py[voice]
 requests
 tabulate
 wavelink
-jishaku
 psutil
 arrow
 pytz

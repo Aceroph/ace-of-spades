@@ -6,7 +6,7 @@ import discord
 import wavelink
 from discord.ext import commands
 
-from utils import errors, misc, paginator, subclasses
+from utils import dynamic, errors, misc, paginator, subclasses
 from utils.errors import iserror
 
 if TYPE_CHECKING:
@@ -85,7 +85,7 @@ async def reinvoke(ctx: commands.Context):
 
     view = subclasses.View()
     view.add_item(_invoke)
-    view.add_quit(ctx.author, ctx.guild, label="Nah")
+    view.add_item(dynamic.QuitButton(ctx.author, ctx.guild, label="Nah"))
 
     return await ctx.reply(
         f"Did you mean: `{correct_command.qualified_name}`",

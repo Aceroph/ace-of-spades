@@ -37,20 +37,11 @@ def prefix(bot: "AceBot", msg: discord.abc.Messageable):
 
 
 class AceBot(commands.Bot):
-    def __init__(
-        self,
-        prefix: str,
-        intents: discord.Intents,
-        log_handler: Optional[logging.Logger],
-        owner_id: int,
-        **kwargs
-    ):
+    def __init__(self, intents: discord.Intents, owner_id: int, **kwargs):
         super().__init__(
             command_prefix=prefix,
             intents=intents,
-            log_handler=log_handler,
             owner_id=owner_id,
-            intents=intents,
             help_command=None,
             **kwargs,
         )
@@ -130,29 +121,12 @@ class AceBot(commands.Bot):
             await conn.commit()
 
 
-async def main():
+if __name__ == "__main__":
     intents = discord.Intents.default()
     intents.message_content = True
     intents.members = True
 
-    async with asqlite.create_pool(
-        "database.db"
-    ) as pool, aiohttp.ClientSession() as session:
-        async with AceBot(
-            prefix=prefix,
-            intents=intents,
-            log_handler=None,
-            owner_id=493107597281329185,
-            help_command=None,
-            case_insensitive=True,
-            strip_after_prefix=True,
-            pool=pool,
-            session=session,
-        ) as bot:
-            bot.start(bot.config["token"])
-            await bot.wait_until_ready()
-            bot.add_listener(bot.log_commands_run, "on_command_completion")
+    bot = AceBot(intents=intents, owner_id=493107597281329185)
+    bot.add_listener(bot.log_commands_run, "on_command_completion")
 
-
-if __name__ == "__main__":
-    asyncio.run(main())
+    bot.run(bot.config["token"])
