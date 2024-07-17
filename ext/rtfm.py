@@ -131,8 +131,7 @@ async def build_rtfm_table():
 
 async def do_rtfm(ctx: commands.Context, key: tuple, obj: str = None):
     if obj is None:
-        await ctx.send(RTFM_PAGES[key])
-        return
+        return await ctx.reply(RTFM_PAGES[key], mention_author=False)
 
     # If no cache
     if not rtfm_cache:
@@ -166,13 +165,15 @@ async def do_rtfm(ctx: commands.Context, key: tuple, obj: str = None):
     embed = discord.Embed(
         title=f"RTFM - {'Discord.py' if key == ('stable') else key[0].capitalize()}",
         colour=discord.Colour.blurple(),
-    ).set_author(name=ctx.author.display_name, icon_url=ctx.author.display_avatar.url)
+    )
     embed.set_footer(
         text=f"Query time : {t:,.2f}s",
         icon_url=ctx.author.avatar.url,
     )
     if len(matches) == 0:
-        return await ctx.send("Could not find anything. Sorry.")
+        return await ctx.reply(
+            "Could not find anything. Sorry.", mention_author=False, delete_after=5
+        )
 
     # Format results
     results = []
@@ -180,4 +181,4 @@ async def do_rtfm(ctx: commands.Context, key: tuple, obj: str = None):
         results.append(f"[`{data['type'][:4]}`] [`{key}`]({data['url']})")
 
     embed.description = "\n".join(results)
-    await ctx.send(embed=embed)
+    await ctx.reply(embed=embed, mention_author=False)

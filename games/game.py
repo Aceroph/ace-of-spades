@@ -20,7 +20,8 @@ class SubconfigSelect(discord.ui.Select):
 
         super().__init__(
             options=[
-                discord.SelectOption(label=option) for option in self.game.config[setting]
+                discord.SelectOption(label=option)
+                for option in self.game.config[setting]
             ],
         )
 
@@ -108,7 +109,7 @@ class ConfigView(subclasses.View):
                 )
 
         self.bot.games[self.game.id] = self.game
-        self.stop()     
+        self.stop()
         await self.game.start(interaction)
 
     @discord.ui.button(label="Cancel", style=discord.ButtonStyle.red, row=2)
@@ -195,7 +196,10 @@ class ConfigView(subclasses.View):
 
 class Game:
     def __init__(
-        self, ctx: commands.Context, title: Optional[str] = "Untitled game", thumbnail: Optional[str] = None
+        self,
+        ctx: commands.Context,
+        title: Optional[str] = "Untitled game",
+        thumbnail: Optional[str] = None,
     ) -> None:
         self.START = time.time()
         self.title = title
@@ -211,7 +215,8 @@ class Game:
 
     def update_menu(self):
         embed = discord.Embed(title=self.title).set_author(
-            name=self.gamemaster.display_name, icon_url=self.gamemaster.display_avatar.url
+            name=self.gamemaster.display_name,
+            icon_url=self.gamemaster.display_avatar.url,
         )
         embed.set_thumbnail(url=self.thumbnail)
         embed.add_field(
@@ -227,7 +232,9 @@ class Game:
 
     async def send_menu(self):
         view = ConfigView(bot=self.ctx.bot, game=self)
-        self.menu = await self.ctx.send(embed=self.update_menu(), view=view)
+        self.menu = await self.ctx.reply(
+            embed=self.update_menu(), view=view, mention_author=False
+        )
 
     async def end_game(
         self,

@@ -2,7 +2,7 @@ import json
 import logging
 import logging.handlers
 import time
-from typing import TYPE_CHECKING, Dict, Any, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 import aiohttp
 import asqlite
@@ -11,6 +11,7 @@ import discord
 from discord.ext import commands
 
 from cogs import EXTENSIONS
+from ext import info
 from utils.dynamic import QuitButton
 
 if TYPE_CHECKING:
@@ -103,6 +104,9 @@ class AceBot(commands.Bot):
 
         # HTTP stuff
         self.session = aiohttp.ClientSession()
+
+        # Bot info
+        self.info = info.Info(self)
 
     async def close(self):
         await self.session.close()

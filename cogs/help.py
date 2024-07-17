@@ -38,7 +38,7 @@ class Help(subclasses.Cog):
         if entity:
             command = self.bot.get_command(entity)
             if not command:
-                return await ctx.send(f"No command called {entity}")
+                return await ctx.reply(f"No command called {entity}", delete_after=5, mention_author=False)
 
             if command not in await filter_commands(
                 ctx, self.bot.walk_commands(), show_hidden=True
@@ -114,8 +114,8 @@ class Help(subclasses.Cog):
                     inline=True,
                 )
 
-            return await ctx.send(
-                embed=embed, view=subclasses.View().add_quit(ctx.author, ctx.guild)
+            return await ctx.reply(
+                embed=embed, view=subclasses.View().add_quit(ctx.author, ctx.guild), mention_author=False
             )
 
         async def show_info(interaction: discord.Interaction):
@@ -209,7 +209,7 @@ class Help(subclasses.Cog):
             view.add_item(info)
             ctx.old_view = view.add_quit(ctx.author, ctx.guild)
 
-            await ctx.send(embed=embed, view=view)
+            await ctx.reply(embed=embed, view=view, mention_author=False)
 
     @_help.autocomplete("entity")
     async def help_autocomplete(self, interaction: discord.Interaction, current: str):

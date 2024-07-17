@@ -14,7 +14,7 @@ if TYPE_CHECKING:
     from main import AceBot
 
 
-async def send(
+async def reply(
     ctx: commands.Context,
     content: str,
     prefix: str = "",
@@ -39,7 +39,9 @@ async def send(
                 p.add_line(line)
             return await p.start()
 
-        return await ctx.send(prefix + content + suffix, *args, **kwargs)
+        return await ctx.reply(
+            prefix + content + suffix, *args, **kwargs, mention_author=False
+        )
 
 
 async def can_use(ctx: commands.Context):
@@ -78,12 +80,14 @@ class Cog(commands.Cog):
         self.time: float = time.time()
         self.config: Dict[str, Setting] = {"disabled": Setting(bool, False)}
 
-    async def get_setting(self, ctx: commands.Context, setting: str) -> Optional[str]:
+    async def get_setting(
+        self, ctx: commands.Context, module: str, setting: str
+    ) -> Optional[str]:
         assert ctx.guild is not None
         async with self.bot.pool.acquire() as conn:
             setting = await conn.fetchone(
-                "SELECT value FROM guildConfig WHERE id = ? AND key LIKE '%:?';",
-                (ctx.guild.id, setting.upper()),
+                "SELECT value FROM guildConfig WHERE id = ? AND key LIKE '?:?';",
+                (ctx.guild.id, module.casefold(), setting.upper()),
             )
             return setting[0] if setting else None
 
@@ -159,7 +163,7 @@ class View(discord.ui.View):
 
     def add_quit(
         self,
-        author: Optional[discord.User]  = None,
+        author: Optional[discord.User] = None,
         guild: Optional[discord.Guild] = None,
         label: str = "Close",
     ):

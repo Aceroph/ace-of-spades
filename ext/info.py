@@ -184,6 +184,7 @@ class InfoView(subclasses.View):
             name=f"Code statistics",
             value=(
                 f"{misc.space}lines of code: `{info.lines:,}`\n"
+                f"{misc.space}comments: `{info.comments:,}`\n"
                 f"{misc.space}commands: `{info.commands}`\n"
                 f"{misc.space}modules: `{info.modules}`"
             ),

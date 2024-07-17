@@ -1,18 +1,16 @@
 import json
-import pathlib
 import re
 import string
 import time
 import unicodedata
-from typing import TYPE_CHECKING, Any, Literal, Optional, Union
+from typing import TYPE_CHECKING, Literal, Optional
 
 import discord
-import psutil
 from discord import app_commands
 from discord.ext import commands
 
-from ext import rtfm, embedbuilder, info
-from utils import errors, misc, subclasses, ui
+from ext import embedbuilder, info, rtfm
+from utils import misc, subclasses, ui
 
 if TYPE_CHECKING:
     from main import AceBot
@@ -31,7 +29,6 @@ class Utility(subclasses.Cog):
             ui.PartyMenu.__qualname__,
             self.qualified_name,
         )
-        self.bot.info = info.Info(self.bot)
 
     @commands.hybrid_command(aliases=["char", "character"])
     @app_commands.describe(characters="The characters to get info on")
@@ -88,11 +85,9 @@ class Utility(subclasses.Cog):
             )
             or "Nothing to convert",
             color=discord.Color.blurple(),
-        ).set_author(
-            name=ctx.author.display_name, icon_url=ctx.author.display_avatar.url
         )
 
-        await ctx.send(embed=embed)
+        await ctx.reply(embed=embed, mention_author=False)
 
     @commands.hybrid_command(aliases=["rtfd"])
     @app_commands.describe(source="From where to gather docs", obj="What to search for")
@@ -202,7 +197,7 @@ class Utility(subclasses.Cog):
         view = subclasses.View()
         view.add_quit(ctx.author, ctx.guild)
 
-        await subclasses.send(
+        await subclasses.reply(
             ctx,
             output,
             prefix=f"```{language['language']}\n",
@@ -232,20 +227,12 @@ class Utility(subclasses.Cog):
     @commands.hybrid_command()
     async def ping(self, ctx: commands.Context):
         """Simplest command, ping \N{TABLE TENNIS PADDLE AND BALL}"""
-        bot = round((time.time() - ctx.message.created_at.timestamp()) * 1000)
-        api = time.perf_counter()
-        await ctx.typing()
-        api = round((time.perf_counter() - api) * 1000)
-        ws = round(self.bot.latency * 1000)
-
         embed = discord.Embed(
             title="Pong \N{TABLE TENNIS PADDLE AND BALL}",
-            description=f">>> Bot: `{bot}ms`\nAPI: `{api}ms`\nWS: `{ws}ms`",
+            description=f">>> WS: `{round(self.bot.latency * 1000)}ms`",
             color=discord.Color.blurple(),
-        ).set_author(
-            name=ctx.author.display_name, icon_url=ctx.author.display_avatar.url
         )
-        return await ctx.send(embed=embed)
+        return await ctx.reply(embed=embed, mention_author=False)
 
     @commands.hybrid_command()
     async def embed(self, ctx: commands.Context, *, source=None):
@@ -259,8 +246,9 @@ class Utility(subclasses.Cog):
                 try:
                     message = await ctx.channel.fetch_message(int(source))
                 except commands.MessageNotFound:
-                    return await ctx.send(
-                        "Unknown message, make sure it is from this channel.\nYou can always export your embeds and import them directly."
+                    return await ctx.reply(
+                        "Unknown message, make sure it is from this channel.\nYou can always export your embeds and import them directly.",
+                        mention_author=False,
                     )
                 embed = message.embeds[0]
                 builder = embedbuilder.EmbedBuilder(

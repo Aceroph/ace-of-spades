@@ -302,7 +302,9 @@ class EmbedBuilder(subclasses.View):
         return await self.message.edit(embed=self.embed, view=self)
 
     async def start(self, ctx: commands.Context):
-        self.message = await ctx.send(embed=self.embed, view=self)
+        self.message = await ctx.reply(
+            embed=self.embed, view=self, mention_author=False
+        )
         return
 
     @discord.ui.button(label="Edit :", disabled=True)
