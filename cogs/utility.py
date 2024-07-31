@@ -114,7 +114,7 @@ class Utility(subclasses.Cog):
         """Statistics for nerds
         Anyone can refresh stats every 5 minutes"""
         view = info.InfoView(self.bot, ctx.author)
-        view.add_quit(ctx.author, ctx.guild)
+        # view.add_quit(ctx.author, ctx.guild)
         embed = await view.embed(ctx)
         return await ctx.reply(embed=embed, view=view, mention_author=False)
 
@@ -188,7 +188,7 @@ class Utility(subclasses.Cog):
         output = response["run"]["output"] or "No output"
 
         view = subclasses.View()
-        view.add_quit(ctx.author, ctx.guild)
+        # view.add_quit(ctx.author, ctx.guild)
 
         await subclasses.reply(
             ctx,
