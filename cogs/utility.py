@@ -116,7 +116,7 @@ class Utility(subclasses.Cog):
         view = info.InfoView(self.bot, ctx.author)
         # view.add_quit(ctx.author, ctx.guild)
         embed = await view.embed(ctx)
-        return await ctx.reply(embed=embed, view=view, mention_author=False)
+        return await ctx.reply(embed=embed, mention_author=False)
 
     @commands.hybrid_command(name="eval")
     @app_commands.describe(
@@ -186,9 +186,6 @@ class Utility(subclasses.Cog):
         ).json()
 
         output = response["run"]["output"] or "No output"
-
-        view = subclasses.View()
-        # view.add_quit(ctx.author, ctx.guild)
 
         await subclasses.reply(
             ctx,
