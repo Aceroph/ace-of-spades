@@ -151,53 +151,52 @@ class InfoView(subclasses.View):
 
     async def embed(self, ctx: commands.Context):
         info: Info = self.bot.info
-
-        embed = discord.Embed(color=discord.Color.blurple())
-
-        embed.set_footer(
-            text=f"Made by aceroph using discord.py v{discord.__version__}",
-            icon_url=misc.python,
+        assert self.bot.user is not None
+        # METHOD CHAINING!!!
+        embed = (
+            discord.Embed(color=discord.Color.blurple())
+            .set_footer(
+                text=f"Made by aceroph using discord.py v{discord.__version__}",
+                icon_url=misc.python,
+            )
+            .set_author(
+                name=f"View source on github • {self.bot.user.display_name}",
+                url=misc.git_source(self.bot),
+                icon_url=misc.github,
+            )
+            .add_field(
+                name="Community",
+                value=(
+                    f"{misc.space}{misc.server}servers: `{info.guilds}`\n"
+                    f"{misc.space}{misc.members}users: `{info.users:,}`"
+                ),
+            )
+            .add_field(
+                name="Timestamps",
+                value=(
+                    f"{misc.space}created on: {discord.utils.format_dt(self.bot.user.created_at, 'd')}\n"
+                    f"{misc.space}joined on: {discord.utils.format_dt(ctx.guild.me.joined_at, 'd') if ctx.guild else '`never.`'}\n"
+                    f"{misc.space}uptime: `{misc.time_format(int(time.time())-self.bot.boot)}`"
+                ),
+            )
+            .add_field(
+                name=f"Code statistics",
+                value=(
+                    f"{misc.space}lines of code: `{info.lines:,}`\n"
+                    f"{misc.space}comments: `{info.comments:,}`\n"
+                    f"{misc.space}commands: `{info.commands}`\n"
+                    f"{misc.space}modules: `{info.modules}`"
+                ),
+            )
+            .add_field(
+                name="Process",
+                value=(
+                    f"{misc.space}pid: `{info.pid}`\n"
+                    f"{misc.space}cpu: `{info.cpu100:.1f}%`\n"
+                    f"{misc.space}mem: `{info.memory:,.1f}MB` (`{info.memory100:.1f}%`)"
+                ),
+            )
         )
-        embed.set_author(
-            name=f"View source on github • {self.bot.user.display_name}",
-            url=misc.git_source(self.bot),
-            icon_url=misc.github,
-        )
-
-        embed.add_field(
-            name="Community",
-            value=(
-                f"{misc.space}{misc.server}servers: `{info.guilds}`\n"
-                f"{misc.space}{misc.members}users: `{info.users:,}`"
-            ),
-        )
-
-        embed.add_field(
-            name="Timestamps",
-            value=(
-                f"{misc.space}created on: {discord.utils.format_dt(self.bot.user.created_at, 'd')}\n"
-                f"{misc.space}joined on: {discord.utils.format_dt(ctx.guild.me.joined_at, 'd') if ctx.guild else '`never.`'}\n"
-                f"{misc.space}uptime: `{misc.time_format(time.time()-self.bot.boot)}`"
-            ),
-        )
-        embed.add_field(
-            name=f"Code statistics",
-            value=(
-                f"{misc.space}lines of code: `{info.lines:,}`\n"
-                f"{misc.space}comments: `{info.comments:,}`\n"
-                f"{misc.space}commands: `{info.commands}`\n"
-                f"{misc.space}modules: `{info.modules}`"
-            ),
-        )
-        embed.add_field(
-            name="Process",
-            value=(
-                f"{misc.space}pid: `{info.pid}`\n"
-                f"{misc.space}cpu: `{info.cpu100:.1f}%`\n"
-                f"{misc.space}mem: `{info.memory:,.1f}MB` (`{info.memory100:.1f}%`)"
-            ),
-        )
-
         return await self.bot.info.stats(embed, ctx.guild)
 
     @discord.ui.button(label="Refresh")
