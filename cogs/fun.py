@@ -2,6 +2,7 @@ import json
 import pathlib
 import re
 import time
+import datetime
 from typing import TYPE_CHECKING, Any
 
 import discord
@@ -17,6 +18,9 @@ directory = pathlib.Path(__file__).parent.parent  # ace-of-spades folder
 
 TLD_REGEX = re.compile(r"^\.?([A-z]{2})$")
 
+UTC_OFFSET_REGEX = re.compile(r"(?:UTC)?([+-])0*([1-9]*):0*([1-9]*)")
+
+TIME_FORMAT = "%I:%M %p"   # 12-hour time format 
 
 class Fun(subclasses.Cog):
     def __init__(self, bot: "AceBot"):
@@ -68,6 +72,19 @@ class Fun(subclasses.Cog):
         with open(directory / "games" / "countries.json", "r") as file:
             data: dict[str, Any] = json.load(file)
 
+        def localize_tz(offset: str) -> str:
+            """A hard-coded function to only on fixed type of string format
+            Takes a utc_offset string as input (example: "UTC+08:30") and returns the corresponding time to the offset -> 12:24 PM 
+            """
+            sign, hrs, mins = UTC_OFFSET_REGEX.match(offset).groups()
+            hrs = 0 if not hrs else int(sign + hrs)
+            mins = 0 if not mins else int(mins)
+
+            utcnow = discord.utils.utcnow()
+            delta = datetime.timedelta(hours=hrs, minutes=mins)
+            localized = utcnow.astimezone(tz=datetime.timezone(delta))
+            return localized.strftime(TIME_FORMAT)
+
         async with ctx.channel.typing():
             matched = None
             tld = TLD_REGEX.sub(r"\g<1>", country)
@@ -117,6 +134,9 @@ class Fun(subclasses.Cog):
                 if country.get("capital", None)
                 else None
             )
+            
+            tzs = list(set(country['timezones'][0], country['timezones'][-1]))
+            local_time = list(map(localize_tz, tzs))
 
             geo = [
                 (
@@ -124,7 +144,8 @@ class Fun(subclasses.Cog):
                     if country.get("subregion")
                     else f"region: `{country['region']}`"
                 ),
-                f"timezones: `{country['timezones'][0]}` to `{country['timezones'][-1]}`",
+                f"timezone{'s'*len(tzs) > 1}: {tzs[0]} {f'to {tzs[-1]}'*len(tzs) > 1}",
+                f"Local time: {local_time[0]} {f'to {local_time[1]}'*len(local_time) > 1}",
                 f"area: `{int(country['area']):,} km²`",
             ]
 
