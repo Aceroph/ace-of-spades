@@ -17,31 +17,42 @@ HEX_REGEX = re.compile(r"^(#|0x) ?([a-f\d]{6}|[a-f\d]{3})$", re.IGNORECASE)
 RGB_REGEX = re.compile(r"^(rgb) ?\([\d]{1,3}, ?[\d]{1,3}, ?[\d]{1,3} ?\)$")
 
 
+class OptionalTextInput(discord.ui.TextInput):
+    def __init__(
+        self,
+        label: str,
+        style: discord.TextStyle = discord.TextStyle.short,
+        placeholder: str | None = None,
+        max_length: int = 256,
+    ) -> None:
+        super().__init__(
+            label=label,
+            style=style,
+            placeholder=placeholder,
+            required=False,    # subclass just cuz of this one attribute :verycool:
+            max_length=max_length
+        )
+
+
 class EditText(discord.ui.Modal):
-    _author = discord.ui.TextInput(
+    _author = OptionalTextInput(
         label="Author name (256 characters)",
         placeholder="Leave empty for none",
-        required=False,
-        max_length=256,
     )
-    _title = discord.ui.TextInput(
+    _title = OptionalTextInput(
         label="Title (256 characters)",
         placeholder="Leave empty for none",
-        required=False,
-        max_length=256,
     )
-    _description = discord.ui.TextInput(
+    _description = OptionalTextInput(
         label="Description (4096 characters)",
         placeholder="Leave empty for none",
         style=discord.TextStyle.paragraph,
-        required=False,
         max_length=4000,
     )
-    _footer = discord.ui.TextInput(
+    _footer = OptionalTextInput(
         label="Footer (2048 characters)",
         placeholder="Leave empty for none",
-        style=discord.TextStyle.long,
-        required=False,
+        style=discord.TextStyle.paragraph,
         max_length=2048,
     )
 
@@ -77,29 +88,21 @@ class EditText(discord.ui.Modal):
 
 
 class EditImages(discord.ui.Modal):
-    _author = discord.ui.TextInput(
+    _author = OptionalTextInput(
         label="Author icon url",
         placeholder="Leave empty for none (Supports user IDs)",
-        required=False,
-        max_length=256,
     )
-    _thumbnail = discord.ui.TextInput(
+    _thumbnail = OptionalTextInput(
         label="Thumbnail url",
         placeholder="Leave empty for none (Supports user IDs)",
-        required=False,
-        max_length=256,
     )
-    _image = discord.ui.TextInput(
+    _image = OptionalTextInput(
         label="Large image url",
         placeholder="Leave empty for none (Supports user IDs)",
-        required=False,
-        max_length=256,
     )
-    _footer = discord.ui.TextInput(
+    _footer = OptionalTextInput(
         label="Footer icon url",
         placeholder="Leave empty for none (Supports user IDs)",
-        required=False,
-        max_length=256,
     )
 
     def __init__(self, builder: "EmbedBuilder") -> None:
@@ -153,17 +156,13 @@ class EditImages(discord.ui.Modal):
 
 
 class EditLinks(discord.ui.Modal):
-    _authorurl = discord.ui.TextInput(
+    _authorurl = OptionalTextInput(
         label="Author url",
         placeholder="Leave empty for none",
-        required=False,
-        max_length=256,
     )
-    _titleurl = discord.ui.TextInput(
+    _titleurl = OptionalTextInput(
         label="Title url",
         placeholder="Leave empty for none",
-        required=False,
-        max_length=256,
     )
 
     def __init__(self, builder: "EmbedBuilder") -> None:
@@ -190,24 +189,19 @@ class EditLinks(discord.ui.Modal):
 
 
 class AddField(discord.ui.Modal):
-    _fieldname = discord.ui.TextInput(
+    _fieldname = OptionalTextInput(
         label="Field name",
         placeholder="Leave empty for none",
-        required=False,
-        max_length=256,
     )
-    _fieldvalue = discord.ui.TextInput(
+    _fieldvalue = OptionalTextInput(
         label="Field value",
         placeholder="Leave empty for none",
         style=discord.TextStyle.paragraph,
-        required=False,
         max_length=1024,
     )
-
-    _inline = discord.ui.TextInput(
+    _inline = OptionalTextInput(
         label="Inline",
         placeholder="True/False (Default: True)",
-        required=False,
         max_length=5,
     )
 
@@ -233,10 +227,9 @@ class AddField(discord.ui.Modal):
 
 
 class EditColor(discord.ui.Modal):
-    _color = discord.ui.TextInput(
+    _color = OptionalTextInput(
         label="Color",
         placeholder="Leave empty for none (Supports HEX, RGB and Discord colors)",
-        required=False,
         max_length=32,
     )
 
@@ -306,6 +299,12 @@ class EmbedBuilder(subclasses.View):
             embed=self.embed, view=self, mention_author=False
         )
         return
+    
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if interaction.user == self.author:
+            return True
+        raise errors.NotYourButton
+        
 
     @discord.ui.button(label="Edit :", disabled=True)
     async def embedlabel(
@@ -315,25 +314,16 @@ class EmbedBuilder(subclasses.View):
 
     @discord.ui.button(label="Text")
     async def edittext(self, interaction: discord.Interaction, button: discord.Button):
-        if interaction.user != self.author:
-            raise errors.NotYourButton
-
         return await interaction.response.send_modal(EditText(builder=self))
 
     @discord.ui.button(label="Images")
     async def editimages(
         self, interaction: discord.Interaction, button: discord.Button
     ):
-        if interaction.user != self.author:
-            raise errors.NotYourButton
-
         return await interaction.response.send_modal(EditImages(builder=self))
 
     @discord.ui.button(label="URLs")
     async def editlinks(self, interaction: discord.Interaction, button: discord.Button):
-        if interaction.user != self.author:
-            raise errors.NotYourButton
-
         return await interaction.response.send_modal(EditLinks(builder=self))
 
     @discord.ui.button(label="Fields :", disabled=True, row=2)
@@ -346,9 +336,6 @@ class EmbedBuilder(subclasses.View):
         emoji="\N{HEAVY PLUS SIGN}", style=discord.ButtonStyle.green, row=2
     )
     async def addfield(self, interaction: discord.Interaction, button: discord.Button):
-        if interaction.user != self.author:
-            raise errors.NotYourButton
-
         return await interaction.response.send_modal(AddField(builder=self))
 
     @discord.ui.button(
@@ -360,9 +347,6 @@ class EmbedBuilder(subclasses.View):
     async def removefield(
         self, interaction: discord.Interaction, button: discord.Button
     ):
-        if interaction.user != self.author:
-            raise errors.NotYourButton
-
         self.changes["fields"].pop()
         await self.update()
         return await interaction.response.defer()
@@ -375,9 +359,6 @@ class EmbedBuilder(subclasses.View):
 
     @discord.ui.button(label="Export", row=3)
     async def export(self, interaction: discord.Interaction, button: discord.Button):
-        if interaction.user != self.author:
-            raise errors.NotYourButton
-
         _json = json.dumps(self.changes, indent=4)
         content = f"```json\n{_json}```"
 
@@ -393,9 +374,6 @@ class EmbedBuilder(subclasses.View):
 
     @discord.ui.button(label="Save", style=discord.ButtonStyle.green, row=3)
     async def save(self, interaction: discord.Interaction, button: discord.Button):
-        if interaction.user != self.author:
-            raise errors.NotYourButton
-
         if self.changes != {}:
             embed = discord.Embed.from_dict(self.changes)
             return await interaction.response.edit_message(embed=embed, view=None)
@@ -403,14 +381,8 @@ class EmbedBuilder(subclasses.View):
 
     @discord.ui.button(label="Delete", style=discord.ButtonStyle.red, row=3)
     async def delete(self, interaction: discord.Interaction, button: discord.Button):
-        if interaction.user != self.author:
-            raise errors.NotYourButton
-
         return await interaction.message.delete()
 
     @discord.ui.button(label="Color", row=3)
     async def editcolor(self, interaction: discord.Interaction, button: discord.Button):
-        if interaction.user != self.author:
-            raise errors.NotYourButton
-
         return await interaction.response.send_modal(EditColor(builder=self))
