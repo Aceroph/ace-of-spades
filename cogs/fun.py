@@ -18,7 +18,7 @@ directory = pathlib.Path(__file__).parent.parent  # ace-of-spades folder
 
 TLD_REGEX = re.compile(r"^\.?([A-z]{2})$")
 
-UTC_OFFSET_REGEX = re.compile(r"(?:UTC)?([+-])0*([1-9]*):0*([1-9]*)")
+UTC_OFFSET_REGEX = re.compile(r"(?:UTC)?([+-])0*([0-9]*):0*([0-9]*)") 
 
 TIME_FORMAT = "%I:%M %p"   # 12-hour time format 
 
