@@ -1,7 +1,7 @@
 import json
 import re
 import string
-import time
+import textwrap
 import unicodedata
 from typing import TYPE_CHECKING, Literal, Optional
 
@@ -15,6 +15,9 @@ from utils import misc, subclasses
 if TYPE_CHECKING:
     from main import AceBot
 
+# regex to match only single equals to sign and no comparsion/mathematical operator
+# To do: modify regex to ignore equals sign if it is inside quotes
+VAR_ASSIGNMENT_REGEX = re.compile(r"(?<![=<>!])=(?!=)")   
 
 class Utility(subclasses.Cog):
     def __init__(self, bot: "AceBot"):
@@ -174,6 +177,23 @@ class Utility(subclasses.Cog):
 
             body = code + "asyncio.run(func())"
 
+        #    shit may be broken af. Uncomment only if you are mentally prepared to madness
+        # if language['language'] == "python":
+        #     ignore_kwrds = ("print", "raise", "import", "return")
+        #     lines = body.splitlines()
+        #     last_line = lines.pop()    # remove and store the last line to wrap inside print
+        #     code_block = textwrap.indent('\n'.join(lines), "\t")  
+        #     wrap_in_print = not (
+        #         last_line.strip().startswith((ignore_kwrds))  
+        #         or VAR_ASSIGNMENT_REGEX.match(last_line)     # ignore if last line is an assignment
+        #     )
+        #     code_block += textwrap.indent(f"print({last_line})" if wrap_in_print else last_line, "\t")
+        #     code = (
+        #         "import asyncio\nasync def func():\n"
+        #         f"{code_block}\n"
+        #         "asyncio.run(func())"            
+        #     )
+
         payload = {
             "language": language["language"],
             "version": language["version"],
@@ -192,7 +212,6 @@ class Utility(subclasses.Cog):
             output,
             prefix=f"```{language['language']}\n",
             suffix="```",
-            mention_author=False,
         )
 
         if not ctx.interaction:
@@ -257,43 +276,44 @@ class Utility(subclasses.Cog):
                 return await builder.start(ctx)
 
         # Base embed
-        embed = discord.Embed(
-            title="Title (256 characters), can lead to a url if given",
-            description="Description (4096 characters)\nThe sum of all characters cannot exceed 6000, any field left unedited will disappear",
-            color=discord.Color.blurple(),
-            url="https://google.com/",
+        embed = (  # Method chaining my beloved <3
+            discord.Embed(
+                title="Title (256 characters), can lead to a url if given",
+                description="Description (4096 characters)\nThe sum of all characters cannot exceed 6000, any field left unedited will disappear",
+                color=discord.Color.blurple(),
+                url="https://google.com/",
+            )
+            .set_author(
+                name="Author name (256 characters), can lead to a url if given",
+                icon_url="https://archive.org/download/discordprofilepictures/discordblue.png",
+                url="https://google.com/",
+            )
+            .set_footer(
+                text="Footer (2048 characters), only supports emojis and other characters",
+                icon_url="https://archive.org/download/discordprofilepictures/discordblue.png",
+            )
+            .add_field(
+                name="Field title (256 characters)",
+                value="Supports all kinds of markdown unlike titles who only supports emojis and other characters, a maximum of 25 fields is allowed",
+                inline=False,
+            )
+            .add_field(
+                name="Hyperlinks",
+                value="Areas who support markdowns also support [hyperlinks](https://google.com/)",
+                inline=True,
+            )
+            .add_field(
+                name="Inline fields",
+                value="Fields can also be inlined with others. (1024 characters)",
+                inline=True,
+            )
+            .set_thumbnail(
+                url="https://archive.org/download/discordprofilepictures/discordblue.png"
+            )
+            .set_image(
+                url="https://archive.org/download/discordprofilepictures/discordblue.png"
+            )
         )
-        embed.set_author(
-            name="Author name (256 characters), can lead to a url if given",
-            icon_url="https://archive.org/download/discordprofilepictures/discordblue.png",
-            url="https://google.com/",
-        )
-        embed.set_footer(
-            text="Footer (2048 characters), only supports emojis and other characters",
-            icon_url="https://archive.org/download/discordprofilepictures/discordblue.png",
-        )
-        embed.set_thumbnail(
-            url="https://archive.org/download/discordprofilepictures/discordblue.png"
-        )
-        embed.set_image(
-            url="https://archive.org/download/discordprofilepictures/discordblue.png"
-        )
-        embed.add_field(
-            name="Field title (256 characters)",
-            value="Supports all kinds of markdown unlike titles who only supports emojis and other characters, a maximum of 25 fields is allowed",
-            inline=False,
-        )
-        embed.add_field(
-            name="Hyperlinks",
-            value="Areas who support markdowns also support [hyperlinks](https://google.com/)",
-            inline=True,
-        )
-        embed.add_field(
-            name="Inline fields",
-            value="Fields can also be inlined with others. (1024 characters)",
-            inline=True,
-        )
-
         builder = embedbuilder.EmbedBuilder(embed=embed, bot=self.bot)
         return await builder.start(ctx)
 
