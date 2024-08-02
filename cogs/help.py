@@ -32,31 +32,29 @@ class HelpView(subclasses.View):
         self.ctx = ctx
 
     def welcome_page(self) -> discord.Embed:
-        embed = discord.Embed(
-            color=discord.Color.blurple(),
-            title="Help Page",
-            description=f"> Use `{self.ctx.prefix}help command/group` for more info on a command",
+        # METHOD.chain().chain().chain()...
+        embed = ( 
+            discord.Embed(
+                color=discord.Color.blurple(),
+                title="Help Page",
+                description=f"> Use `{self.ctx.prefix}help command/group` for more info on a command",
+            ) # Syntax        
+            .add_field(     
+                name="Command Syntax",
+                value=(
+                    f">>> My prefixes are `{self.ctx.prefix}` and {self.bot.user.mention}\n"
+                    "My commands and prefix are case-insensitive\n"
+                    "I also auto-correct mistakes"
+                ),
+                inline=False,
+            )
+            .add_field(
+                name="Arguments",
+                value=f">>> `<arg>` -> This argument is required\n`[arg]` -> This argument is optional",
+                inline=False,
+            )   # Side note
+            .set_footer(text="Do not type in the brackets or any ponctuation !")
         )
-
-        # Syntax
-        embed.add_field(
-            name="Command Syntax",
-            value=(
-                f">>> My prefixes are `{self.ctx.prefix}` and {self.bot.user.mention}\n"
-                "My commands and prefix are case-insensitive\n"
-                "I also auto-correct mistakes"
-            ),
-            inline=False,
-        )
-        embed.add_field(
-            name="Arguments",
-            value=f">>> `<arg>` -> This argument is required\n`[arg]` -> This argument is optional",
-            inline=False,
-        )
-
-        # Side note
-        embed.set_footer(text="Do not type in the brackets or any ponctuation !")
-
         return embed
 
     async def commands_page(self) -> discord.Embed:
