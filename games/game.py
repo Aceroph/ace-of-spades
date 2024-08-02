@@ -239,9 +239,9 @@ class Game:
     async def end_game(
         self,
         origin: discord.TextChannel,
-        score_headers: Iterable[str] = None,
-        scores: Dict[str, int] = None,
-        extras: Dict[str, Any] = None,
+        score_headers: Iterable[str] | None = None,
+        scores: Dict[str, int] | None = None,
+        extras: Dict[str, Any] | None = None,
     ):
         self.ctx.bot.games.pop(self.id, None)
         self.playing = False

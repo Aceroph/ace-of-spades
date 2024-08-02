@@ -26,8 +26,8 @@ class Paginator(discord.ui.View):
         self.ctx = ctx
         self.author = ctx.author
 
-        self.pages = []
-        self.current_page = []
+        self.pages: list[str] = []
+        self.current_page: list[str] = []
 
         self.subtitle = subtitle
         self.prefix = prefix
@@ -85,7 +85,7 @@ class Paginator(discord.ui.View):
 
         self.current_page.append(line)
 
-    def add_page(self, page: str = None) -> None:
+    def add_page(self, page: str | None = None) -> None:
         self.pages.append(
             self.prefix + (page or "\n".join(self.current_page)) + self.suffix
         )
@@ -134,7 +134,7 @@ class Paginator(discord.ui.View):
         reference = interaction.message.reference
         if reference:
             try:
-                msg = await interaction.channel.fetch_message(reference.message_id)
+                msg = await interaction.channel.fetch_message(reference.message_id)    # type: ignore
                 await msg.delete()
             except:
                 pass
@@ -169,9 +169,9 @@ class Paginator(discord.ui.View):
 
     async def update_page(self, interaction: discord.Interaction) -> None:
         self._update_buttons()
-
+        assert interaction.message is not None
         if self.embed:
-            embed = interaction.message.embeds[0]
+            embed = interaction.message.embeds[0]    
             await interaction.response.edit_message(
                 embed=self._update_embed(embed), view=self
             )

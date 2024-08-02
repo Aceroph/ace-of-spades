@@ -66,22 +66,22 @@ class CountryGuesser(Game):
         self.gamemode = "multiplayer"
 
         # Game stuff
-        self.scores = {}
+        self.scores: dict[str, int] = {}
         self.playing = True
         self.round = 0
         self.winner = None
 
     async def end_game(self, origin: discord.TextChannel):
-        return await super().end_game(
+        await super().end_game(
             origin,
             score_headers=["name", "score"],
             scores=self.scores,
             extras={"rounds": f"`{self.round}/{self.rounds}`"},
         )
 
-    def text_input(self, msg: discord.Message):
+    def text_input(self, msg: discord.Message) -> bool:
         if not (msg.content):
-            return
+            return False
 
         if msg.author == self.gamemaster:
             if msg.content.casefold().startswith(("quit", "stop")):
@@ -111,7 +111,7 @@ class CountryGuesser(Game):
             self.winner = msg.author
             asyncio.create_task(msg.add_reaction("\N{WHITE HEAVY CHECK MARK}"))
             return True
-        return
+        return False
 
     async def start(self, interaction: discord.Interaction):
         ## Get country data

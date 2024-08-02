@@ -37,7 +37,7 @@ class QuitButton(
     async def from_custom_id(
         cls,
         interaction: discord.Interaction,
-        item: discord.ui.DynamicItem,
+        item: discord.ui.Item[Any],
         match: re.Match[str],
         /,
     ):

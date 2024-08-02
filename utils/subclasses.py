@@ -19,6 +19,7 @@ async def reply(
     content: str,
     prefix: str = "",
     suffix: str = "",
+    mention_author: bool=False,
     *args,
     **kwargs,
 ) -> Message:
@@ -40,7 +41,7 @@ async def reply(
             return await p.start()
 
         return await ctx.reply(
-            prefix + content + suffix, *args, **kwargs, mention_author=False
+            prefix + content + suffix, *args, **kwargs, mention_author=mention_author
         )
 
 
@@ -74,7 +75,7 @@ class Setting:
 
 
 class Cog(commands.Cog):
-    def __init__(self, bot: Optional[commands.Bot] = None, emoji: Optional[str] = None):
+    def __init__(self, bot: Optional["AceBot"] = None, emoji: Optional[str] = None):
         self.bot: "AceBot" = bot
         self.emoji: str = emoji or misc.space
         self.time: float = time.time()
@@ -103,6 +104,7 @@ class Cog(commands.Cog):
         except:
             pass
 
+        assert isinstance(ctx.author, discord.Member)
         if await can_use(ctx) or ctx.author.guild_permissions.administrator:
             return await super().cog_before_invoke(ctx)
         else:
