@@ -135,7 +135,7 @@ class Fun(subclasses.Cog):
                 else None
             )
             
-            tzs = list(set(country['timezones'][0], country['timezones'][-1]))
+            tzs = list(set((country['timezones'][0], country['timezones'][-1])))
             local_time = list(map(localize_tz, tzs))
 
             geo = [
