@@ -136,7 +136,9 @@ class Fun(subclasses.Cog):
             )
             
             tzs = list(set((country['timezones'][0], country['timezones'][-1])))
+            tzf = len(tzs) > 1
             local_time = list(map(localize_tz, tzs))
+            ltf = len(local_time) > 1
 
             geo = [
                 (
@@ -144,8 +146,8 @@ class Fun(subclasses.Cog):
                     if country.get("subregion")
                     else f"region: `{country['region']}`"
                 ),
-                f"timezone{'s'*len(tzs) > 1}: {tzs[0]} {f'to {tzs[-1]}'*len(tzs) > 1}",
-                f"Local time: {local_time[0]} {f'to {local_time[1]}'*len(local_time) > 1}",
+                f"timezone{'s'*tzf}: `{tzs[0]}` {f'to `{tzs[-1]}`'*tzf}",
+                f"Local time: `{local_time[0]}` {f'to `{local_time[-1]}`'*ltf}",
                 f"area: `{int(country['area']):,} km²`",
             ]
 
