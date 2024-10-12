@@ -221,7 +221,7 @@ class CountryGuesser(Game):
             )
 
             embed.set_author(
-                name=msg.author.display_name, icon_url=msg.author.avatar.url
+                name=msg.author.display_name, icon_url=msg.author.display_avatar.url
             )
 
             embed.set_thumbnail(url="attachment://flag.png")

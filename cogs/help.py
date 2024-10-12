@@ -158,7 +158,7 @@ class HelpCog(subclasses.Cog):
         )
         embed.set_author(
             name=f"{ctx.author.display_name} : Help -> {command.cog.qualified_name}",
-            icon_url=ctx.author.avatar.url,
+            icon_url=ctx.author.display_avatar.url,
         )
 
         ## Documentation

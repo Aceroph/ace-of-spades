@@ -58,7 +58,7 @@ class Admin(subclasses.Cog):
             )
             embed.add_field(
                 name="`[i]` Information",
-                value=f'{misc.space}role: {f"@everyone" if target.is_default() else target.mention}\n{misc.space}color : [{embed.color}](https://www.color-hex.com/color/{str(embed.color).strip("#")})',
+                value=f'{misc.space}role: {"@everyone" if target.is_default() else target.mention}\n{misc.space}color : [{embed.color}](https://www.color-hex.com/color/{str(embed.color).strip("#")})',
             )  # add additional info
             # if len(members)
             members = "\n".join(
@@ -72,7 +72,7 @@ class Admin(subclasses.Cog):
         else:
             embed.set_author(
                 name=f"Permissions for {target.display_name}",
-                icon_url=target.avatar.url,
+                icon_url=target.display_avatar.url,
             )
             embed.color = (
                 target.top_role.color
@@ -217,7 +217,7 @@ class Admin(subclasses.Cog):
         # If entity is user/member
         else:
             embed.set_author(
-                name=f"Updated {target.display_name}", icon_url=target.avatar.url
+                name=f"Updated {target.display_name}", icon_url=target.display_avatar.url
             )
             embed.color = (
                 target.top_role.color
@@ -315,7 +315,10 @@ class Admin(subclasses.Cog):
             async for msg in history:
                 to_delete.append(msg)
 
-            await ctx.channel.delete_messages(to_delete, reason="Purge")
+            try:
+                await ctx.channel.delete_messages(to_delete, reason="Purge")
+            except discord.HTTPException:
+                pass
 
             # Count messages
             users: dict[str, int] = {}
