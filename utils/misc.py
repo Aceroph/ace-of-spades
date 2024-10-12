@@ -111,7 +111,7 @@ def git_source(bot: commands.Bot, obj: str | None = None):
             if isinstance(obj, commands.Command)
             else obj.__class__
         )
-        filename: str = inspect.getsourcefile(src)
+        filename: str = inspect.getsourcefile(src)  # type: ignore
         lines, firstlineno = inspect.getsourcelines(src)
         location = os.path.relpath(filename).replace("\\", "/")
 

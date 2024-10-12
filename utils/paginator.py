@@ -131,7 +131,7 @@ class Paginator(discord.ui.View):
     async def quit_button(
         self, interaction: discord.Interaction, button: discord.ui.Button
     ):
-        reference = interaction.message.reference
+        reference = interaction.message.reference  # type: ignore
         if reference:
             try:
                 msg = await interaction.channel.fetch_message(reference.message_id)    # type: ignore

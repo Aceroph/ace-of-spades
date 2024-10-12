@@ -76,7 +76,7 @@ class Fun(subclasses.Cog):
             """A hard-coded function to only on fixed type of string format
             Takes a utc_offset string as input (example: "UTC+08:30") and returns the corresponding time to the offset -> 12:24 PM 
             """
-            sign, hrs, mins = UTC_OFFSET_REGEX.match(offset).groups()
+            sign, hrs, mins = UTC_OFFSET_REGEX.match(offset).groups()  # type: ignore
             hrs = 0 if not hrs else int(sign + hrs)
             mins = 0 if not mins else int(mins)
 
