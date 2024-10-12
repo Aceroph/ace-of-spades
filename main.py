@@ -1,12 +1,12 @@
+import argparse
 import json
 import logging
 import logging.handlers
 import time
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 import aiohttp
 import asqlite
-import asyncio
 import discord
 from discord.ext import commands
 
@@ -30,9 +30,11 @@ formatter = logging.Formatter(
 handler.setFormatter(formatter)
 LOGGER.addHandler(handler)
 
+parser = argparse.ArgumentParser()
+parser.add_argument('token', help="The bot token")
 
 def prefix(bot: "AceBot", msg: discord.abc.Messageable):
-    p = bot.config["prefix"]
+    p: str = bot.config["prefix"]
     return [p.lower(), p.upper(), bot.user.mention]
 
 
@@ -125,8 +127,9 @@ if __name__ == "__main__":
     intents = discord.Intents.default()
     intents.message_content = True
     intents.members = True
+    args = parser.parse_args()
 
     bot = AceBot(intents=intents, owner_id=493107597281329185)
     bot.add_listener(bot.log_commands_run, "on_command_completion")
 
-    bot.run(bot.config["token"])
+    bot.run(args.token)
