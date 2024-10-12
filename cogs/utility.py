@@ -135,7 +135,7 @@ class Utility(subclasses.Cog):
         """Runs code in the specified language, aliases work too !"""
 
         # Get language
-        if not language in misc.literal_runtimes:
+        if language not in misc.literal_runtimes:
             language = (
                 language + " " if language else ""
             )  # Fix language being none in some cases
@@ -314,7 +314,7 @@ class Utility(subclasses.Cog):
                 url="https://archive.org/download/discordprofilepictures/discordblue.png"
             )
         )
-        builder = embedbuilder.EmbedBuilder(embed=embed, bot=self.bot)
+        builder = embedbuilder.EmbedBuilder(embed=embed, bot=self.bot, author=ctx.author)
         return await builder.start(ctx)
 
 
